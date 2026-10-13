@@ -21,7 +21,7 @@ use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
  * Popola il DB di un'agenzia con pratiche demo (finché l'inserimento lato agenzia
  * non è disponibile). Le pratiche servono a testare l'area notaio.
  *
- *   php bin/console app:seed-practices AG001 --notary=notaio@ebasm.it
+ *   php bin/console app:seed-practices AG001 --notary=notaio@instrumento.it
  */
 #[AsCommand(name: 'app:seed-practices', description: 'Crea pratiche demo nel DB di un\'agenzia (per testare l\'area notaio)')]
 class SeedPracticesCommand extends Command

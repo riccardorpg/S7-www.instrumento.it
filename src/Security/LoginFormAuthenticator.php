@@ -52,7 +52,7 @@ class LoginFormAuthenticator extends AbstractLoginFormAuthenticator
     public function supports(Request $request): bool
     {
         // Confronto con base URL inclusa (getBaseUrl + pathInfo) così funziona anche quando
-        // l'app è servita in sottocartella (es. localhost/S7-www.ebasm.it/public/...),
+        // l'app è servita in sottocartella (es. localhost/www.instrumento.it/public/...),
         // esattamente come fa AbstractLoginFormAuthenticator internamente.
         return $request->isMethod('POST')
             && $request->getBaseUrl() . $request->getPathInfo() === $this->urlGenerator->generate(self::LOGIN_CHECK_ROUTE);

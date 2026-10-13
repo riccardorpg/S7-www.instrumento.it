@@ -11,13 +11,13 @@ parameters:
 
     # --- Email ---
     # Mittente di tutte le notifiche (14).
-    email_noreply: 'no-reply@ebasm.it'
+    email_noreply: 'no-reply@instrumento.it'
     # Destinatario interno: richieste di contatto e richieste demo dal sito pubblico.
-    email_admin: 'info@ebasm.it'
+    email_admin: 'info@instrumento.it'
     # Copia dedicata dei contratti termini e condizioni accettati (14.9).
-    email_contracts: 'contratti@ebasm.it'
+    email_contracts: 'contratti@instrumento.it'
     # Indirizzo mostrato ai clienti negli avvisi su licenze e demo.
-    email_support: 'info@ebasm.it'
+    email_support: 'info@instrumento.it'
 
     # Oggetti delle notifiche (14.1 … 14.9)
     object_contact_request: 'Nuova richiesta di contatto'
@@ -28,7 +28,7 @@ parameters:
     object_license_expiring: 'Licenza in scadenza'
     object_file_update: 'Aggiornamento documenti — pratica %s'
     object_notary_notes: 'Note del notaio — pratica %s'
-    object_invite: 'Benvenuto su EBASM'
+    object_invite: 'Benvenuto su Instrumento'
     object_terms_accepted: 'Contratto termini e condizioni accettato'
     object_credentials: 'Credenziali di accesso'
 

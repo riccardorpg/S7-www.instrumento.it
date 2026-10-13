@@ -591,7 +591,7 @@ class PracticeController extends AbstractController
     {
         $practice = $this->requirePractice($id);
 
-        $zipPath = tempnam(sys_get_temp_dir(), 'ebasm_') ?: throw new \RuntimeException('Impossibile creare il file temporaneo.');
+        $zipPath = tempnam(sys_get_temp_dir(), 'instrumento_') ?: throw new \RuntimeException('Impossibile creare il file temporaneo.');
         $zip = new \ZipArchive();
         if ($zip->open($zipPath, \ZipArchive::OVERWRITE) !== true) {
             throw new \RuntimeException('Impossibile creare l\'archivio.');

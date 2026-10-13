@@ -551,7 +551,7 @@ ul.navbar-nav li.nav-item a.nav-link:hover { background-color: rgba(0, 0, 0, 0.1
    [4] STILI INLINE — base.html.twig  (ex blocco <style> nel <head>)
    ============================================================================= */
 
-/* Colore primary del brand EBASM (blu, allineato alla landing).
+/* Colore primary del brand Instrumento (blu, allineato alla landing).
    --eb-brand-rgb serve alle rgba() (niente color-mix dove non è supportato);
    --eb-brand-light è la variante per fondo scuro (tema dark dell'area privata).
    Ridefiniamo anche --cnvs-themecolor di Canvas: così bottoni, link, tab e tutti

@@ -11,14 +11,14 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
         <meta name="author" content="R.P.G. Servizi Multimediali">
-        <meta name="copyright" content="EBASM">
+        <meta name="copyright" content="Instrumento">
         <meta name="theme" content="Canvas - ThemeForest">
         <meta name="symfony-version" content="7.4">
 
         {% block robots %}<meta name="robots" content="index, follow">{% endblock %}
-        <meta name="description" content="{% block description %}EBASM — il gestionale che semplifica il lavoro di aziende e professionisti.{% endblock %}">
+        <meta name="description" content="{% block description %}Instrumento — il gestionale che semplifica il lavoro di aziende e professionisti.{% endblock %}">
 
-        <title>EBASM{% block title %}{% endblock %}</title>
+        <title>Instrumento{% block title %}{% endblock %}</title>
         <link rel="canonical" href="{{ app.request.schemeAndHttpHost ~ app.request.pathInfo }}">
         <link rel="shortcut icon" href="{{ asset('favicon.ico') }}">
 
@@ -59,7 +59,7 @@
                                     <div id="logo">
                                         <a href="{% block home_path %}{{ path('homepage') }}{% endblock %}">
                                             {# Marchio scuro: su hero/header .dark viene reso bianco dal filtro in custom.css. #}
-                                            <img src="{{ asset(PATH_GRAPHICS ~ 'logos/ebasm-mono-nero.svg') }}" alt="EBASM" style="max-height:44px;">
+                                            <img src="{{ asset(PATH_GRAPHICS ~ 'logos/ebasm-mono-nero.svg') }}" alt="Instrumento" style="max-height:44px;">
                                         </a>
                                     </div>
 
@@ -194,7 +194,7 @@
                             <div class="container">
                                 <div class="row align-items-center">
                                     <div class="col-md-6 text-center text-md-start">
-                                        &copy; {{ "now"|date("Y") }} EBASM — Tutti i diritti riservati
+                                        &copy; {{ "now"|date("Y") }} Instrumento — Tutti i diritti riservati
                                     </div>
                                     <div class="col-md-6 text-center text-md-end">
                                         {% block footer_legal %}
