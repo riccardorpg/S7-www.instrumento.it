@@ -48,18 +48,18 @@ class PracticeDocument
     private ?DocumentType $documentType = null;
 
     /** Etichetta congelata: resta leggibile anche se il tipo viene rinominato o è fuori catalogo. */
-    #[ORM\Column(type: 'string', length: 190)]
+    #[ORM\Column(name: 'label', type: 'string', length: 190)]
     private string $label = '';
 
     /** 12.3.2.2 Mostra/Nascondi: le righe nascoste non sono richieste per questa pratica. */
-    #[ORM\Column(type: 'boolean', options: ['default' => true])]
+    #[ORM\Column(name: 'visible', type: 'boolean', options: ['default' => true])]
     private bool $visible = true;
 
-    #[ORM\Column(type: 'string', length: 20)]
+    #[ORM\Column(name: 'status', type: 'string', length: 20)]
     private string $status = self::STATUS_TO_UPLOAD;
 
     /** Ordine di comparsa: copiato dalla priorità del tipo (13.1.1.1) alla creazione. */
-    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    #[ORM\Column(name: 'priority', type: 'integer', options: ['default' => 0])]
     private int $priority = 0;
 
     /** @var Collection<int, Document> */
@@ -220,5 +220,10 @@ class PracticeDocument
         }
 
         return $last;
+    }
+
+    public function __toString(): string
+    {
+        return (string) $this->label;
     }
 }

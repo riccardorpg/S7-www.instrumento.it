@@ -1,0 +1,46 @@
+{# Campi cliente, condivisi tra "Nuovo" (CompanyNewType) e modale "Modifica" (CompanyEditType).
+   Parametri: form (FormView), picker (prefisso del picker città/CAP, es. 'clientNew'), city, zip
+   (valori del picker). Il codice cliente compare solo se il form ha il campo (in "Nuovo"): in
+   modifica non è modificabile e non si mostra.
+   Il comportamento Azienda/Privato è gestito da _fiscal_js.html.twig (clientFiscalToggle), che
+   lavora sugli id Symfony del form. Gli errori vanno su un div senza altre classi (form/errors.html.twig). #}
+{% set prefix = form.vars.id %}
+{% set hasCode = form.code is defined %}
+<div class="row g-3">
+    {# Riga 1: (Codice), Tipo, Ragione sociale/Nome #}
+    {% if hasCode %}
+        <div class="col-md-3">
+            <div {{ form_errors(form.code) }}><label class="form-label" for="{{ form.code.vars.id }}">Codice cliente *</label>{{ form_widget(form.code) }}</div>
+        </div>
+    {% endif %}
+    <div class="col-md-{{ hasCode ? 3 : 4 }}">
+        <div {{ form_errors(form.clientType) }}>
+            <label class="form-label" for="{{ form.clientType.vars.id }}">Tipo cliente</label>
+            {{ form_widget(form.clientType, {attr: {class: 'form-select', onchange: "clientFiscalToggle('" ~ prefix ~ "')"}}) }}
+        </div>
+    </div>
+    <div class="col-md-{{ hasCode ? 6 : 8 }}">
+        <div {{ form_errors(form.name) }}><label class="form-label" id="{{ prefix }}_nameLabel" for="{{ form.name.vars.id }}">Ragione sociale *</label>{{ form_widget(form.name) }}</div>
+    </div>
+
+    {# Riga 2: Codice fiscale + P.IVA (solo Azienda: senza, il codice fiscale prende la riga, via JS) #}
+    <div class="col-md-6" id="{{ prefix }}_taxWrap"><div {{ form_errors(form.taxCode) }}><label class="form-label" for="{{ form.taxCode.vars.id }}">Codice fiscale</label>{{ form_widget(form.taxCode) }}</div></div>
+    <div class="col-md-6" id="{{ prefix }}_vatWrap">
+        <div {{ form_errors(form.vatNumber) }}><label class="form-label" for="{{ form.vatNumber.vars.id }}">P. IVA</label>{{ form_widget(form.vatNumber) }}</div>
+    </div>
+
+    {# Riga 3: PEC + SDI #}
+    <div class="col-md-8"><div {{ form_errors(form.pec) }}><label class="form-label" for="{{ form.pec.vars.id }}">PEC</label>{{ form_widget(form.pec) }}</div></div>
+    <div class="col-md-4"><div {{ form_errors(form.sdi) }}><label class="form-label" for="{{ form.sdi.vars.id }}">SDI</label>{{ form_widget(form.sdi, {attr: {class: 'form-control', maxlength: 7}}) }}</div></div>
+
+    {# Riga 4: Indirizzo, Civico, Città, CAP (picker fuori dal form Symfony: invia city_id e zip_id) #}
+    <div class="col-md-4"><div {{ form_errors(form.address) }}><label class="form-label" for="{{ form.address.vars.id }}">Indirizzo</label>{{ form_widget(form.address) }}</div></div>
+    <div class="col-md-2"><div {{ form_errors(form.civic) }}><label class="form-label" for="{{ form.civic.vars.id }}">Civico</label>{{ form_widget(form.civic) }}</div></div>
+    {% include 'components/geo/city_picker.html.twig' with {
+        formName: picker, number: 1,
+        cityId: city ? city.id : '',
+        cityName: city ? city : '',
+        zipId: zip ? zip.id : '',
+        cityCols: 4, zipCols: 2
+    } only %}
+</div>

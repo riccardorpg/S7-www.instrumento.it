@@ -1,0 +1,6 @@
+{# Campi del notaio (NotaryType). Variabile: form. Gli errori vanno su un div senza altre classi (form/errors.html.twig). #}
+<div class="row g-3">
+    <div class="col-md-6"><div {{ form_errors(form.name) }}><label class="form-label" for="{{ form.name.vars.id }}">Nome *</label>{{ form_widget(form.name) }}</div></div>
+    <div class="col-md-6"><div {{ form_errors(form.surname) }}><label class="form-label" for="{{ form.surname.vars.id }}">Cognome *</label>{{ form_widget(form.surname) }}</div></div>
+    <div class="col-12"><div {{ form_errors(form.email) }}><label class="form-label" for="{{ form.email.vars.id }}">E-mail *</label>{{ form_widget(form.email) }}</div></div>
+</div>

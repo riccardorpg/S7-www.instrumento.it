@@ -9,7 +9,7 @@ trait IdTrait
 {
     #[ORM\Id]
     #[ORM\GeneratedValue(strategy: 'AUTO')]
-    #[ORM\Column(type: Types::BIGINT)]
+    #[ORM\Column(name: 'id', type: Types::BIGINT)]
     protected ?int $id = null;
 
     public function getId(): ?int

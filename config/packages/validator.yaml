@@ -1,9 +1,9 @@
 framework:
     validation:
-        # Enables validator auto-mapping support.
-        # For instance, basic validation constraints will be inferred from Doctrine's metadata.
-        #auto_mapping:
-        #    App\Entity\: []
+        # Le regole stanno in YAML in config/validator/, una per entity, con i gruppi (CONVENZIONI 6):
+        # mai constraint in attributi. Symfony legge quella cartella da sé (anche le sottocartelle
+        # Master/ e Slave/, che separano le entity omonime come User): non va ripetuta qui,
+        # altrimenti ogni regola viene caricata due volte.
 
 when@test:
     framework:

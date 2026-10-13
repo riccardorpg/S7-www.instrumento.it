@@ -20,15 +20,15 @@ class Permission
     use IdTrait;
 
     /** Identificatore stabile usato nel codice: is_granted('view'|'edit', 'practices'). */
-    #[ORM\Column(type: 'string', length: 64, unique: true)]
+    #[ORM\Column(name: 'slug', type: 'string', length: 64, unique: true)]
     private string $slug = '';
 
     /** Etichetta mostrata nella matrice permessi. */
-    #[ORM\Column(type: 'string', length: 190)]
+    #[ORM\Column(name: 'value', type: 'string', length: 190)]
     private string $value = '';
 
     /** Ordine di comparsa nella matrice. */
-    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    #[ORM\Column(name: 'priority', type: 'integer', options: ['default' => 0])]
     private int $priority = 0;
 
     /** @var Collection<int, UserPermission> */
@@ -80,5 +80,10 @@ class Permission
     public function getUserPermissions(): Collection
     {
         return $this->userPermissions;
+    }
+
+    public function __toString(): string
+    {
+        return (string) $this->value;
     }
 }

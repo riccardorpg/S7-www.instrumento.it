@@ -17,7 +17,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class AdminController extends AbstractController
 {
     #[Route('', name: 'admin_index', methods: ['GET'])]
-    public function index(DemoRequestRepository $demoRequests, CompanyRepository $companies): Response
+    public function adminIndex(DemoRequestRepository $demoRequests, CompanyRepository $companies): Response
     {
         return $this->render('role/admin/index.html.twig', [
             // 6.1.1 Nuove richieste in arrivo

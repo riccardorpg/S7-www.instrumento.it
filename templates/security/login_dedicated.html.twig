@@ -85,5 +85,5 @@
 
 {% block modals %}
     {# `codice` inoltrato al recupero: così l'utente viene cercato anche nel DB dell'agenzia. #}
-    {{ include('components/modal_recover.html.twig', {'codice': company.code}, with_context = false) }}
+    {{ include('components/modals/recover.html.twig', {form: recoverForm}, with_context = false) }}
 {% endblock %}

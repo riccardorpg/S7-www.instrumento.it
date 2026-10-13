@@ -1,0 +1,16 @@
+# Modulo "Richiedi informazioni" della homepage (non si salva: diventa un'e-mail interna).
+App\Form\Model\Contact:
+  properties:
+    name:
+      - NotBlank: { message: "Campo obbligatorio", groups: [contact] }
+      - Length: { max: 100, maxMessage: "Massimo 100 caratteri", groups: [contact] }
+    surname:
+      - NotBlank: { message: "Campo obbligatorio", groups: [contact] }
+      - Length: { max: 100, maxMessage: "Massimo 100 caratteri", groups: [contact] }
+    email:
+      - NotBlank: { message: "Campo obbligatorio", groups: [contact] }
+      - Email: { message: "E-mail non valida", groups: [contact] }
+      - Length: { max: 191, maxMessage: "Massimo 191 caratteri", groups: [contact] }
+    message:
+      - NotBlank: { message: "Campo obbligatorio", groups: [contact] }
+      - Length: { max: 5000, maxMessage: "Massimo 5000 caratteri", groups: [contact] }

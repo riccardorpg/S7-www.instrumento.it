@@ -1,7 +1,7 @@
+{# Errori dei campi: attributi da mettere su un contenitore SENZA altre classi, che si colora
+   (custom.css .error) e mostra i messaggi nel tooltip. Uso: <div {{ form_errors(form.campo) }}>...</div> #}
 {%- block form_errors -%}
     {%- if errors|length > 0 -%}
-        {%- for error in errors -%}
-            class="error" data-bs-toggle="tooltip" data-placement="top" title="{{ error.message }}"
-        {%- endfor -%}
+        class="error" data-bs-toggle="tooltip" data-placement="top" title="{{ errors|map(e => e.message)|join(' ') }}"
     {%- endif -%}
 {%- endblock form_errors -%}

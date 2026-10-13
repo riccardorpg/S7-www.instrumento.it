@@ -1,0 +1,233 @@
+{% extends 'role/agency/layout.html.twig' %}
+{% import 'components/action_icons.html.twig' as ico %}
+
+{% block title %} - Tipi di documento{% endblock %}
+{% block role_page_title_inner %}Tipi di documento{% endblock %}
+
+{% block role_page_title_breadcrumb %}
+    <li class="breadcrumb-item"><a href="{{ path('agency_index') }}">Agenzia</a></li>
+    <li class="breadcrumb-item">Configurazioni</li>
+    <li class="breadcrumb-item active" aria-current="page">Tipi di documento</li>
+{% endblock %}
+
+{% block sub_menu_left %}
+    <li class="nav-item"><a class="nav-link" href="{{ path('agency_index') }}"><i class="bi-arrow-left"></i> Torna alla scrivania</a></li>
+{% endblock %}
+
+{% block sub_menu_right %}
+    {% if is_granted('edit', 'configurations') %}
+        <li class="nav-item"><a class="nav-link" href="javascript:docTypeNewOpen()"><i class="bi-plus-lg"></i> Nuovo</a></li>
+    {% endif %}
+{% endblock %}
+
+{% block role_content %}
+    <section class="content-wrap">
+        <div class="container">
+            <p class="op_07 font_13 m_b_10p">
+                {% if not is_granted('edit', 'configurations') %}
+                    L'ordine qui è quello con cui i documenti compaiono nelle pratiche. Hai l'accesso in sola lettura.
+                {% elseif sortable %}
+                    Trascina le righe per cambiare la priorità: l'ordine qui è quello con cui i documenti compaiono nelle pratiche.
+                {% else %}
+                    Il riordino per trascinamento è disponibile solo con l'elenco in ordine di priorità e senza filtro attivo.
+                {% endif %}
+            </p>
+
+            <form id="docTypeFilter" method="get" action="{{ path('agency_configuration_document_types') }}">
+                <input type="hidden" name="filterSet" value="1">
+                <input type="hidden" id="docTypeFilter_sort" name="sortField" value="{{ filters.sortField }}">
+                <input type="hidden" id="docTypeFilter_direction" name="sortOrder" value="{{ filters.sortOrder }}">
+            </form>
+
+            <table class="table table-hover table-bordered align-middle m_b_none v_a_m">
+                <thead>
+                    <tr class="tr_filter">
+                        <td></td>
+                        <td></td>
+                        <td>
+                            <div class="d-flex align-items-center gap-1">
+                                {{ ico.action(path('remove_filter', {route: 'agency_configuration_document_types'}), 'close', 'Escludi filtro', 'red') }}
+                                <input form="docTypeFilter" name="f_value" value="{{ filters.value }}" class="form-control form-control-sm">
+                            </div>
+                        </td>
+                        <td></td>
+                        <td class="txt_a_c text-nowrap">
+                            <button form="docTypeFilter" type="submit" class="btn p-0 border-0 bg-transparent" data-bs-toggle="tooltip" data-bs-title="Filtra">
+                                <img src="{{ asset(PATH_GRAPHICS ~ 'icons/search.png') }}" class="icon_action icon_green" alt="Filtra">
+                            </button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th class="td_w_100p txt_a_c">Stato</th>
+                        <th class="td_w_50p txt_a_c">Priorità</th>
+                        <th>{{ ico.sort('Valore', 't.value') }}</th>
+                        <th class="td_w_100p txt_a_c">Mutuo</th>
+                        <th class="td_w_120p txt_a_c">Azioni</th>
+                    </tr>
+                </thead>
+                <tbody id="docTypeRows"
+                       data-sortable="{{ sortable ? 1 : 0 }}"
+                       data-offset="{{ priorityOffset }}"
+                       data-reorder-url="{{ path('agency_configuration_document_type_reorder') }}"
+                       data-reorder-token="{{ csrf_token('docTypeReorder') }}">
+                {% for t in records %}
+                    {% set used = t.id in usedTypeIds %}
+                    <tr class="doc-type-row"{% if sortable %} draggable="true"{% endif %} data-type-id="{{ t.id }}">
+                        <td class="txt_a_c">
+                            <img src="{{ asset(PATH_GRAPHICS ~ 'icons/' ~ (t.active ? 'circle_green' : 'circle_red') ~ '.png') }}"
+                                 class="icon_status" alt="{{ t.active ? 'Attivo' : 'Disattivo' }}"
+                                 data-bs-toggle="tooltip" data-bs-title="{{ t.active ? 'Attivo' : 'Disattivo' }}">
+                        </td>
+                        <td class="txt_a_c">
+                            {% if sortable %}<span class="drag-handle op_07" title="Trascina per riordinare" style="cursor:grab;">⠿</span>{% endif %}
+                            <span class="doc-type-priority m_l_5p">{{ t.priority + 1 }}</span>
+                        </td>
+                        <td>{{ t.value }}</td>
+                        <td class="txt_a_c">
+                            <img src="{{ asset(PATH_GRAPHICS ~ 'icons/' ~ (t.mortgage ? 'circle_green' : 'circle_grey') ~ '.png') }}"
+                                 class="icon_status" alt="{{ t.mortgage ? 'Sì' : 'No' }}"
+                                 data-bs-toggle="tooltip" data-bs-title="{{ t.mortgage ? 'Solo pratiche con mutuo' : 'Tutte le pratiche' }}">
+                        </td>
+                        <td class="txt_a_c text-nowrap">
+                          {% if is_granted('edit', 'configurations') %}
+                            {# 13.1.2 Attiva/disattiva #}
+                            {{ ico.action(
+                                "javascript:docTypeToggleAsk('" ~ path('agency_configuration_document_type_toggle', {id: t.id}) ~ "', '" ~ (t.active ? 'disattiverai' : 'attiverai') ~ " il tipo di documento " ~ t.value|e('js') ~ "')",
+                                'exchange',
+                                t.active ? 'Disattiva' : 'Attiva',
+                                t.active ? 'amber' : 'green'
+                            ) }}
+                            {# 13.1.4 Modifica #}
+                            <a href="javascript:void(0)" class="d-inline-block m_r_5p" data-bs-toggle="tooltip" data-bs-title="Modifica"
+                               onclick="docTypeEditOpen(this)"
+                               data-id="{{ t.id }}" data-action="{{ path('agency_configuration_document_types', {edit: t.id}) }}" data-value="{{ t.value }}"
+                               data-mortgage="{{ t.mortgage ? 1 : 0 }}">
+                                <img src="{{ asset(PATH_GRAPHICS ~ 'icons/edit.png') }}" class="icon_action icon_amber" alt="Modifica">
+                            </a>
+                            {# 13.1.5 Elimina solo se mai utilizzato #}
+                            {% if used %}
+                                {{ ico.disabled('delete-grey', 'Già utilizzato in una pratica: puoi solo disattivarlo') }}
+                            {% else %}
+                                {{ ico.action("javascript:docTypeDelete('" ~ path('agency_configuration_document_type_delete', {id: t.id}) ~ "')", 'delete', 'Elimina', 'red') }}
+                            {% endif %}
+                          {% else %}
+                            <span class="op_07">-</span>
+                          {% endif %}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="5" class="op_07 text-center">Nessun tipo di documento trovato.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% include 'components/table/paginator.html.twig' with {records: records} only %}
+        </div>
+    </section>
+{% endblock %}
+
+{% block modals %}
+    {% embed 'components/modals/form.html.twig' with {type: 'docTypeNew', title: 'Nuovo tipo di documento', form: formNew} %}
+        {% block modalBody %}{{ include('role/agency/configuration/document_type/_form_fields.html.twig', {form: formNew}) }}{% endblock %}
+        {% block modalSubmit %}Crea{% endblock %}
+    {% endembed %}
+
+    {% embed 'components/modals/form.html.twig' with {type: 'docTypeEdit', title: 'Modifica tipo di documento', form: formEdit} %}
+        {% block modalBody %}{{ include('role/agency/configuration/document_type/_form_fields.html.twig', {form: formEdit}) }}{% endblock %}
+    {% endembed %}
+
+    {% include 'components/modals/confirm.html.twig' with {type: 'docTypeToggle', title: 'Tipo di documento'} only %}
+    {% include 'components/modals/delete.html.twig' with {type: 'docType', title: 'Tipo di documento', text: 'eliminerai il tipo di documento selezionato'} only %}
+{% endblock %}
+
+{% block page_javascripts %}
+<script>
+    var TOGGLE_TOKEN = "{{ csrf_token('docTypeToggle') }}";
+
+    function docTypeNewOpen() {
+        document.getElementById('docTypeNewForm').reset();
+        docTypeNewShow();
+    }
+
+    function docTypeEditOpen(el) {
+        var f = document.getElementById('docTypeEditForm');
+        f.action = el.dataset.action;
+        document.getElementById('document_type_edit_value').value = el.dataset.value || '';
+        document.getElementById('document_type_edit_mortgage').checked = el.dataset.mortgage === '1';
+        docTypeEditShow();
+    }
+
+    /* Il modale di conferma espone docTypeToggleConfirm(url, csrf, message): qui
+       aggiungiamo solo il token, così il link nella tabella resta leggibile. */
+    function docTypeToggleAsk(url, message) {
+        docTypeToggleConfirm(url, TOGGLE_TOKEN, message);
+    }
+
+    /* ---------- 13.1.3 Drag & drop (stessa meccanica dei mansionari DualMoto) ---------- */
+    (function () {
+        var body = document.getElementById('docTypeRows');
+        if (!body) return;
+        /* Con filtro attivo o ordinamento per valore le righe non sono nell'ordine di
+           priorità: riscriverle in base alla posizione in tabella falserebbe l'ordine. */
+        if (body.getAttribute('data-sortable') !== '1') return;
+        var url = body.getAttribute('data-reorder-url');
+        var token = body.getAttribute('data-reorder-token');
+        var offset = parseInt(body.getAttribute('data-offset'), 10) || 0;
+        var dragEl = null;
+
+        body.querySelectorAll('.doc-type-row').forEach(function (row) {
+            row.addEventListener('dragstart', function () {
+                dragEl = row;
+                setTimeout(function () { row.classList.add('is-dragging'); }, 0);
+            });
+            row.addEventListener('dragend', function () {
+                row.classList.remove('is-dragging');
+                dragEl = null;
+                renumber();
+                saveOrder();
+            });
+        });
+
+        body.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            if (!dragEl) return;
+            var after = getRowAfter(e.clientY);
+            if (after == null) {
+                body.appendChild(dragEl);
+            } else if (after !== dragEl) {
+                body.insertBefore(dragEl, after);
+            }
+        });
+
+        function getRowAfter(y) {
+            var rows = Array.prototype.slice.call(body.querySelectorAll('.doc-type-row:not(.is-dragging)'));
+            var closest = null, closestOffset = Number.NEGATIVE_INFINITY;
+            rows.forEach(function (row) {
+                var box = row.getBoundingClientRect();
+                var offset = y - box.top - box.height / 2;
+                if (offset < 0 && offset > closestOffset) { closestOffset = offset; closest = row; }
+            });
+            return closest;
+        }
+
+        function renumber() {
+            body.querySelectorAll('.doc-type-row .doc-type-priority').forEach(function (cell, i) {
+                cell.textContent = offset + i + 1;
+            });
+        }
+
+        function saveOrder() {
+            var order = Array.prototype.slice.call(body.querySelectorAll('.doc-type-row'))
+                .map(function (row) { return parseInt(row.getAttribute('data-type-id'), 10); });
+            fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+                body: JSON.stringify({order: order, offset: offset, _csrf_token: token})
+            });
+        }
+    })();
+</script>
+{% include 'components/table/sort_js.html.twig' with {
+    formName: 'docTypeFilter', sortId: 'docTypeFilter_sort', directionId: 'docTypeFilter_direction',
+    actualSort: filters.sortField, actualDirection: filters.sortOrder
+} only %}
+{% endblock %}

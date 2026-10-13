@@ -12,7 +12,7 @@ class Region
 {
     use IdTrait;
 
-    #[ORM\Column(type: 'string', length: 191)]
+    #[ORM\Column(name: 'name', type: 'string', length: 191)]
     private ?string $name = null;
 
     public function getName(): ?string

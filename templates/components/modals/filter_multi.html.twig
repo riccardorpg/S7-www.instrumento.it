@@ -16,14 +16,20 @@
             <div class="modal-stripe"></div>
             <div class="modal-body">
                 <div class="row">
+                    {# Ricerca: nasconde i valori che non contengono il testo digitato #}
+                    <div class="col-12 m_b_10p">
+                        <input type="text" id="filterMultiSearch{{ number }}" class="form-control form-control-sm" placeholder="Cerca valore..." autocomplete="off" onkeyup="filterMultiSearch{{ number }}()">
+                    </div>
+                    {# "Filtrati" = i valori rimasti visibili dalla ricerca; "Deseleziona tutti" agisce anche sui nascosti #}
                     <div class="col-12 m_b_20p">
-                        <button type="button" class="button button-3d button-mini button-green f_left" onclick="filterMultiAll{{ number }}(true)">Seleziona tutti</button>
-                        <button type="button" class="button button-3d button-mini button-red f_right" onclick="filterMultiAll{{ number }}(false)">Deseleziona tutti</button>
+                        <button type="button" class="button button-3d button-mini button-green m_none" onclick="filterMultiFiltered{{ number }}(true)">Seleziona filtrati</button>
+                        <button type="button" class="button button-3d button-mini button-amber m_l_5p" onclick="filterMultiFiltered{{ number }}(false)">Deseleziona filtrati</button>
+                        <button type="button" class="button button-3d button-mini button-red m_l_5p" onclick="filterMultiAll{{ number }}(false)">Deseleziona tutti</button>
                     </div>
                     <div class="col-12">
-                        <table class="table table-sm table-borderless mb-2 multi-filter-table">
+                        <table class="table table-sm table-borderless mb-2 multi-filter-table v_a_m">
                             {% for o in options %}
-                                <tr>
+                                <tr class="filter_multi_row_{{ number }}">
                                     <td class="td_w_40p txt_a_c">
                                         <input type="checkbox" class="form-check-input switch_multi_{{ number }}" id="multi_{{ number }}_{{ loop.index }}" data-id="{{ o.id }}" data-val="{{ o.label }}">
                                     </td>

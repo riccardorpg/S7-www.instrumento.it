@@ -1,0 +1,14 @@
+App\Entity\Master\ExternalAccount:
+  properties:
+    name:
+      - NotBlank: { message: "Campo obbligatorio", groups: [external_account] }
+      - Length: { max: 128, maxMessage: "Massimo 128 caratteri", groups: [external_account] }
+    surname:
+      - NotBlank: { message: "Campo obbligatorio", groups: [external_account] }
+      - Length: { max: 128, maxMessage: "Massimo 128 caratteri", groups: [external_account] }
+    email:
+      - NotBlank: { message: "Campo obbligatorio", groups: [external_account] }
+      - Email: { message: "E-mail non valida", groups: [external_account] }
+      - Length: { max: 191, maxMessage: "Massimo 191 caratteri", groups: [external_account] }
+    phone:
+      - Length: { max: 32, maxMessage: "Massimo 32 caratteri", groups: [external_account] }

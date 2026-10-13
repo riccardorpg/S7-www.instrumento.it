@@ -11,11 +11,11 @@ use Doctrine\ORM\Mapping as ORM;
 trait ColorValueTrait
 {
     /** Valore: testo dell'etichetta. */
-    #[ORM\Column(type: 'string', length: 190)]
+    #[ORM\Column(name: 'value', type: 'string', length: 190)]
     protected string $value = '';
 
     /** Colore di sfondo dell'etichetta. */
-    #[ORM\Column(type: 'string', length: 7, options: ['default' => '#1D4ED8'])]
+    #[ORM\Column(name: 'color', type: 'string', length: 7, options: ['default' => '#1D4ED8'])]
     protected string $color = '#1D4ED8';
 
     public function getValue(): string

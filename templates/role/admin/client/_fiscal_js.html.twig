@@ -1,0 +1,26 @@
+{# Toggle Azienda/Privato per i campi cliente. Param: prefix (id del form Symfony, es. 'company_new'). #}
+<script>
+    window.clientFiscalToggle = window.clientFiscalToggle || function (prefix) {
+        var type = document.getElementById(prefix + '_clientType');
+        if (!type) return;
+        var isAzienda = (type.value === 'company');
+
+        // Etichetta del campo nome.
+        var lbl = document.getElementById(prefix + '_nameLabel');
+        if (lbl) lbl.textContent = isAzienda ? 'Ragione sociale *' : 'Nome e cognome *';
+
+        // P. IVA: presente solo per Azienda (svuotata se Privato).
+        var vatWrap = document.getElementById(prefix + '_vatWrap');
+        var vat = document.getElementById(prefix + '_vatNumber');
+        if (vatWrap) vatWrap.style.display = isAzienda ? '' : 'none';
+        if (!isAzienda && vat) vat.value = '';
+
+        // Riga 2: con la P.IVA il codice fiscale ne occupa metà, senza prende tutta la riga.
+        var taxWrap = document.getElementById(prefix + '_taxWrap');
+        if (taxWrap) {
+            taxWrap.classList.remove('col-md-6', 'col-md-12');
+            taxWrap.classList.add(isAzienda ? 'col-md-6' : 'col-md-12');
+        }
+    };
+    document.addEventListener('DOMContentLoaded', function () { clientFiscalToggle('{{ prefix }}'); });
+</script>

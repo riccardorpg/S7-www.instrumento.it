@@ -14,10 +14,10 @@ class City
 {
     use IdTrait;
 
-    #[ORM\Column(type: 'string', length: 191)]
+    #[ORM\Column(name: 'name', type: 'string', length: 191)]
     private ?string $name = null;
 
-    #[ORM\Column(type: 'string', length: 32, nullable: true)]
+    #[ORM\Column(name: 'code', type: 'string', length: 32, nullable: true)]
     private ?string $code = null;
 
     #[ORM\ManyToOne(targetEntity: Province::class)]

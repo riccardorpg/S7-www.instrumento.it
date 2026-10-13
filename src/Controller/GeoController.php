@@ -31,8 +31,8 @@ class GeoController extends AbstractController
     }
 
     /** Ricerca comuni per prefisso (max 5). */
-    #[Route('/cerca-citta', name: 'post_update_cities', methods: ['POST'])]
-    public function searchCities(Request $request): JsonResponse
+    #[Route('/cerca-citta', name: 'geo_cities', methods: ['POST'])]
+    public function geoCities(Request $request): JsonResponse
     {
         $name = trim((string) $request->request->get('name', ''));
         $qb = $this->registry->getManager('master')->getRepository(City::class)->createQueryBuilder('c')
@@ -46,15 +46,15 @@ class GeoController extends AbstractController
         $cities = array_map(static fn (City $c) => [
             'id' => $c->getId(),
             'name' => $c->getName(),
-            'province' => $c->getProvince()?->getSign() ?: '—',
+            'province' => $c->getProvince()?->getSign() ?: '-',
         ], $qb->getQuery()->getResult());
 
         return $this->json(['success' => true, 'code' => 200, 'cities' => json_encode($cities)]);
     }
 
     /** CAP del comune selezionato, formato "id-code,id-code,…". */
-    #[Route('/cerca-cap', name: 'post_update_city_zips', methods: ['POST'])]
-    public function cityZips(Request $request): JsonResponse
+    #[Route('/cerca-cap', name: 'geo_city_zips', methods: ['POST'])]
+    public function geoCityZips(Request $request): JsonResponse
     {
         $cityId = (int) $request->request->get('cityId');
         $city = $cityId ? $this->registry->getManager('master')->getRepository(City::class)->find($cityId) : null;

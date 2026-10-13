@@ -1,0 +1,77 @@
+{# =====================================================================
+   Autocomplete del form pratica: venditore e acquirente sull'anagrafica clienti
+   (12.2.1 / 12.2.2), notaio sui notai in piattaforma (12.2.9).
+
+   Digitando in {prefix}_{field}Name i risultati compaiono sotto al campo; la scelta
+   valorizza {prefix}_{field} (hidden con id o e-mail) e scrive l'etichetta nel campo.
+   Stessa meccanica dell'autocomplete studi dell'area admin.
+   ===================================================================== #}
+<script>
+    (function () {
+        var urls = {
+            seller: "{{ path('agency_practice_customer_search') }}",
+            buyer: "{{ path('agency_practice_customer_search') }}",
+            notary: "{{ path('agency_practice_notary_search') }}"
+        };
+        var timers = {};
+
+        // keepId: al solo focus l'id resta, così un valore già scelto (o rimesso dopo
+        // un invio rifiutato) non si perde solo perché si riapre la tendina.
+        function search(prefix, field, keepId) {
+            var key = prefix + '_' + field;
+            var input = document.getElementById(key + 'Name');
+            var hidden = document.getElementById(key);
+            var box = document.getElementById(key + 'Results');
+            var url = urls[field];
+            if (!input || !hidden || !box || !url) return;
+
+            // L'id vale solo se scelto dalla lista: appena si digita si azzera,
+            // così non si salva un valore diverso da quello mostrato.
+            if (!keepId) hidden.value = '';
+            var q = input.value.trim();
+
+            clearTimeout(timers[key]);
+            timers[key] = setTimeout(function () {
+                fetch(url + '?q=' + encodeURIComponent(q))
+                    .then(function (r) { return r.json(); })
+                    .then(function (items) {
+                        box.innerHTML = '';
+                        if (!items.length) {
+                            var empty = document.createElement('div');
+                            empty.className = 'list-group-item text-muted';
+                            empty.textContent = field === 'notary' ? 'Nessun notaio trovato.' : 'Nessun cliente trovato.';
+                            box.appendChild(empty);
+                            box.style.display = 'block';
+                            return;
+                        }
+                        items.forEach(function (it) {
+                            var option = document.createElement('button');
+                            option.type = 'button';
+                            option.className = 'list-group-item list-group-item-action';
+                            option.textContent = it.label;
+                            option.addEventListener('click', function () {
+                                input.value = it.label;
+                                hidden.value = it.id;
+                                box.style.display = 'none';
+                            });
+                            box.appendChild(option);
+                        });
+                        box.style.display = 'block';
+                    });
+            }, 250);
+        }
+
+        window.customerSearch = function (prefix, role, keepId) { search(prefix, role, keepId); };
+        // Il notaio non è obbligatorio: svuotare il campo lascia la pratica senza notaio.
+        window.notarySearch = function (prefix, keepId) { search(prefix, 'notary', keepId); };
+
+        // Click fuori: chiude tutte le tendine dei risultati.
+        document.addEventListener('click', function (e) {
+            document.querySelectorAll('[id$="sellerResults"], [id$="buyerResults"], [id$="notaryResults"]').forEach(function (box) {
+                var input = document.getElementById(box.id.replace('Results', 'Name'));
+                if (box.contains(e.target) || (input && input.contains(e.target))) return;
+                box.style.display = 'none';
+            });
+        });
+    })();
+</script>

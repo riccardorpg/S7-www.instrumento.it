@@ -25,10 +25,10 @@ class Customer
 
     // ---------- 11.2.1 Dati anagrafici ----------
 
-    #[ORM\Column(type: 'string', length: 190)]
+    #[ORM\Column(name: 'name', type: 'string', length: 190)]
     private string $name = '';
 
-    #[ORM\Column(type: 'string', length: 190)]
+    #[ORM\Column(name: 'surname', type: 'string', length: 190)]
     private string $surname = '';
 
     #[ORM\Column(name: 'birth_place', type: 'string', length: 190, nullable: true)]
@@ -37,19 +37,19 @@ class Customer
     #[ORM\Column(name: 'birth_date', type: 'date_immutable', nullable: true)]
     private ?\DateTimeImmutable $birthDate = null;
 
-    #[ORM\Column(type: 'string', length: 255, nullable: true)]
+    #[ORM\Column(name: 'address', type: 'string', length: 255, nullable: true)]
     private ?string $address = null;
 
-    #[ORM\Column(type: 'string', length: 190, nullable: true)]
+    #[ORM\Column(name: 'city', type: 'string', length: 190, nullable: true)]
     private ?string $city = null;
 
-    #[ORM\Column(type: 'string', length: 10, nullable: true)]
+    #[ORM\Column(name: 'zip', type: 'string', length: 10, nullable: true)]
     private ?string $zip = null;
 
-    #[ORM\Column(type: 'string', length: 190, nullable: true)]
+    #[ORM\Column(name: 'email', type: 'string', length: 190, nullable: true)]
     private ?string $email = null;
 
-    #[ORM\Column(type: 'string', length: 40, nullable: true)]
+    #[ORM\Column(name: 'phone', type: 'string', length: 40, nullable: true)]
     private ?string $phone = null;
 
     // ---------- 11.2.2 Dati fiscali ----------
@@ -61,14 +61,14 @@ class Customer
     #[ORM\Column(name: 'vat_number', type: 'string', length: 20, nullable: true)]
     private ?string $vatNumber = null;
 
-    #[ORM\Column(type: 'string', length: 190, nullable: true)]
+    #[ORM\Column(name: 'pec', type: 'string', length: 190, nullable: true)]
     private ?string $pec = null;
 
     /** Codice destinatario per la fatturazione elettronica. */
-    #[ORM\Column(type: 'string', length: 7, nullable: true)]
+    #[ORM\Column(name: 'sdi', type: 'string', length: 7, nullable: true)]
     private ?string $sdi = null;
 
-    #[ORM\Column(type: 'text', nullable: true)]
+    #[ORM\Column(name: 'notes', type: 'text', nullable: true)]
     private ?string $notes = null;
 
     public function getName(): string
@@ -168,7 +168,7 @@ class Customer
             trim(($this->zip ?? '') . ' ' . ($this->city ?? '')),
         ], static fn (?string $p) => $p !== null && trim($p) !== '');
 
-        return implode(' — ', $parts);
+        return implode(', ', $parts);
     }
 
     public function getEmail(): ?string
@@ -253,5 +253,10 @@ class Customer
         $this->notes = $notes;
 
         return $this;
+    }
+
+    public function __toString(): string
+    {
+        return $this->getFullName();
     }
 }

@@ -1,0 +1,9 @@
+# Primo utente dell'agenzia nel nuovo cliente da richiesta demo (l'e-mail è quella della richiesta).
+App\Form\Model\ClientFirstUser:
+  properties:
+    name:
+      - NotBlank: { message: "Campo obbligatorio", groups: [client_first_user] }
+      - Length: { max: 191, maxMessage: "Massimo 191 caratteri", groups: [client_first_user] }
+    surname:
+      - NotBlank: { message: "Campo obbligatorio", groups: [client_first_user] }
+      - Length: { max: 191, maxMessage: "Massimo 191 caratteri", groups: [client_first_user] }

@@ -1,0 +1,139 @@
+{% extends 'role/agency/layout.html.twig' %}
+{% import 'components/action_icons.html.twig' as ico %}
+{% import 'components/practice_status.html.twig' as practiceStatus %}
+
+{% block title %} - Pratiche{% endblock %}
+{% block role_page_title_inner %}Pratiche{% endblock %}
+
+{% block role_page_title_breadcrumb %}
+    <li class="breadcrumb-item"><a href="{{ path('agency_index') }}">Agenzia</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Pratiche</li>
+{% endblock %}
+
+{% block sub_menu_left %}
+    <li class="nav-item"><a class="nav-link" href="{{ path('agency_index') }}"><i class="bi-arrow-left"></i> Torna alla scrivania</a></li>
+{% endblock %}
+
+{% block sub_menu_right %}
+    {% if is_granted('edit', 'practices') %}
+        <li class="nav-item"><a class="nav-link" href="{{ path('agency_practice_new') }}"><i class="bi-plus-lg"></i> Nuova pratica</a></li>
+    {% endif %}
+{% endblock %}
+
+{% block role_content %}
+    <section class="content-wrap">
+        <div class="container">
+            <form id="practiceFilter" method="get" action="{{ path('agency_practices') }}">
+                <input type="hidden" name="filterSet" value="1">
+                <input type="hidden" id="practiceFilter_sort" name="sortField" value="{{ filters.sortField }}">
+                <input type="hidden" id="practiceFilter_direction" name="sortOrder" value="{{ filters.sortOrder }}">
+            </form>
+
+            <table class="table table-hover table-bordered align-middle m_b_none v_a_m">
+                <thead>
+                    <tr class="tr_filter">
+                        {# Stato: scelta multipla in modale #}
+                        <td>
+                            <div class="d-flex align-items-center gap-1">
+                                {{ ico.action(path('agency_practices'), 'close', 'Azzera filtri', 'red') }}
+                                <input form="practiceFilter" type="text" class="form-control form-control-sm cursor_p" id="filter_multi_value_1"
+                                       readonly onclick="filterMulti1()" autocomplete="off">
+                                <input form="practiceFilter" type="hidden" id="filter_multi_id_1" name="f_status" value="{{ filters.status }}">
+                            </div>
+                        </td>
+                        {# Data creazione: intervallo #}
+                        <td>
+                            <input form="practiceFilter" type="text" id="practiceFilter_created" name="f_created" value="{{ filters.created }}"
+                                   class="form-control form-control-sm cursor_p" autocomplete="off" readonly>
+                        </td>
+                        <td>
+                            <select form="practiceFilter" name="f_mortgage" class="form-select form-select-sm">
+                                <option value="">Tutte</option>
+                                <option value="1"{{ filters.mortgage == '1' ? ' selected' : '' }}>Con mutuo</option>
+                                <option value="0"{{ filters.mortgage == '0' ? ' selected' : '' }}>Senza mutuo</option>
+                            </select>
+                        </td>
+                        <td><input form="practiceFilter" name="f_seller" value="{{ filters.seller }}" class="form-control form-control-sm"></td>
+                        <td><input form="practiceFilter" name="f_buyer" value="{{ filters.buyer }}" class="form-control form-control-sm"></td>
+                        <td><input form="practiceFilter" name="f_number" value="{{ filters.number }}" class="form-control form-control-sm"></td>
+                        <td><input form="practiceFilter" name="f_address" value="{{ filters.address }}" class="form-control form-control-sm"></td>
+                        <td></td>
+                        <td class="txt_a_c text-nowrap">
+                            <button form="practiceFilter" type="submit" class="btn p-0 border-0 bg-transparent" data-bs-toggle="tooltip" data-bs-title="Filtra">
+                                <img src="{{ asset(PATH_GRAPHICS ~ 'icons/search.png') }}" class="icon_action icon_green" alt="Filtra">
+                            </button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th class="td_w_120p">{{ ico.sort('Stato', 'p.status') }}</th>
+                        <th class="td_w_120p">{{ ico.sort('Data creaz.', 'p.createdAt') }}</th>
+                        <th class="td_w_130p">{{ ico.sort('Tipo', 'p.mortgage') }}</th>
+                        <th>Venditore</th>
+                        <th>Acquirente</th>
+                        <th class="td_w_150p">{{ ico.sort('Codice', 'p.number') }}</th>
+                        <th>{{ ico.sort('Indirizzo', 'p.address') }}</th>
+                        <th class="td_w_100p txt_a_c">Spazio</th>
+                        <th class="td_w_100p txt_a_c">Scheda</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for p in records %}
+                    <tr>
+                        <td>
+                            {{ practiceStatus.badge(p.status, p.statusLabel) }}
+                            {% if p.mark %}
+                                <div class="p_t_5p">
+                                    <span class="badge" style="background:{{ p.mark.color }}; color:{{ p.mark.contrastColor }};">{{ p.mark.value }}</span>
+                                </div>
+                            {% endif %}
+                        </td>
+                        <td>{{ p.createdAt ? p.createdAt|date('d/m/Y') : '-' }}</td>
+                        <td><span class="badge bg-light text-dark">{{ p.typeLabel }}</span></td>
+                        <td>{{ p.seller ? p.seller.fullName : '-' }}</td>
+                        <td>{{ p.buyer ? p.buyer.fullName : '-' }}</td>
+                        <td>
+                            <a href="{{ path('agency_practice_sheet', {id: p.id}) }}"><strong>{{ p.number }}</strong></a>
+                            {% if p.tags|length %}
+                                <div class="p_t_5p">
+                                    {% for t in p.tags %}
+                                        <span class="badge" style="background:{{ t.color }}; color:{{ t.contrastColor }};">{{ t.value }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </td>
+                        <td>{{ p.address ?: '-' }}</td>
+                        {# 12.1.8 Spazio occupato dagli allegati #}
+                        <td class="txt_a_c">{{ p.sizeMb > 0 ? p.sizeMb|number_format(2, ',', '.') ~ ' MB' : '-' }}</td>
+                        {# 12.1.9 Link alla scheda #}
+                        <td class="txt_a_c">{{ ico.action(path('agency_practice_sheet', {id: p.id}), 'sheet', 'Apri la scheda', 'green') }}</td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="9" class="op_07 text-center">Nessuna pratica trovata.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% include 'components/table/paginator.html.twig' with {records: records} only %}
+        </div>
+    </section>
+{% endblock %}
+
+{% block modals %}
+    {# Filtro stato a scelta multipla (12.1.1) #}
+    {% include 'components/modals/filter_multi.html.twig' with {
+        number: 1,
+        title: 'Filtra per stato',
+        options: statuses|map((label, value) => {'id': value, 'label': label})
+    } only %}
+{% endblock %}
+
+{% block page_javascripts %}
+{% include 'components/table/sort_js.html.twig' with {
+    formName: 'practiceFilter', sortId: 'practiceFilter_sort', directionId: 'practiceFilter_direction',
+    actualSort: filters.sortField, actualDirection: filters.sortOrder
+} only %}
+{% include 'components/js/filter_multi_js.html.twig' with {number: 1} only %}
+{# 12.1.2 Intervallo sulla data di creazione #}
+{% include 'components/js/daterangepicker_js.html.twig' with {
+    id: 'practiceFilter_created', format: 'DD/MM/YYYY', hasTimePicker: 'false'
+} only %}
+{% endblock %}

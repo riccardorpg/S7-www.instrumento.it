@@ -1,0 +1,125 @@
+{% extends 'role/admin/layout.html.twig' %}
+{% import 'components/action_icons.html.twig' as ico %}
+
+{% block title %} - Notai{% endblock %}
+{% block role_page_title_inner %}Notai{% endblock %}
+
+{% block sub_menu_left %}
+    <li class="nav-item"><a class="nav-link" href="{{ path('admin_index') }}"><i class="bi-arrow-left"></i> Torna alla scrivania</a></li>
+{% endblock %}
+
+{% block sub_menu_right %}
+    <li class="nav-item"><a class="nav-link" href="javascript:notaryNewShow()"><i class="bi-plus-lg"></i> Nuovo</a></li>
+{% endblock %}
+
+{% block role_page_title_breadcrumb %}
+    <li class="breadcrumb-item"><a href="{{ path('admin_index') }}">Amministrazione</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Notai</li>
+{% endblock %}
+
+{% block role_content %}
+    <section class="content-wrap">
+        <div class="container">
+            <form id="notariesFilter" method="get" action="{{ path('admin_notaries') }}">
+                <input type="hidden" name="filterSet" value="1">
+                <input type="hidden" id="notariesFilter_sort" name="sortField" value="{{ filters.sortField }}">
+                <input type="hidden" id="notariesFilter_direction" name="sortOrder" value="{{ filters.sortOrder }}">
+            </form>
+
+            <div>
+                <table class="table table-hover table-bordered align-middle m_b_none v_a_m">
+                    <thead>
+                        <tr class="tr_filter">
+                            {# 1 Notaio (con Escludi filtro a sx) #}
+                            <td>
+                                <div class="d-flex align-items-center gap-1">
+                                    {{ ico.action(path('remove_filter', {route: 'admin_notaries'}), 'close', 'Escludi filtro', 'red') }}
+                                    <input form="notariesFilter" name="f_q" value="{{ filters.q }}" class="form-control form-control-sm">
+                                </div>
+                            </td>
+                            {# 2 E-mail #}
+                            <td><input form="notariesFilter" name="f_email" value="{{ filters.email }}" class="form-control form-control-sm"></td>
+                            {# 3 Agenzia #}
+                            <td>
+                                <select form="notariesFilter" name="f_agency" class="form-select form-select-sm">
+                                    <option value="">Tutte</option>
+                                    {% for c in companies %}
+                                        <option value="{{ c.id }}" {{ filters.agency == c.id ? 'selected' : '' }}>{{ c.name }} ({{ c.code }})</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            {# 4 Azioni: filtra a dx #}
+                            <td class="txt_a_c text-nowrap">
+                                <button form="notariesFilter" type="submit" class="btn p-0 border-0 bg-transparent" data-bs-toggle="tooltip" data-bs-title="Filtra">
+                                    <img src="{{ asset(PATH_GRAPHICS ~ 'icons/search.png') }}" class="icon_action icon_green" alt="Filtra">
+                                </button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th class="td_w_200p">{{ ico.sort('Notaio', 'u.surname') }}</th>
+                            <th class="td_w_200p">{{ ico.sort('E-mail', 'u.email') }}</th>
+                            <th class="td_w_200p">Agenzie collegate</th>
+                            <th class="td_w_100p txt_a_c">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for n in records %}
+                        <tr>
+                            <td>{{ n.fullName }}</td>
+                            <td>{{ n.email }}</td>
+                            {# 17.1 Non c'è abbinamento: l'agenzia compare se ha assegnato una pratica al notaio. #}
+                            <td>
+                                {% set agencies = agenciesByEmail[n.email]|default([]) %}
+                                {% if agencies|length %}
+                                    {% for c in agencies %}<span class="badge bg-secondary">{{ c.code }}</span> - {{ c.name }}{% if not loop.last %}<br>{% endif %}{% endfor %}
+                                {% else %}
+                                    <span class="op_07">Nessuna</span>
+                                {% endif %}
+                            </td>
+                            <td class="txt_a_c text-nowrap">
+                                {{ ico.action("javascript:notaryEditOpen(" ~ path('admin_notaries', {edit: n.id})|json_encode ~ ", " ~ n.name|default('')|json_encode ~ ", " ~ n.surname|default('')|json_encode ~ ", " ~ n.email|json_encode ~ ")", 'edit', 'Modifica dati', 'pr') }}
+                                {{ ico.action("javascript:notaryCredConfirm(" ~ path('admin_notary_credentials', {id: n.id})|json_encode ~ ", " ~ csrf_token('notaryCredentials')|json_encode ~ ", " ~ ('invierai le credenziali di accesso a ' ~ n.email)|json_encode ~ ")", 'send', 'Invia credenziali', 'pr') }}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="4" class="op_07 text-center">Nessun notaio trovato.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {% include 'components/table/paginator.html.twig' with {records: records} only %}
+            </div>
+        </div>
+    </section>
+{% endblock %}
+
+{% block modals %}
+    {# Conferma invio credenziali #}
+    {% include 'components/modals/confirm.html.twig' with {type: 'notaryCred', title: 'Invia credenziali'} only %}
+
+    {# Nuovo notaio: si invia a questa stessa pagina (CONVENZIONI 6) #}
+    {% embed 'components/modals/form.html.twig' with {type: 'notaryNew', title: 'Nuovo notaio', form: formNew, action: path('admin_notaries')} %}
+        {% block modalBody %}{{ include('role/admin/notary/_form_fields.html.twig', {form: formNew}) }}{% endblock %}
+        {% block modalSubmit %}Crea{% endblock %}
+    {% endembed %}
+
+    {# Modifica dati notaio: l'action (?edit=ID) e i valori li imposta notaryEditOpen() #}
+    {% embed 'components/modals/form.html.twig' with {type: 'notaryEdit', title: 'Modifica dati notaio', form: formEdit} %}
+        {% block modalBody %}{{ include('role/admin/notary/_form_fields.html.twig', {form: formEdit}) }}{% endblock %}
+    {% endembed %}
+{% endblock %}
+
+{% block page_javascripts %}
+    {% include 'components/table/sort_js.html.twig' with {
+        formName: 'notariesFilter', sortId: 'notariesFilter_sort', directionId: 'notariesFilter_direction',
+        actualSort: filters.sortField, actualDirection: filters.sortOrder
+    } only %}
+    <script>
+        function notaryEditOpen(url, name, surname, email) {
+            document.getElementById('notaryEditForm').action = url;
+            document.getElementById('notary_edit_name').value = name || '';
+            document.getElementById('notary_edit_surname').value = surname || '';
+            document.getElementById('notary_edit_email').value = email || '';
+            notaryEditShow();
+        }
+    </script>
+{% endblock %}

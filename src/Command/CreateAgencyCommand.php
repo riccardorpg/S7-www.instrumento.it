@@ -5,7 +5,6 @@ namespace App\Command;
 use App\Entity\Master\Company;
 use App\Entity\Slave\User as AgencyUser;
 use App\Service\CompanyService;
-use Doctrine\ORM\Tools\SchemaTool;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -75,23 +74,9 @@ class CreateAgencyCommand extends Command
             return Command::FAILURE;
         }
 
-        // 1) Crea fisicamente il database slave
-        $io->section('Creazione database slave: ' . $dbName);
-        $masterEm->getConnection()->executeStatement(
-            sprintf('CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci', $dbName)
-        );
-
-        // 2) Punta lo slave al nuovo DB e genera lo schema
-        $io->section('Generazione schema nel DB agenzia');
-        $slaveEm = $this->companyService->pointSlaveToDbName($dbName);
-        $metadata = $slaveEm->getMetadataFactory()->getAllMetadata();
-        if ($metadata === []) {
-            $io->error('Nessuna metadata di entità slave trovata.');
-
-            return Command::FAILURE;
-        }
-        $schemaTool = new SchemaTool($slaveEm);
-        $schemaTool->createSchema($metadata);
+        // 1-2) Crea il database slave con lo schema corrente e le migration già registrate
+        $io->section('Creazione database agenzia: ' . $dbName);
+        $slaveEm = $this->companyService->provisionDatabase($dbName);
 
         // 3) Primo utente ROLE_AGENCY nel DB slave
         $agencyUser = new AgencyUser();

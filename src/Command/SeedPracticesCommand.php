@@ -7,7 +7,7 @@ use App\Entity\Slave\Document;
 use App\Entity\Slave\Practice;
 use App\Entity\Slave\PracticeDocument;
 use App\Service\CompanyService;
-use App\Service\PracticeDocumentSync;
+use App\Service\PracticeDocumentSyncService;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -29,7 +29,7 @@ class SeedPracticesCommand extends Command
     public function __construct(
         private readonly CompanyService $companyService,
         private readonly ParameterBagInterface $params,
-        private readonly PracticeDocumentSync $documentSync,
+        private readonly PracticeDocumentSyncService $documentSync,
     ) {
         parent::__construct();
     }
@@ -79,7 +79,7 @@ class SeedPracticesCommand extends Command
             $practice = new Practice();
             $practice->setNumber(sprintf('P-%04d/%d', $i + 1, 2026))
                 ->setMortgage($i % 3 === 0)
-                ->setSubject('Immobile sito in Via Esempio ' . ($i + 1) . ' — foglio ' . (10 + $i) . ', particella ' . (100 + $i))
+                ->setSubject('Immobile sito in Via Esempio ' . ($i + 1) . ', foglio ' . (10 + $i) . ', particella ' . (100 + $i))
                 ->setAddress('Via Esempio ' . ($i + 1) . ', Milano')
                 ->setStatus(Practice::STATUS_OPEN)
                 ->setNotaryEmail($notaryEmail);

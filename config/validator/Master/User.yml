@@ -1,0 +1,16 @@
+# Utente del master. Gruppo user_notary: nuovo e modifica del notaio dall'area amministratore.
+# L'e-mail è unica su tutto il master (anche amministratori): UniqueEntity esclude da sé il record in modifica.
+App\Entity\Master\User:
+  constraints:
+    - Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity: { fields: email, errorPath: email, message: "E-mail già usata da un altro utente", groups: [user_notary] }
+  properties:
+    name:
+      - NotBlank: { message: "Campo obbligatorio", groups: [user_notary] }
+      - Length: { max: 191, maxMessage: "Massimo 191 caratteri", groups: [user_notary] }
+    surname:
+      - NotBlank: { message: "Campo obbligatorio", groups: [user_notary] }
+      - Length: { max: 191, maxMessage: "Massimo 191 caratteri", groups: [user_notary] }
+    email:
+      - NotBlank: { message: "Campo obbligatorio", groups: [user_notary] }
+      - Email: { message: "E-mail non valida", groups: [user_notary] }
+      - Length: { max: 191, maxMessage: "Massimo 191 caratteri", groups: [user_notary] }

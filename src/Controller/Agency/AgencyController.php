@@ -19,7 +19,7 @@ class AgencyController extends AbstractController
 {
     /** 9. Scrivania: spazio licenza (9.1), avvisi (9.2) e pratiche contrassegnate (9.3). */
     #[Route('', name: 'agency_index', methods: ['GET'])]
-    public function index(CompanyService $companyService, ManagerRegistry $registry): Response
+    public function agencyIndex(CompanyService $companyService, ManagerRegistry $registry): Response
     {
         $company = $companyService->getCurrentCompany();
         $em = $registry->getManager('slave');

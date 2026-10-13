@@ -1,0 +1,39 @@
+# Cliente (= agenzia). La stessa entity ha quattro form, quindi quattro gruppi:
+# - company_new: nuovo cliente dell'amministratore (anche codice e database);
+# - company_edit: modale "Modifica dati fiscali" della scheda cliente dell'amministratore;
+# - company_profile: dati anagrafici, dall'anagrafica dell'agenzia;
+# - company_tax: dati fiscali, dall'anagrafica dell'agenzia.
+# Città e CAP arrivano dal picker geografico, fuori dal form: li risolve il controller.
+App\Entity\Master\Company:
+  constraints:
+    - Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity: { fields: code, errorPath: code, message: "Esiste già un cliente con questo codice", groups: [company_new] }
+    - Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity: { fields: dbName, errorPath: dbName, message: "Database già assegnato a un altro cliente", groups: [company_new] }
+  properties:
+    code:
+      - NotBlank: { message: "Campo obbligatorio", groups: [company_new] }
+      # Le minuscole sono ammesse: il controller porta il codice in maiuscolo dopo la validazione.
+      - Regex: { pattern: '/^[A-Za-z0-9._-]{2,64}$/', message: "Da 2 a 64 caratteri fra lettere, cifre, punto, trattino e underscore", groups: [company_new] }
+    name:
+      - NotBlank: { message: "Campo obbligatorio", groups: [company_new, company_edit, company_profile] }
+      - Length: { max: 191, maxMessage: "Massimo 191 caratteri", groups: [company_new, company_edit, company_profile] }
+    dbName:
+      - NotBlank: { message: "Campo obbligatorio", groups: [company_new] }
+      - Regex: { pattern: '/^[A-Za-z0-9_]{3,}$/', message: "Almeno 3 caratteri fra lettere, cifre e underscore", groups: [company_new] }
+      # La colonna è di 191, ma MySQL non accetta nomi di database oltre i 64 caratteri.
+      - Length: { max: 64, maxMessage: "Massimo 64 caratteri", groups: [company_new] }
+    clientType:
+      - NotBlank: { message: "Campo obbligatorio", groups: [company_new, company_edit, company_profile] }
+      - Choice: { choices: [company, professional], message: "Tipo non valido", groups: [company_new, company_edit, company_profile] }
+    vatNumber:
+      - Length: { max: 16, maxMessage: "Massimo 16 caratteri", groups: [company_new, company_edit, company_tax] }
+    taxCode:
+      - Length: { max: 32, maxMessage: "Massimo 32 caratteri", groups: [company_new, company_edit, company_tax] }
+    address:
+      - Length: { max: 191, maxMessage: "Massimo 191 caratteri", groups: [company_new, company_edit, company_profile] }
+    civic:
+      - Length: { max: 16, maxMessage: "Massimo 16 caratteri", groups: [company_new, company_edit, company_profile] }
+    sdi:
+      - Length: { max: 7, maxMessage: "Massimo 7 caratteri", groups: [company_new, company_edit, company_tax] }
+    pec:
+      - Email: { message: "E-mail non valida", groups: [company_new, company_edit, company_tax] }
+      - Length: { max: 191, maxMessage: "Massimo 191 caratteri", groups: [company_new, company_edit, company_tax] }

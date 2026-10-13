@@ -1,0 +1,7 @@
+{# 12.2.1 / 12.2.2 Campi del cliente al volo (form "customer_quick"), resi da
+   AgencyCustomerController::agencyCustomerQuickForm() dentro al <form> di
+   role/agency/practice/_customer_quick_new.html.twig. form_rest aggiunge il token CSRF.
+   Il datepicker lo aggancia role/base (components/js/datepicker_js); il divieto di date future
+   è nell'attributo data-date-end-date del campo (CustomerType). #}
+{{ include('role/agency/customer/_form_fields.html.twig', {form: form}, with_context = false) }}
+{{ form_rest(form) }}

@@ -22,18 +22,18 @@ class DocumentType
     use TimestampsTrait;
 
     /** 13.1.1.2 Valore: etichetta del tipo di documento (es. "Visura catastale"). */
-    #[ORM\Column(type: 'string', length: 190)]
+    #[ORM\Column(name: 'value', type: 'string', length: 190)]
     private string $value = '';
 
     /**
      * 13.1.1.1 Priorità: posizione nell'elenco, 0 = primo. Gestita dal drag & drop (13.1.3),
      * non è un campo del form.
      */
-    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    #[ORM\Column(name: 'priority', type: 'integer', options: ['default' => 0])]
     private int $priority = 0;
 
     /** 13.1.1.3 Mutuo: il documento serve solo alle pratiche con mutuo. */
-    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    #[ORM\Column(name: 'mortgage', type: 'boolean', options: ['default' => false])]
     private bool $mortgage = false;
 
     public function getValue(): string
@@ -70,5 +70,10 @@ class DocumentType
         $this->mortgage = $mortgage;
 
         return $this;
+    }
+
+    public function __toString(): string
+    {
+        return (string) $this->value;
     }
 }

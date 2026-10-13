@@ -78,4 +78,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         return $this->companies->contains($company);
     }
+
+    public function __toString(): string
+    {
+        return $this->getFullName();
+    }
 }

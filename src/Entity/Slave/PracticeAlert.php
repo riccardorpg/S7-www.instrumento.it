@@ -27,7 +27,7 @@ class PracticeAlert
     private ?\DateTimeImmutable $remindAt = null;
 
     /** 12.3.4.2.2 Messaggio. */
-    #[ORM\Column(type: 'text')]
+    #[ORM\Column(name: 'message', type: 'text')]
     private string $message = '';
 
     public function getPractice(): ?Practice

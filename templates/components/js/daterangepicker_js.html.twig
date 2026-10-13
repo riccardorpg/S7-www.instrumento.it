@@ -1,3 +1,5 @@
+{# Intervallo di date per i filtri (CONVENZIONI 7): una sola stringa "gg/mm/AAAA - gg/mm/AAAA",
+   spezzata dal controller (FilterService::dateRange). Passare format: 'DD/MM/YYYY'. #}
 <script>
 jQuery(function ($) {
     if (typeof $.fn.daterangepicker !== 'function') { console.warn('daterangepicker plugin not loaded'); return; }
@@ -12,7 +14,7 @@ jQuery(function ($) {
         "timePicker24Hour": {{ hasTimePicker }},
         "locale": {
             "format": "{{ format }}",
-            "separator": "/",
+            "separator": " - ",
             "applyLabel": "Applica",
             "cancelLabel": "Resetta",
             "fromLabel": "Da",
@@ -25,7 +27,7 @@ jQuery(function ($) {
         }
     });
     $('#{{ id }}').on('apply.daterangepicker', function (ev, picker) {
-        $(this).val(picker.startDate.format('{{ format }}') + '/' + picker.endDate.format('{{ format }}'));
+        $(this).val(picker.startDate.format('{{ format }}') + ' - ' + picker.endDate.format('{{ format }}'));
     });
     $('#{{ id }}').on('cancel.daterangepicker', function (ev, picker) { $(this).val(''); });
 });

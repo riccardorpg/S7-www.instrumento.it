@@ -1,0 +1,350 @@
+{% extends 'role/admin/layout.html.twig' %}
+{% import 'components/action_icons.html.twig' as ico %}
+
+{% block title %} - {{ company.name }}{% endblock %}
+{% block role_page_title_inner %}{{ company.name }}{% endblock %}
+
+{% block sub_menu_left %}
+    <li class="nav-item"><a class="nav-link" href="{{ path('admin_clients') }}"><i class="bi-arrow-left"></i> Torna alla lista</a></li>
+{% endblock %}
+
+{% block role_page_title_breadcrumb %}
+    <li class="breadcrumb-item"><a href="{{ path('admin_index') }}">Amministrazione</a></li>
+    <li class="breadcrumb-item"><a href="{{ path('admin_clients') }}">Clienti</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ company.name }}</li>
+{% endblock %}
+
+{% block role_content %}
+    <section class="content-wrap">
+        <div class="container">
+            <ul class="nav nav-tabs canvas-alt-tabs tabs-tb" role="tablist">
+                <li class="nav-item"><button class="nav-link active tab_session" data-filter-tab="fiscali" data-bs-toggle="tab" data-bs-target="#tab-fiscali" type="button">Dati fiscali</button></li>
+                <li class="nav-item"><button class="nav-link tab_session" data-filter-tab="licenza" data-bs-toggle="tab" data-bs-target="#tab-licenza" type="button">Licenza e spazio</button></li>
+                <li class="nav-item"><button class="nav-link tab_session" data-filter-tab="staff" data-bs-toggle="tab" data-bs-target="#tab-staff" type="button">Staff</button></li>
+            </ul>
+
+            <div class="tab-content border border-top-0 p-3 bg-white">
+
+                {# ===== TAB 1: DATI FISCALI (tabella + modale modifica) ===== #}
+                <div class="tab-pane fade show active" id="tab-fiscali">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="m_b_none">Dati fiscali</h5>
+                        <button type="button" class="button button-3d button-mini bg_amber m_b_none" onclick="clientEditShow()">Modifica</button>
+                    </div>
+                    {% set isPro = company.clientType == 'professional' %}
+                    <table class="table align-middle m_b_none v_a_m">
+                        <tr><th style="width:30%">Codice</th><td>{{ company.code }}</td></tr>
+                        <tr><th>Tipo cliente</th><td>{{ company.clientTypeLabel }}</td></tr>
+                        <tr><th>{{ isPro ? 'Nome e cognome' : 'Ragione sociale' }}</th><td>{{ company.name }}</td></tr>
+                        {% if not isPro %}<tr><th>P. IVA</th><td>{{ company.vatNumber ?? '-' }}</td></tr>{% endif %}
+                        <tr><th>Codice fiscale</th><td>{{ company.taxCode ?? '-' }}</td></tr>
+                        <tr><th>PEC</th><td>{{ company.pec ?? '-' }}</td></tr>
+                        <tr><th>Indirizzo</th><td>{{ company.address ?? '-' }} {{ company.civic }}</td></tr>
+                        <tr><th>Città</th><td>{{ company.city ?? '-' }}</td></tr>
+                        <tr><th>CAP</th><td>{{ company.zip ?? '-' }}</td></tr>
+                        <tr><th>SDI</th><td>{{ company.sdi ?? '-' }}</td></tr>
+                    </table>
+
+                    {# 7.1.5 / 7.1.6 Pratiche sul DB del cliente: sola lettura. #}
+                    <h5 class="mt-4 mb-2">Pratiche</h5>
+                    <table class="table align-middle m_b_none v_a_m">
+                        <tr>
+                            <th style="width:30%">Pratiche attive</th>
+                            <td>{{ practiceCounts.active is null ? '-' : practiceCounts.active }}</td>
+                        </tr>
+                        <tr>
+                            <th>Pratiche archiviate</th>
+                            <td>{{ practiceCounts.archived is null ? '-' : practiceCounts.archived }}</td>
+                        </tr>
+                    </table>
+                </div>
+
+                {# ===== TAB 2: LICENZA E SPAZIO (a sinistra la licenza, a destra lo spazio; azioni in modale) ===== #}
+                <div class="tab-pane fade" id="tab-licenza">
+                    {% set license = company.license %}
+                    {% set pct = company.storageQuotaMb > 0 ? (storageUsedMb / company.storageQuotaMb * 100)|round : 0 %}
+                    <div class="row g-4">
+                        <div class="col-lg-6">
+                            {# Come in eaml: assegna o cambia (tipo + data di attivazione), rinnova (nuova data), revoca (torna libera). #}
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2" style="min-height:46px">
+                                <h5 class="m_b_none">Licenza</h5>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <button type="button" class="button button-3d button-mini button-green m_none" onclick="clientLicenseAssignShow()">{{ license ? 'Cambia licenza' : 'Assegna licenza' }}</button>
+                                    {% if license %}
+                                        <button type="button" class="button button-3d button-mini bg_amber m_none" onclick="clientLicenseRenewShow()">Rinnova</button>
+                                        <button type="button" class="button button-3d button-mini button-red m_none"
+                                                onclick="clientToggleConfirm('{{ path('admin_client_license_revoke', {id: company.id}) }}', '{{ csrf_token('client_license_' ~ company.id) }}', 'revocherai la licenza al cliente, che tornerà libera')">Revoca licenza</button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <table class="table align-middle m_b_none v_a_m">
+                                <tr>
+                                    <th style="width:45%">Stato</th>
+                                    <td>
+                                        <span class="badge cursor_p {{ company.isActive ? 'bg-success' : 'bg-danger' }}"
+                                              data-bs-toggle="tooltip"
+                                              data-bs-title="{{ company.isActive ? 'Clicca per sospendere' : 'Clicca per riattivare' }}"
+                                              onclick="clientToggleConfirm('{{ path('admin_client_toggle_active', {id: company.id}) }}', '{{ csrf_token('client_active_' ~ company.id) }}', '{{ company.isActive ? 'sospenderai il cliente' : 'riattiverai il cliente' }}')">{{ company.isActive ? 'Attivo' : 'Sospeso' }}</span>
+                                    </td>
+                                </tr>
+                                {% if license %}
+                                    {% set days = license.daysToExpiry %}
+                                    <tr>
+                                        {# Valida = attiva per l'amministratore e non scaduta: senza, lo staff dell'agenzia non entra #}
+                                        <th>Stato licenza</th>
+                                        <td>
+                                            {% if not license.isAdminActive %}
+                                                <span class="badge bg-danger">Disattivata</span>
+                                            {% elseif days < 0 %}
+                                                <span class="badge bg-danger">Scaduta</span>
+                                            {% else %}
+                                                <span class="badge bg-success">Attiva</span>
+                                            {% endif %}
+                                            {% if not license.isValid %}<span class="op_07 font_13">lo staff non può accedere</span>{% endif %}
+                                        </td>
+                                    </tr>
+                                    <tr><th>Tipo di licenza</th><td>{{ license.type.label }}</td></tr>
+                                    <tr><th>Creazione licenza</th><td>{{ license.creationDate|date('d/m/Y') }}</td></tr>
+                                    <tr><th>Attivazione</th><td>{{ license.startDate ? license.startDate|date('d/m/Y') : '-' }}</td></tr>
+                                    <tr>
+                                        <th>Scadenza licenza</th>
+                                        <td>
+                                            {{ license.expirationDate|date('d/m/Y') }}
+                                            {% if days >= 0 and days <= 30 %}
+                                                <span class="badge bg-warning text-dark">fra {{ days }} giorni</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% else %}
+                                    <tr><th>Licenza</th><td><span class="badge bg-danger">Nessuna licenza assegnata</span> <span class="op_07 font_13">lo staff non può accedere</span></td></tr>
+                                {% endif %}
+
+                                <tr>
+                                    <th>Contratto T&amp;C</th>
+                                    <td>
+                                        {% if company.isTermsAccepted %}
+                                            <span class="badge bg-success cursor_p"
+                                                  data-bs-toggle="tooltip" data-bs-title="Clicca per revocare"
+                                                  onclick="clientToggleConfirm('{{ path('admin_client_terms', {id: company.id}) }}', '{{ csrf_token('client_terms_' ~ company.id) }}', 'revocherai l’accettazione del contratto')">accettato il {{ company.termsAcceptedAt|date('d/m/Y') }}</span>
+                                        {% else %}
+                                            <span class="badge bg-danger cursor_p"
+                                                  data-bs-toggle="tooltip" data-bs-title="Clicca per segnare come accettato"
+                                                  onclick="clientToggleConfirm('{{ path('admin_client_terms', {id: company.id}) }}', '{{ csrf_token('client_terms_' ~ company.id) }}', 'segnerai il contratto come accettato')">non accettato</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <div class="col-lg-6">
+                            {# Un solo pacchetto spazio per cliente: quello nuovo sostituisce l'attuale #}
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2" style="min-height:46px">
+                                <h5 class="m_b_none">Spazio</h5>
+                                <button type="button" class="button button-3d button-mini m_none" onclick="clientSpaceSetShow()">{{ company.spaceExtra ? 'Cambia pacchetto' : 'Aggiungi pacchetto' }}</button>
+                            </div>
+                            <table class="table align-middle m_b_none v_a_m">
+                                <tr><th style="width:45%">Spazio incluso nella licenza</th><td>{{ company.storageIncludedMb|number_format(0, ',', '.') }} MB</td></tr>
+                                <tr>
+                                    <th>Spazio aggiuntivo</th>
+                                    <td>
+                                        {% if company.spaceExtra %}
+                                            {% set extra = company.spaceExtra %}
+                                            <span class="badge bg-secondary">
+                                                {{ extra.label }} · {{ extra.space|number_format(0, ',', '.') }} MB
+                                                <i class="bi-x-lg cursor_p ms-1" data-bs-toggle="tooltip" data-bs-title="Rimuovi pacchetto"
+                                                   onclick="clientToggleConfirm('{{ path('admin_client_space_remove', {id: company.id}) }}', '{{ csrf_token('client_license_' ~ company.id) }}', 'rimuoverai il pacchetto spazio {{ extra.label }}')"></i>
+                                            </span>
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr><th>Spazio totale</th><td><strong>{{ company.storageQuotaMb|number_format(0, ',', '.') }} MB</strong></td></tr>
+                                <tr>
+                                    <th>Spazio occupato</th>
+                                    <td>
+                                        {{ storageUsedMb }} / {{ company.storageQuotaMb }} MB
+                                        <div class="progress mt-1" style="height:6px; max-width:300px;"><div class="progress-bar {{ pct > 90 ? 'bg-danger' : '' }}" style="width:{{ pct > 100 ? 100 : pct }}%;"></div></div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                {# ===== TAB 3: GESTIONE STAFF (filtro JS) ===== #}
+                <div class="tab-pane fade" id="tab-staff">
+                    <div class="d-flex justify-content-end mb-2">
+                        <a href="javascript:staffNewShow()" class="button button-3d button-mini button-green m_b_none">Nuovo</a>
+                    </div>
+                    <table class="table table-hover table-bordered align-middle v_a_m" id="staffTable">
+                        <thead>
+                            <tr class="tr_filter">
+                                <td class="td_w_70p"></td>
+                                <td class="td_w_70p"></td>
+                                <td><input type="text" id="staffFilterUser" class="form-control form-control-sm" onkeyup="staffFilterFn()" autocomplete="off"></td>
+                                <td><input type="text" id="staffFilterEmail" class="form-control form-control-sm" onkeyup="staffFilterFn()" autocomplete="off"></td>
+                                <td class="td_w_140p"></td>
+                            </tr>
+                            <tr>
+                                <th class="txt_a_c td_w_70p">Stato</th>
+                                <th class="txt_a_c td_w_70p">Admin</th>
+                                <th>Utente</th>
+                                <th>E-mail</th>
+                                <th class="txt_a_c td_w_140p">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for u in staff %}
+                            <tr>
+                                <td class="txt_a_c">
+                                    <img src="{{ asset(PATH_GRAPHICS ~ 'icons/' ~ (u.isActive ? 'circle_green' : 'circle_red') ~ '.png') }}"
+                                         class="icon_status cursor_p"
+                                         data-bs-toggle="tooltip" data-bs-title="{{ u.isActive ? 'Attivo: clicca per sospendere' : 'Sospeso: clicca per attivare' }}"
+                                         onclick="clientToggleConfirm('{{ path('admin_client_staff_toggle', {id: company.id, sid: u.id}) }}', '{{ csrf_token('client_staff_' ~ company.id) }}', '{{ u.isActive ? 'sospenderai l’utente' : 'attiverai l’utente' }}')"
+                                         alt="Stato">
+                                </td>
+                                <td class="txt_a_c">
+                                    <img src="{{ asset(PATH_GRAPHICS ~ 'icons/' ~ (u.isAdmin ? 'circle_green' : 'circle_red') ~ '.png') }}"
+                                         class="icon_status cursor_p"
+                                         data-bs-toggle="tooltip" data-bs-title="{{ u.isAdmin ? 'Amministratore: clicca per revocare' : 'Non admin: clicca per promuovere' }}"
+                                         onclick="clientToggleConfirm('{{ path('admin_client_staff_admin', {id: company.id, sid: u.id}) }}', '{{ csrf_token('client_staff_' ~ company.id) }}', '{{ u.isAdmin ? 'revocherai i permessi di amministratore' : 'promuoverai l’utente ad amministratore' }}')"
+                                         alt="Admin">
+                                </td>
+                                <td class="staff-user">{{ u.fullName }}</td>
+                                <td class="staff-email">{{ u.email }}</td>
+                                <td class="txt_a_c text-nowrap">
+                                    {{ ico.action("javascript:clientToggleConfirm('" ~ path('admin_client_staff_credentials', {id: company.id, sid: u.id}) ~ "', '" ~ csrf_token('client_staff_' ~ company.id) ~ "', 'invierai le credenziali di accesso all’utente')", 'send', 'Invia credenziali', 'pr') }}
+                                    {{ ico.action(path('agency_index', {'_switch_user': u.email, 'c': company.code}), 'impersonate', 'Impersona', 'pr') }}
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="5" class="op_07 text-center">Nessun utente. Aggiungine uno con "Nuovo".</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+{% endblock %}
+
+{% block modals %}
+    {# Modale conferma toggle (stato cliente / accettazione T&C) #}
+    {% include 'components/modals/confirm.html.twig' with {type: 'clientToggle', title: 'Conferma'} only %}
+
+    {# Modale modifica dati fiscali #}
+    {# Si invia alla scheda stessa (CONVENZIONI 6): se torna con errori il modale si riapre da solo. #}
+    {% embed 'components/modals/form.html.twig' with {type: 'clientEdit', title: 'Modifica dati fiscali', size: 'modal-lg', form: formEdit, action: path('admin_client_sheet', {id: company.id})} %}
+        {% block modalBody %}
+            {% include 'role/admin/client/_fiscal_fields.html.twig' with {form: formEdit, picker: 'clientEdit', city: editCity, zip: editZip} only %}
+        {% endblock %}
+        {% block modalSubmit %}Salva modifiche{% endblock %}
+    {% endembed %}
+
+    {# Modale città per il picker (dentro il modale modifica) #}
+    {% include 'components/modals/city.html.twig' with {number: 1, cities: []} only %}
+
+    {# Modale assegna / cambia licenza (come eaml): tipo e data di attivazione. Con un altro tipo il cliente
+       riceve la prima licenza libera di quel tipo (la vecchia torna libera); con lo stesso cambia solo la data. #}
+    {% set license = company.license %}
+    {% embed 'components/modals/form.html.twig' with {type: 'clientLicenseAssign', title: license ? 'Cambia licenza' : 'Assegna licenza', action: path('admin_client_license_assign', {id: company.id})} %}
+        {% block modalBody %}
+            <div class="row g-3">
+                {% if license %}
+                    <div class="col-12">
+                        <div class="alert alert-warning m_b_none font_13">Cambiando tipo, al cliente viene assegnata una licenza libera di quel tipo e quella attuale ({{ license.type.label }}) torna libera. Con lo stesso tipo cambia solo la data di attivazione.</div>
+                    </div>
+                {% endif %}
+                <div class="col-12">
+                    <label class="form-label" for="assign_type_id">Tipo di licenza *</label>
+                    <select id="assign_type_id" name="type_id" class="form-select">
+                        {% set available = licenseTypes|filter(t => (freeCounts[t.id] ?? 0) > 0 or (license and license.type.id == t.id)) %}
+                        {% for t in available %}
+                            {% set isCurrent = license and license.type.id == t.id %}
+                            <option value="{{ t.id }}"{{ isCurrent ? ' selected' : '' }}>{{ t.label }} ({{ t.spaceIncluded|number_format(0, ',', '.') }} MB) · {{ isCurrent ? 'attuale' : (freeCounts[t.id] ~ ' libere') }}</option>
+                        {% else %}
+                            <option value="">Nessuna licenza libera: creane dall'elenco licenze</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-12">
+                    <label class="form-label" for="assign_activation_date">Data di attivazione *</label>
+                    <input type="text" id="assign_activation_date" name="activation_date" class="form-control datepicker" value="{{ 'today'|date('d-m-Y') }}" autocomplete="off">
+                    <div class="form-text">La licenza dura un anno da questa data.</div>
+                </div>
+            </div>
+        {% endblock %}
+        {% block modalSubmit %}{{ license ? 'Cambia' : 'Assegna' }}{% endblock %}
+    {% endembed %}
+
+    {# Modale rinnova (come eaml): nuova data di attivazione sulla stessa licenza; proposta la scadenza attuale,
+       o oggi se è già passata #}
+    {% if license %}
+        {% embed 'components/modals/form.html.twig' with {type: 'clientLicenseRenew', title: 'Rinnova licenza', action: path('admin_client_license_renew', {id: company.id})} %}
+            {% block modalBody %}
+                <div class="row g-3">
+                    <div class="col-12">Licenza: <strong>{{ license.type.label }}</strong> &middot; scade il <strong>{{ license.expirationDate|date('d/m/Y') }}</strong></div>
+                    <div class="col-12">
+                        <label class="form-label" for="renew_activation_date">Nuova data di attivazione *</label>
+                        <input type="text" id="renew_activation_date" name="activation_date" class="form-control datepicker"
+                               value="{{ (license.daysToExpiry > 0 ? license.expirationDate : 'today')|date('d-m-Y') }}" autocomplete="off">
+                        <div class="form-text">La licenza dura un anno da questa data.</div>
+                    </div>
+                </div>
+            {% endblock %}
+            {% block modalSubmit %}Rinnova{% endblock %}
+        {% endembed %}
+    {% endif %}
+
+    {# Modale pacchetto spazio: uno solo per cliente, quello nuovo sostituisce l'attuale #}
+    {% embed 'components/modals/form.html.twig' with {type: 'clientSpaceSet', title: company.spaceExtra ? 'Cambia pacchetto spazio' : 'Aggiungi pacchetto spazio', action: path('admin_client_space_set', {id: company.id})} %}
+        {% block modalBody %}
+            {% if company.spaceExtra %}
+                <div class="alert alert-warning font_13">Il pacchetto attuale ({{ company.spaceExtra.label }}) verrà sostituito.</div>
+            {% endif %}
+            <label class="form-label" for="space_extra_id">Pacchetto *</label>
+            <select id="space_extra_id" name="space_extra_id" class="form-select">
+                {% for e in spaceExtras %}
+                    {% set current = company.spaceExtra and company.spaceExtra.id == e.id %}
+                    <option value="{{ e.id }}"{{ current ? ' disabled' : '' }}>{{ e.label }} ({{ e.space|number_format(0, ',', '.') }} MB){{ current ? ' (attuale)' : '' }}</option>
+                {% endfor %}
+            </select>
+        {% endblock %}
+        {% block modalSubmit %}{{ company.spaceExtra ? 'Cambia' : 'Aggiungi' }}{% endblock %}
+    {% endembed %}
+
+    {# Modale nuovo staff #}
+    {% embed 'components/modals/form.html.twig' with {type: 'staffNew', title: 'Nuovo utente staff', form: formStaff, action: path('admin_client_sheet', {id: company.id})} %}
+        {% block modalBody %}
+            <div class="row g-3">
+                <div class="col-md-6"><div {{ form_errors(formStaff.name) }}><label class="form-label" for="{{ formStaff.name.vars.id }}">Nome *</label>{{ form_widget(formStaff.name) }}</div></div>
+                <div class="col-md-6"><div {{ form_errors(formStaff.surname) }}><label class="form-label" for="{{ formStaff.surname.vars.id }}">Cognome *</label>{{ form_widget(formStaff.surname) }}</div></div>
+                <div class="col-12"><div {{ form_errors(formStaff.email) }}><label class="form-label" for="{{ formStaff.email.vars.id }}">E-mail *</label>{{ form_widget(formStaff.email) }}</div></div>
+            </div>
+        {% endblock %}
+        {% block modalSubmit %}Aggiungi{% endblock %}
+    {% endembed %}
+{% endblock %}
+
+{% block page_javascripts %}
+    {% include 'components/js/tab_session_js.html.twig' %}
+    {% include 'components/js/city_js.html.twig' with {number: 1, formName: 'clientEdit', modalToClose: 'clientEditModal'} only %}
+    {% include 'role/admin/client/_fiscal_js.html.twig' with {prefix: formEdit.vars.id} only %}
+    <script>
+        // Il precaricamento dei CAP del comune salvato lo fa city_js.
+        // Filtro staff lato client.
+        function staffFilterFn() {
+            var qUser = document.getElementById('staffFilterUser').value.trim().toLowerCase();
+            var qEmail = document.getElementById('staffFilterEmail').value.trim().toLowerCase();
+            var rows = document.querySelectorAll('#staffTable tbody tr');
+            rows.forEach(function (tr) {
+                if (!tr.querySelector('.staff-user')) return;
+                var user = ((tr.querySelector('.staff-user') || {}).textContent || '').toLowerCase();
+                var email = ((tr.querySelector('.staff-email') || {}).textContent || '').toLowerCase();
+                var ok = (!qUser || user.indexOf(qUser) !== -1) && (!qEmail || email.indexOf(qEmail) !== -1);
+                tr.style.display = ok ? '' : 'none';
+            });
+        }
+    </script>
+{% endblock %}

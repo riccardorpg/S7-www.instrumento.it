@@ -130,4 +130,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         return $this->getPermissionType($slug) === UserPermission::READ_WRITE;
     }
+
+    public function __toString(): string
+    {
+        return $this->getFullName();
+    }
 }

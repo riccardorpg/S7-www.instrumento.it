@@ -10,13 +10,11 @@
     {# 10.1.5 Le voci compaiono solo a chi ha almeno la lettura sulla sezione. #}
     {% if is_granted('view', 'company') %}
         <li class="menu-item{{ r starts with 'agency_company' ? ' current' : '' }}">
-            <a class="menu-link" href="{{ path('agency_company') }}"><div>Anagrafica agenzia</div></a>
+            <a class="menu-link" href="{{ path('agency_company_sheet') }}"><div>Anagrafica agenzia</div></a>
         </li>
     {% endif %}
     {% if is_granted('view', 'practices') %}
-        {# "agency_practice_mark"/"agency_practice_tag" sono le configurazioni, non le pratiche. #}
-        {% set onPractices = r starts with 'agency_practice' and not (r starts with 'agency_practice_mark') and not (r starts with 'agency_practice_tag') %}
-        <li class="menu-item{{ onPractices ? ' current' : '' }}">
+        <li class="menu-item{{ r starts with 'agency_practice' ? ' current' : '' }}">
             <a class="menu-link" href="{{ path('agency_practices') }}"><div>Pratiche</div></a>
         </li>
     {% endif %}
@@ -32,17 +30,17 @@
     {% endif %}
     {# 13. Configurazioni: una voce di sottomenu per pagina. #}
     {% if is_granted('view', 'configurations') %}
-        <li class="menu-item{{ r starts with 'agency_document_type' or r starts with 'agency_practice_' ? ' current' : '' }}">
-            <a class="menu-link" href="{{ path('agency_document_types') }}"><div>Configurazioni</div></a>
+        <li class="menu-item{{ r starts with 'agency_configuration' ? ' current' : '' }}">
+            <a class="menu-link" href="{{ path('agency_configuration_document_types') }}"><div>Configurazioni</div></a>
             <ul class="sub-menu-container">
-                <li class="menu-item{{ r starts with 'agency_document_type' ? ' current' : '' }}">
-                    <a class="menu-link" href="{{ path('agency_document_types') }}">Tipi di documento</a>
+                <li class="menu-item{{ r starts with 'agency_configuration_document_type' ? ' current' : '' }}">
+                    <a class="menu-link" href="{{ path('agency_configuration_document_types') }}">Tipi di documento</a>
                 </li>
-                <li class="menu-item{{ r starts with 'agency_practice_mark' ? ' current' : '' }}">
-                    <a class="menu-link" href="{{ path('agency_practice_marks') }}">Contrassegni pratiche</a>
+                <li class="menu-item{{ r starts with 'agency_configuration_mark' ? ' current' : '' }}">
+                    <a class="menu-link" href="{{ path('agency_configuration_marks') }}">Contrassegni pratiche</a>
                 </li>
-                <li class="menu-item{{ r starts with 'agency_practice_tag' ? ' current' : '' }}">
-                    <a class="menu-link" href="{{ path('agency_practice_tags') }}">Tag pratiche</a>
+                <li class="menu-item{{ r starts with 'agency_configuration_tag' ? ' current' : '' }}">
+                    <a class="menu-link" href="{{ path('agency_configuration_tags') }}">Tag pratiche</a>
                 </li>
             </ul>
         </li>

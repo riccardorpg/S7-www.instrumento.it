@@ -1,0 +1,293 @@
+{% extends 'role/agency/layout.html.twig' %}
+{% import 'components/action_icons.html.twig' as ico %}
+{% import 'components/practice_status.html.twig' as practiceStatus %}
+
+{% block title %} - {{ customer.fullName }}{% endblock %}
+{% block role_page_title_inner %}{{ customer.fullName }}{% endblock %}
+
+{% block role_page_title_breadcrumb %}
+    <li class="breadcrumb-item"><a href="{{ path('agency_index') }}">Agenzia</a></li>
+    <li class="breadcrumb-item"><a href="{{ path('agency_customers') }}">Clienti</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ customer.fullName }}</li>
+{% endblock %}
+
+{% block sub_menu_left %}
+    <li class="nav-item"><a class="nav-link" href="{{ path('agency_customers') }}"><i class="bi-arrow-left"></i> Torna all'elenco</a></li>
+{% endblock %}
+
+{% block sub_menu_right %}
+    {% if is_granted('edit', 'customers') %}
+        <li class="nav-item"><a class="nav-link" href="javascript:customerEditOpen()"><i class="bi-pencil-square"></i> Modifica</a></li>
+    {% endif %}
+{% endblock %}
+
+{% block role_content %}
+    <section class="content-wrap">
+        <div class="container">
+            <ul class="nav nav-tabs canvas-alt-tabs tabs-tb" role="tablist">
+                <li class="nav-item">
+                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-anagrafica" type="button">Anagrafica</button>
+                </li>
+                <li class="nav-item">
+                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-pratiche" type="button">
+                        Pratiche <span class="badge bg-secondary">{{ practices|length }}</span>
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content p_t_20p">
+
+                {# ===== 11.2.1 / 11.2.2 Anagrafica e dati fiscali ===== #}
+                <div class="tab-pane fade show active" id="tab-anagrafica">
+                    <h6 class="m_b_10p">Dati anagrafici</h6>
+                    <table class="table align-middle m_b_none v_a_m">
+                        <tr><th style="width:25%">Nome</th><td>{{ customer.name ?: '-' }}</td></tr>
+                        <tr><th>Cognome / Ragione sociale</th><td>{{ customer.surname }}</td></tr>
+                        <tr><th>Luogo di nascita</th><td>{{ customer.birthPlace ?: '-' }}</td></tr>
+                        <tr><th>Data di nascita</th><td>{{ customer.birthDate ? customer.birthDate|date('d/m/Y') : '-' }}</td></tr>
+                        <tr><th>Indirizzo</th><td>{{ customer.address ?: '-' }}</td></tr>
+                        <tr><th>Città</th><td>{{ customer.city ? (customer.zip ? customer.zip ~ ' ' : '') ~ customer.city : '-' }}</td></tr>
+                        <tr><th>E-mail</th><td>{{ customer.email ?: '-' }}</td></tr>
+                        <tr><th>Telefono</th><td>{{ customer.phone ?: '-' }}</td></tr>
+                    </table>
+
+                    <h6 class="p_t_20p m_b_10p">Dati fiscali</h6>
+                    <table class="table align-middle m_b_none v_a_m">
+                        <tr><th style="width:25%">Codice fiscale</th><td>{{ customer.fiscalCode ?: '-' }}</td></tr>
+                        <tr><th>Partita IVA</th><td>{{ customer.vatNumber ?: '-' }}</td></tr>
+                        <tr><th>PEC</th><td>{{ customer.pec ?: '-' }}</td></tr>
+                        <tr><th>Codice SDI</th><td>{{ customer.sdi ?: '-' }}</td></tr>
+                        <tr><th>Note</th><td>{{ customer.notes ? customer.notes|nl2br : '-' }}</td></tr>
+                    </table>
+                </div>
+
+                {# ===== 11.2.3 Elenco pratiche del cliente =====
+                   Le pratiche di un cliente sono poche e già tutte in pagina: il filtro
+                   lavora in JS sulle righe, senza ricaricare. #}
+                <div class="tab-pane fade" id="tab-pratiche">
+                    <table class="table table-hover table-bordered align-middle m_b_none v_a_m">
+                        <thead>
+                            {# Un filtro per campo: ogni input lavora sulla propria colonna
+                               tramite i data-* della riga (vedi JS in fondo alla pagina). #}
+                            <tr class="tr_filter">
+                                {# Stato: scelta multipla in modale (stesso componente dell'elenco pratiche). #}
+                                <td>
+                                    <input type="text" class="form-control form-control-sm cursor_p" id="filter_multi_value_1"
+                                           readonly onclick="filterMulti1()" autocomplete="off">
+                                    <input type="hidden" id="filter_multi_id_1" value="">
+                                </td>
+                                {# Data creazione: intervallo dal daterangepicker. #}
+                                <td>
+                                    <input type="text" class="form-control form-control-sm cursor_p" id="practiceFilterCreated" autocomplete="off" readonly>
+                                </td>
+                                <td>
+                                    <select class="form-select form-select-sm practice-filter" data-field="type">
+                                        <option value="">Tutte</option>
+                                        <option value="Con mutuo">Con mutuo</option>
+                                        <option value="Senza mutuo">Senza mutuo</option>
+                                    </select>
+                                </td>
+                                <td><input type="text" class="form-control form-control-sm practice-filter" data-field="seller" autocomplete="off"></td>
+                                <td><input type="text" class="form-control form-control-sm practice-filter" data-field="buyer" autocomplete="off"></td>
+                                <td><input type="text" class="form-control form-control-sm practice-filter" data-field="number" autocomplete="off"></td>
+                                <td><input type="text" class="form-control form-control-sm practice-filter" data-field="address" autocomplete="off"></td>
+                                <td class="txt_a_c text-nowrap">
+                                    <button type="button" class="btn p-0 border-0 bg-transparent" id="practiceFilterReset"
+                                            data-bs-toggle="tooltip" data-bs-title="Azzera filtri">
+                                        <img src="{{ asset(PATH_GRAPHICS ~ 'icons/close.png') }}" class="icon_action icon_red" alt="Azzera filtri">
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th class="td_w_120p">Stato</th>
+                                <th class="td_w_120p">Data creazione</th>
+                                <th class="td_w_150p">Tipo</th>
+                                <th>Venditore</th>
+                                <th>Acquirente</th>
+                                <th class="td_w_150p">Codice</th>
+                                <th>Indirizzo</th>
+                                <th class="td_w_100p txt_a_c">Scheda</th>
+                            </tr>
+                        </thead>
+                        <tbody id="practiceRows">
+                        {% for p in practices %}
+                            <tr class="practice-row"
+                                data-status="{{ p.status }}"
+                                data-date-iso="{{ p.createdAt ? p.createdAt|date('Y-m-d') : '' }}"
+                                data-type="{{ p.typeLabel }}"
+                                data-seller="{{ p.seller ? p.seller.fullName : '' }}"
+                                data-buyer="{{ p.buyer ? p.buyer.fullName : '' }}"
+                                data-number="{{ p.number }}"
+                                data-address="{{ p.address }}">
+                                <td>{{ practiceStatus.badge(p.status, p.statusLabel) }}</td>
+                                <td>{{ p.createdAt ? p.createdAt|date('d/m/Y') : '-' }}</td>
+                                <td>{{ p.typeLabel }}</td>
+                                <td>
+                                    {{ p.seller ? p.seller.fullName : '-' }}
+                                    {% if p.seller and p.seller.id == customer.id %}<span class="badge bg-light text-dark">questo cliente</span>{% endif %}
+                                </td>
+                                <td>
+                                    {{ p.buyer ? p.buyer.fullName : '-' }}
+                                    {% if p.buyer and p.buyer.id == customer.id %}<span class="badge bg-light text-dark">questo cliente</span>{% endif %}
+                                </td>
+                                <td>{{ p.number }}</td>
+                                <td>{{ p.address ?: '-' }}</td>
+                                {# 11.2.3.8 Link alla scheda pratica (12.3). #}
+                                <td class="txt_a_c">{{ ico.action(path('agency_practice_sheet', {id: p.id}), 'sheet', 'Apri la scheda', 'green') }}</td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="8" class="op_07 text-center">Nessuna pratica collegata a questo cliente.</td></tr>
+                        {% endfor %}
+                        {# Mostrata dal JS quando il filtro non trova nulla. #}
+                        <tr id="practiceNoMatch" class="d-none"><td colspan="8" class="op_07 text-center">Nessuna pratica corrisponde al filtro.</td></tr>
+                        </tbody>
+                    </table>
+                    {% if practices|length %}
+                        <small class="op_07" id="practiceCount"></small>
+                    {% endif %}
+                </div>
+
+            </div>
+        </div>
+    </section>
+{% endblock %}
+
+{% block modals %}
+    {# 11.2.3 Filtro stato a scelta multipla #}
+    {% include 'components/modals/filter_multi.html.twig' with {
+        number: 1,
+        title: 'Filtra per stato',
+        options: statuses|map((label, value) => {'id': value, 'label': label})
+    } only %}
+
+    {% if is_granted('edit', 'customers') %}
+        {% embed 'components/modals/form.html.twig' with {type: 'customerEdit', title: 'Modifica cliente', form: formEdit, size: 'modal-lg'} %}
+            {% block modalBody %}{{ include('role/agency/customer/_form_fields.html.twig', {form: formEdit}) }}{% endblock %}
+        {% endembed %}
+    {% endif %}
+{% endblock %}
+
+{% block page_javascripts %}
+{# 11.2.3 Filtro delle pratiche lato client: stato a scelta multipla, data creazione a
+   intervallo, tipo a select, il resto per sottostringa. I due componenti vanno inclusi
+   prima dello script sotto, che si aggancia alle funzioni che definiscono. #}
+{% include 'components/js/filter_multi_js.html.twig' with {number: 1} only %}
+{% include 'components/js/daterangepicker_js.html.twig' with {
+    id: 'practiceFilterCreated', format: 'DD/MM/YYYY', hasTimePicker: 'false'
+} only %}
+<script>
+    (function () {
+        var body = document.getElementById('practiceRows');
+        if (!body) return;
+        var rows = Array.prototype.slice.call(body.querySelectorAll('.practice-row'));
+        if (!rows.length) return;
+
+        var filters = Array.prototype.slice.call(document.querySelectorAll('.practice-filter'));
+        var statusIds = document.getElementById('filter_multi_id_1');
+        var statusLabels = document.getElementById('filter_multi_value_1');
+        var created = document.getElementById('practiceFilterCreated');
+        var noMatch = document.getElementById('practiceNoMatch');
+        var counter = document.getElementById('practiceCount');
+
+        // Valori normalizzati una volta sola: il filtro non rilegge il DOM a ogni tasto.
+        rows.forEach(function (row) {
+            row.filterValues = {};
+            filters.forEach(function (input) {
+                var field = input.dataset.field;
+                row.filterValues[field] = (row.dataset[field] || '').toLowerCase();
+            });
+        });
+
+        /* Stati selezionati nel modale: lista vuota = nessun filtro, cioè tutti. */
+        function selectedStatuses() {
+            return ((statusIds && statusIds.value) || '').split(',').filter(Boolean);
+        }
+
+        function toIso(value) {
+            var m = value.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+
+            return m ? m[3] + '-' + m[2] + '-' + m[1] : null;
+        }
+
+        /* Il daterangepicker scrive "GG/MM/AAAA - GG/MM/AAAA": lo porto in ISO per
+           confrontarlo con data-date-iso della riga, che è già ordinabile. */
+        function selectedRange() {
+            var parts = ((created && created.value) || '').split(' - ');
+            if (parts.length !== 2) return null;
+            var from = toIso(parts[0]), to = toIso(parts[1]);
+
+            return from && to ? [from, to] : null;
+        }
+
+        function apply() {
+            var visible = 0;
+            var statuses = selectedStatuses();
+            var range = selectedRange();
+
+            rows.forEach(function (row) {
+                var ok = filters.every(function (input) {
+                    var needle = (input.value || '').trim().toLowerCase();
+                    if (needle === '') return true;
+                    var value = row.filterValues[input.dataset.field];
+                    // Le select filtrano per corrispondenza esatta, i testi per sottostringa.
+                    return input.tagName === 'SELECT' ? value === needle : value.indexOf(needle) !== -1;
+                });
+                if (ok && statuses.length) {
+                    ok = statuses.indexOf(row.dataset.status) !== -1;
+                }
+                if (ok && range) {
+                    // Riga senza data: non può cadere in un intervallo.
+                    var day = row.dataset.dateIso || '';
+                    ok = day !== '' && day >= range[0] && day <= range[1];
+                }
+                row.classList.toggle('d-none', !ok);
+                if (ok) visible++;
+            });
+
+            noMatch.classList.toggle('d-none', visible > 0);
+            if (counter) {
+                counter.textContent = visible === rows.length
+                    ? rows.length + (rows.length === 1 ? ' pratica' : ' pratiche')
+                    : visible + ' di ' + rows.length + ' pratiche';
+            }
+        }
+
+        filters.forEach(function (input) {
+            input.addEventListener(input.tagName === 'SELECT' ? 'change' : 'input', apply);
+        });
+
+        document.getElementById('practiceFilterReset').addEventListener('click', function () {
+            filters.forEach(function (input) { input.value = ''; });
+            if (statusIds) statusIds.value = '';
+            if (statusLabels) { statusLabels.value = ''; statusLabels.removeAttribute('title'); }
+            if (created) created.value = '';
+            apply();
+        });
+
+        /* Il modale a scelta multipla normalmente invia il form: qui non c'è, quindi ci
+           si aggancia al suo "Aggiorna filtro" per rifiltrare le righe già in pagina. */
+        document.addEventListener('DOMContentLoaded', function () {
+            var setMulti = window.setFilterMulti1;
+            if (typeof setMulti === 'function') {
+                window.setFilterMulti1 = function () { setMulti(); apply(); };
+            }
+        });
+
+        if (window.jQuery) {
+            jQuery(function ($) {
+                $('#practiceFilterCreated').on('apply.daterangepicker cancel.daterangepicker', apply);
+            });
+        }
+
+        apply();
+    })();
+</script>
+{% if is_granted('edit', 'customers') %}
+<script>
+    /* Il form di modifica è già compilato con i dati del cliente (CustomerType sull'entity). */
+    function customerEditOpen() {
+        customerEditShow();
+    }
+</script>
+{% endif %}
+{% endblock %}

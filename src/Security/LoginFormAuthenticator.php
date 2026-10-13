@@ -12,6 +12,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
+use Symfony\Component\Security\Core\Exception\CustomUserMessageAuthenticationException;
 use Symfony\Component\Security\Core\Exception\UserNotFoundException;
 use Symfony\Component\Security\Http\Authenticator\AbstractLoginFormAuthenticator;
 use Symfony\Component\Security\Http\Authenticator\Passport\Badge\CsrfTokenBadge;
@@ -111,6 +112,11 @@ class LoginFormAuthenticator extends AbstractLoginFormAuthenticator
                     ->findOneBy(['email' => $identifier]);
 
                 if ($agencyUser instanceof SlaveUser) {
+                    // Come in eaml: senza una licenza valida (assegnata, attiva, non scaduta) non si entra.
+                    if (!$company->hasValidLicense()) {
+                        throw new CustomUserMessageAuthenticationException('La licenza della tua agenzia è scaduta o non attiva: contatta l\'amministratore.');
+                    }
+
                     return $agencyUser;
                 }
             }

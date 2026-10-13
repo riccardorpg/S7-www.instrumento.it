@@ -47,17 +47,47 @@
         }
 
         // Al load: se un filtro è attivo mostra le etichette scelte, altrimenti lascia il
-        // placeholder "Tutti" (gli switch sono comunque tutti attivi).
+        // campo vuoto (gli switch sono comunque tutti attivi).
         if (applySaved()) refreshDisplay();
 
         // Riapre il modale sempre allineato al filtro salvato, anche dopo un "Annulla".
-        window.filterMulti{{ number }} = function () { applySaved(); modal.show(); };
+        // Ogni apertura riparte anche senza ricerca, con tutti i valori visibili.
+        var searchInput = document.getElementById('filterMultiSearch{{ number }}');
+        window.filterMulti{{ number }} = function () {
+            applySaved();
+            if (searchInput) searchInput.value = '';
+            window.filterMultiSearch{{ number }}();
+            modal.show();
+        };
+        modalEl.addEventListener('shown.bs.modal', function () { if (searchInput) searchInput.focus(); });
+
+        // Ricerca sulle etichette (data-val), senza distinzione fra maiuscole e minuscole.
+        window.filterMultiSearch{{ number }} = function () {
+            var q = searchInput ? searchInput.value.trim().toLowerCase() : '';
+            var sw = switches();
+            for (var i = 0; i < sw.length; i++) {
+                var row = sw[i].closest('tr');
+                if (row) row.style.display = (sw[i].getAttribute('data-val') || '').toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+            }
+        };
+
+        // Agisce sui soli valori visibili: quelli nascosti dalla ricerca conservano la spunta.
+        window.filterMultiFiltered{{ number }} = function (bool) {
+            var sw = switches();
+            for (var i = 0; i < sw.length; i++) {
+                var row = sw[i].closest('tr');
+                if (row && row.style.display === 'none') continue;
+                sw[i].checked = bool;
+            }
+        };
+
+        // Su tutti i valori, anche quelli nascosti dalla ricerca.
         window.filterMultiAll{{ number }} = function (bool) {
             var sw = switches();
             for (var i = 0; i < sw.length; i++) sw[i].checked = bool;
         };
         window.setFilterMulti{{ number }} = function () {
-            // Tutti attivi (o nessuno) = nessun filtro: campo vuoto e placeholder "Tutti".
+            // Tutti attivi (o nessuno) = nessun filtro: campo vuoto (senza placeholder: CONVENZIONI 8).
             if (allChecked()) {
                 valueInput.value = '';
                 valueInput.removeAttribute('title');

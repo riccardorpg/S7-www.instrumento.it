@@ -2,8 +2,10 @@ knp_paginator:
     page_range: 5
     default_options:
         page_name: page
-        sort_field_name: sort
-        sort_direction_name: direction
+        # L'ordinamento lo applicano i repository dai filtri (sortField / sortOrder, CONVENZIONI 5):
+        # il paginator ascolta parametri che nessuno invia, così un vecchio ?sort= non ordina nulla.
+        sort_field_name: knp_sort_disabled
+        sort_direction_name: knp_direction_disabled
         distinct: true
     template:
         pagination: '@KnpPaginator/Pagination/bootstrap_v5_pagination.html.twig'

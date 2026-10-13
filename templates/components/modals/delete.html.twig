@@ -1,0 +1,43 @@
+{# =====================================================================
+   Modale conferma eliminazione (form HTML, imitazione DualMoto BS5).
+   Variabili (include):
+     type   : prefisso ID (es. 'client', 'external')
+     title  : titolo (es. 'Cliente')
+     text   : testo dopo "Cliccando su Conferma ..." (es. "eliminerai il cliente selezionato")
+   Espone JS: window["{type}Delete"](url) → imposta l'action del form e apre il modale.
+   ===================================================================== #}
+<div id="{{ type }}DeleteModal" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form id="{{ type }}DeleteForm" method="post" action="">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('delete') }}">
+                <div class="modal-header"><h3 class="modal-title">Elimina {{ title|lower }}</h3></div>
+                <div class="modal-stripe"></div>
+                <div class="modal-body">
+                    <div class="txt_a_c">
+                        <label class="modal_subtitle">Attenzione!</label>
+                        <p class="modal-paragraph">
+                            Cliccando su <span class="button button-3d button-mini button-green">Conferma</span>
+                            {{ text|raw }}.<br>Sei sicuro di voler proseguire?
+                        </p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="button button-3d button-small button-red f_left" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="button button-3d button-small button-green f_right">Conferma</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script>
+    (function () {
+        var el = document.getElementById("{{ type }}DeleteModal");
+        if (!el) return;
+        var modal = new bootstrap.Modal(el, {backdrop: 'static', keyboard: false});
+        window["{{ type }}Delete"] = function (url) {
+            document.getElementById("{{ type }}DeleteForm").action = url;
+            modal.show();
+        };
+    })();
+</script>

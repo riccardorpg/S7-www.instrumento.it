@@ -3,7 +3,9 @@
 namespace App\Repository\Slave;
 
 use App\Entity\Slave\DocumentType;
+use App\Repository\Trait\RepositoryTrait;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\Query;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -11,9 +13,30 @@ use Doctrine\Persistence\ManagerRegistry;
  */
 class DocumentTypeRepository extends ServiceEntityRepository
 {
+    use RepositoryTrait;
+
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, DocumentType::class);
+    }
+
+    /** 13.1 Elenco tipi di documento filtrato (filtri da FilterService::documentTypeFilter). */
+    public function queryAllFiltered(array $filters): Query
+    {
+        $qb = $this->createQueryBuilder('t')->where('1=1');
+        $params = [];
+
+        if ($filters['value'] !== '') {
+            $qb->andWhere('t.value LIKE :value');
+            $params['value'] = '%' . $filters['value'] . '%';
+        }
+
+        foreach ($params as $key => $value) {
+            $qb->setParameter($key, $value);
+        }
+        $this->applySort($qb, $filters, ['t.priority', 't.value'], 't.priority');
+
+        return $qb->getQuery();
     }
 
     /**

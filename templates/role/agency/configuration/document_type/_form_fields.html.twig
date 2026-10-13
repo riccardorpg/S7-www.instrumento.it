@@ -1,0 +1,15 @@
+{# 13.1 Campi del tipo di documento (DocumentTypeType). Variabile: form.
+   Fuori dal form: la priorità (si imposta trascinando la riga) e lo stato
+   (si cambia con l'icona attiva/disattiva nell'elenco). #}
+<div class="row g-3">
+    <div class="col-12">
+        <div {{ form_errors(form.value) }}><label class="form-label" for="{{ form.value.vars.id }}">Valore *</label>{{ form_widget(form.value) }}</div>
+    </div>
+    <div class="col-12">
+        <div class="form-check form-switch">
+            {{ form_widget(form.mortgage) }}
+            <label class="form-check-label" for="{{ form.mortgage.vars.id }}">Mutuo</label>
+        </div>
+        <small class="op_07">Richiesto solo nelle pratiche con mutuo.</small>
+    </div>
+</div>

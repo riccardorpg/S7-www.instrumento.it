@@ -20,4 +20,9 @@ class PracticeMark
     use IdTrait;
     use ColorValueTrait;
     use TimestampsTrait;
+
+    public function __toString(): string
+    {
+        return $this->getValue();
+    }
 }

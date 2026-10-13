@@ -294,6 +294,7 @@
 .td_w_250p { min-width:250px!important; width:250px!important }
 .td_w_300p { min-width:300px!important; width:300px!important }
 .td_w_340p { min-width:340px!important; width:340px!important }
+.td_w_350p { min-width:350px!important; width:350px!important }
 .td_w_400p { min-width:400px!important; width:400px!important }
 .td_w_500p { min-width:500px!important; width:500px!important }
 .td_w_1000p { min-width:1000px!important; width:1000px!important }
@@ -496,6 +497,8 @@ ul.navbar-nav li.nav-item a.nav-link:hover { background-color: rgba(0, 0, 0, 0.1
 
 /* CLASSES */
 .alert { z-index: 2999!important }
+/* Dentro i modali l'alert resta nel flusso: con 2999 coprirebbe i calendari (datepicker) che si aprono sopra */
+.modal .alert { z-index: auto!important }
 .box { border: 2px solid #F9BCDB!important; width: 210px!important; height: 210px!important; padding: 10px!important; border-radius: 5px!important; box-shadow: 10px 10px 5px #dedede!important }
 .box:hover { box-shadow: none!important; background-color: #eeeeee!important }
 .heading-block::after { border-color: #f4a02c!important }
@@ -648,3 +651,10 @@ ul.navbar-nav li.nav-item a.nav-link:hover { background-color: rgba(0, 0, 0, 0.1
    ============================================================================= */
 
 /* Il brand è definito una volta sola nel blocco [4]: qui niente ridefinizioni. */
+
+/* Collegamenti alle sezioni dalla scrivania (components/page_link.html.twig). */
+.rpg_page_link { color: inherit; transition: box-shadow .15s, border-color .15s; }
+.rpg_page_link:hover { color: inherit; border-color: var(--eb-brand, #1d4ed8); box-shadow: 0 4px 14px rgba(0,0,0,.08); }
+
+/* Pallino di stato (icons/circle_*.png) nelle tabelle: 20px, senza il bordo delle icone azione. */
+.icon_status { width: 20px !important; height: 20px !important; min-width: 0 !important; min-height: 0 !important; padding: 0 !important; border: 0 !important; background-color: transparent !important; vertical-align: middle; }

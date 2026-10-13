@@ -1,0 +1,101 @@
+{% extends 'role/agency/layout.html.twig' %}
+{% import 'components/action_icons.html.twig' as ico %}
+
+{% block title %} - Clienti{% endblock %}
+{% block role_page_title_inner %}Clienti{% endblock %}
+
+{% block role_page_title_breadcrumb %}
+    <li class="breadcrumb-item"><a href="{{ path('agency_index') }}">Agenzia</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Clienti</li>
+{% endblock %}
+
+{% block sub_menu_left %}
+    <li class="nav-item"><a class="nav-link" href="{{ path('agency_index') }}"><i class="bi-arrow-left"></i> Torna alla scrivania</a></li>
+{% endblock %}
+
+{% block sub_menu_right %}
+    {% if is_granted('edit', 'customers') %}
+        <li class="nav-item"><a class="nav-link" href="javascript:customerNewOpen()"><i class="bi-plus-lg"></i> Nuovo</a></li>
+    {% endif %}
+{% endblock %}
+
+{% block role_content %}
+    <section class="content-wrap">
+        <div class="container">
+            <form id="customerFilter" method="get" action="{{ path('agency_customers') }}">
+                <input type="hidden" name="filterSet" value="1">
+                <input type="hidden" id="customerFilter_sort" name="sortField" value="{{ filters.sortField }}">
+                <input type="hidden" id="customerFilter_direction" name="sortOrder" value="{{ filters.sortOrder }}">
+            </form>
+
+            <table class="table table-hover table-bordered align-middle m_b_none v_a_m">
+                <thead>
+                    <tr class="tr_filter">
+                        <td>
+                            <div class="d-flex align-items-center gap-1">
+                                {{ ico.action(path('remove_filter', {route: 'agency_customers'}), 'close', 'Escludi filtro', 'red') }}
+                                <input form="customerFilter" name="f_name" value="{{ filters.name }}" class="form-control form-control-sm">
+                            </div>
+                        </td>
+                        <td><input form="customerFilter" name="f_surname" value="{{ filters.surname }}" class="form-control form-control-sm"></td>
+                        <td><input form="customerFilter" name="f_fiscal" value="{{ filters.fiscal }}" class="form-control form-control-sm"></td>
+                        <td><input form="customerFilter" name="f_address" value="{{ filters.address }}" class="form-control form-control-sm"></td>
+                        <td class="txt_a_c text-nowrap">
+                            <button form="customerFilter" type="submit" class="btn p-0 border-0 bg-transparent" data-bs-toggle="tooltip" data-bs-title="Filtra">
+                                <img src="{{ asset(PATH_GRAPHICS ~ 'icons/search.png') }}" class="icon_action icon_green" alt="Filtra">
+                            </button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>{{ ico.sort('Nome', 'c.name') }}</th>
+                        <th>{{ ico.sort('Cognome', 'c.surname') }}</th>
+                        <th class="td_w_200p">{{ ico.sort('Codice fiscale', 'c.fiscalCode') }}</th>
+                        <th>Indirizzo</th>
+                        <th class="td_w_100p txt_a_c">Scheda</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for c in records %}
+                    <tr>
+                        <td>{{ c.name ?: '-' }}</td>
+                        <td>{{ c.surname }}</td>
+                        <td>{{ c.fiscalCode ?: c.vatNumber ?: '-' }}</td>
+                        <td>{{ c.fullAddress ?: '-' }}</td>
+                        {# 11.1.5 Link alla scheda #}
+                        <td class="txt_a_c">
+                            {{ ico.action(path('agency_customer_sheet', {id: c.id}), 'sheet', 'Apri la scheda', 'green') }}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="5" class="op_07 text-center">Nessun cliente trovato.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% include 'components/table/paginator.html.twig' with {records: records} only %}
+        </div>
+    </section>
+{% endblock %}
+
+{% block modals %}
+    {% if is_granted('edit', 'customers') %}
+        {% embed 'components/modals/form.html.twig' with {type: 'customerNew', title: 'Nuovo cliente', form: formNew, size: 'modal-lg'} %}
+            {% block modalBody %}{{ include('role/agency/customer/_form_fields.html.twig', {form: formNew}) }}{% endblock %}
+            {% block modalSubmit %}Crea{% endblock %}
+        {% endembed %}
+    {% endif %}
+{% endblock %}
+
+{% block page_javascripts %}
+{% if is_granted('edit', 'customers') %}
+<script>
+    function customerNewOpen() {
+        document.getElementById('customerNewForm').reset();
+        customerNewShow();
+    }
+</script>
+{% endif %}
+{% include 'components/table/sort_js.html.twig' with {
+    formName: 'customerFilter', sortId: 'customerFilter_sort', directionId: 'customerFilter_direction',
+    actualSort: filters.sortField, actualDirection: filters.sortOrder
+} only %}
+{% endblock %}

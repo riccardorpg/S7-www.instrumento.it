@@ -12,11 +12,11 @@ class Province
 {
     use IdTrait;
 
-    #[ORM\Column(type: 'string', length: 191)]
+    #[ORM\Column(name: 'name', type: 'string', length: 191)]
     private ?string $name = null;
 
     /** Sigla provinciale a 2 lettere (es. "MI"). */
-    #[ORM\Column(type: 'string', length: 8)]
+    #[ORM\Column(name: 'sign', type: 'string', length: 8)]
     private ?string $sign = null;
 
     #[ORM\ManyToOne(targetEntity: Region::class)]

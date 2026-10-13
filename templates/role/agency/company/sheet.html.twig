@@ -1,0 +1,208 @@
+{% extends 'role/agency/layout.html.twig' %}
+
+{# 7.1.9 Anagrafica della propria agenzia: i dati stanno su Company (DB master).
+   Codice cliente, licenza, quota e stato li gestisce l'amministrazione: qui si leggono. #}
+{% set canEdit = is_granted('edit', 'company') %}
+
+{% block title %} - Anagrafica agenzia{% endblock %}
+{% block role_page_title_inner %}Anagrafica agenzia{% endblock %}
+
+{% block role_page_title_breadcrumb %}
+    <li class="breadcrumb-item"><a href="{{ path('agency_index') }}">Agenzia</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Anagrafica</li>
+{% endblock %}
+
+{% block sub_menu_left %}
+    <li class="nav-item"><a class="nav-link" href="{{ path('agency_index') }}"><i class="bi-arrow-left"></i> Torna alla scrivania</a></li>
+{% endblock %}
+
+{% block role_content %}
+    <section class="content-wrap">
+        <div class="container">
+
+            {# ===== 7.1.9.8 Logo ===== #}
+            <div class="d-flex justify-content-between align-items-center m_b_10p">
+                <h6 class="m-0">Logo</h6>
+                {% if canEdit %}
+                    <a href="javascript:companyLogoShow()" class="button button-3d button-mini button-amber m-0">Modifica</a>
+                {% endif %}
+            </div>
+            <div class="d-flex align-items-center gap-3 m_b_30p">
+                {% if company.logo %}
+                    <img src="{{ path('agency_company_logo_file') }}" alt="Logo {{ company.name }}"
+                         style="max-height:90px; max-width:260px;">
+                    {% if canEdit %}
+                        <a href="javascript:logoDelete('{{ path('agency_company_logo_delete') }}')" class="button button-3d button-mini button-red m-0">Rimuovi</a>
+                    {% endif %}
+                {% else %}
+                    <span class="op_07">Nessun logo caricato.</span>
+                {% endif %}
+            </div>
+
+            {# ===== 7.1.9.1 Dati anagrafici ===== #}
+            <div class="d-flex justify-content-between align-items-center m_b_10p">
+                <h6 class="m-0">Dati anagrafici</h6>
+                {% if canEdit %}
+                    <a href="javascript:companyProfileOpen()" class="button button-3d button-mini button-amber m-0">Modifica</a>
+                {% endif %}
+            </div>
+            <table class="table align-middle m_b_30p v_a_m">
+                <tr><th style="width:25%">Ragione sociale / Nome</th><td>{{ company.name }}</td></tr>
+                <tr><th>Tipo</th><td>{{ company.clientTypeLabel }}</td></tr>
+                <tr>
+                    <th>Indirizzo</th>
+                    <td>{{ company.address ? company.address ~ (company.civic ? ', ' ~ company.civic : '') : '-' }}</td>
+                </tr>
+                <tr>
+                    <th>Città</th>
+                    <td>
+                        {# City ha __toString: "Comune (SIGLA)", come nella scheda cliente dell'admin. #}
+                        {% if company.city %}
+                            {{ company.zip ? company.zip.code ~ ' ' : '' }}{{ company.city }}
+                        {% else %}-{% endif %}
+                    </td>
+                </tr>
+            </table>
+
+            {# ===== 7.1.9.1 Dati fiscali ===== #}
+            <div class="d-flex justify-content-between align-items-center m_b_10p">
+                <h6 class="m-0">Dati fiscali</h6>
+                {% if canEdit %}
+                    <a href="javascript:companyTaxOpen()" class="button button-3d button-mini button-amber m-0">Modifica</a>
+                {% endif %}
+            </div>
+            <table class="table align-middle m_b_30p v_a_m">
+                <tr><th style="width:25%">Partita IVA</th><td>{{ company.vatNumber ?: '-' }}</td></tr>
+                <tr><th>Codice fiscale</th><td>{{ company.taxCode ?: '-' }}</td></tr>
+                <tr><th>Codice SDI</th><td>{{ company.sdi ?: '-' }}</td></tr>
+                <tr><th>PEC</th><td>{{ company.pec ?: '-' }}</td></tr>
+            </table>
+
+            {# ===== Dati di servizio: li gestisce l'amministrazione della piattaforma ===== #}
+            <h6 class="m_b_10p">Abbonamento</h6>
+            <table class="table align-middle m_b_none v_a_m">
+                <tr><th style="width:25%">Codice cliente</th><td><span class="badge bg-secondary">{{ company.code }}</span></td></tr>
+                <tr><th>Licenza</th><td>{{ company.licenseTypeLabel }}</td></tr>
+                <tr>
+                    <th>Scadenza</th>
+                    <td>{{ company.licenseExpiresAt ? company.licenseExpiresAt|date('d/m/Y') : '-' }}</td>
+                </tr>
+                <tr>
+                    <th>Spazio</th>
+                    <td>
+                        {{ storageUsedMb|number_format(1, ',', '.') }} MB
+                        <span class="op_07 font_13">su {{ company.storageQuotaMb|number_format(0, ',', '.') }} MB</span>
+                    </td>
+                </tr>
+            </table>
+            <small class="op_07">
+                Codice cliente, licenza e spazio sono gestiti dall'amministrazione della piattaforma.
+            </small>
+        </div>
+    </section>
+{% endblock %}
+
+{% block modals %}
+    {% include 'components/modals/delete.html.twig' with {type: 'logo', title: 'Logo', text: 'rimuoverai il logo dell\'agenzia'} %}
+    {% if canEdit %}
+        {# I tre form si inviano alla scheda stessa (CONVENZIONI 6): se tornano con errori il modale si riapre da solo. #}
+
+        {# 7.1.9.1 Dati anagrafici #}
+        {% embed 'components/modals/form.html.twig' with {
+            type: 'companyProfile', title: 'Dati anagrafici', form: formProfile, action: path('agency_company_sheet'), size: 'modal-lg'
+        } %}
+            {% block modalBody %}
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <div {{ form_errors(formProfile.name) }}><label class="form-label" for="{{ formProfile.name.vars.id }}">Ragione sociale / Nome *</label>{{ form_widget(formProfile.name, {attr: {class: 'form-control', maxlength: 191}}) }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div {{ form_errors(formProfile.clientType) }}><label class="form-label" for="{{ formProfile.clientType.vars.id }}">Tipo</label>{{ form_widget(formProfile.clientType) }}</div>
+                    </div>
+                    <div class="col-md-9">
+                        <div {{ form_errors(formProfile.address) }}><label class="form-label" for="{{ formProfile.address.vars.id }}">Indirizzo</label>{{ form_widget(formProfile.address, {attr: {class: 'form-control', maxlength: 191}}) }}</div>
+                    </div>
+                    <div class="col-md-3">
+                        <div {{ form_errors(formProfile.civic) }}><label class="form-label" for="{{ formProfile.civic.vars.id }}">Civico</label>{{ form_widget(formProfile.civic, {attr: {class: 'form-control', maxlength: 16}}) }}</div>
+                    </div>
+                    {# Picker fuori dal form Symfony: invia city_id e zip_id, li risolve il controller. #}
+                    {% include 'components/geo/city_picker.html.twig' with {
+                        formName: 'companyProfile',
+                        number: 1,
+                        cityCols: 8,
+                        zipCols: 4,
+                        cityId: profileCity ? profileCity.id : '',
+                        cityName: profileCity ? profileCity.name : '',
+                        zipId: profileZip ? profileZip.id : ''
+                    } only %}
+                </div>
+            {% endblock %}
+        {% endembed %}
+
+        {# Ricerca comune per il picker Città/CAP dentro il modale anagrafico #}
+        {% include 'components/modals/city.html.twig' with {number: 1, cities: []} only %}
+
+        {# 7.1.9.1 Dati fiscali #}
+        {% embed 'components/modals/form.html.twig' with {
+            type: 'companyTax', title: 'Dati fiscali', form: formTax, action: path('agency_company_sheet')
+        } %}
+            {% block modalBody %}
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div {{ form_errors(formTax.vatNumber) }}><label class="form-label" for="{{ formTax.vatNumber.vars.id }}">Partita IVA</label>{{ form_widget(formTax.vatNumber, {attr: {class: 'form-control', maxlength: 16}}) }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <div {{ form_errors(formTax.taxCode) }}><label class="form-label" for="{{ formTax.taxCode.vars.id }}">Codice fiscale</label>{{ form_widget(formTax.taxCode, {attr: {class: 'form-control text-uppercase', maxlength: 32}}) }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <div {{ form_errors(formTax.sdi) }}><label class="form-label" for="{{ formTax.sdi.vars.id }}">Codice SDI</label>{{ form_widget(formTax.sdi, {attr: {class: 'form-control text-uppercase', maxlength: 7}}) }}</div>
+                    </div>
+                    <div class="col-md-8">
+                        <div {{ form_errors(formTax.pec) }}><label class="form-label" for="{{ formTax.pec.vars.id }}">PEC</label>{{ form_widget(formTax.pec, {attr: {class: 'form-control', maxlength: 191}}) }}</div>
+                    </div>
+                </div>
+            {% endblock %}
+        {% endembed %}
+
+        {# 7.1.9.8 Logo: form multipart (lo imposta form_start, perché il form ha un campo file) #}
+        {% embed 'components/modals/form.html.twig' with {
+            type: 'companyLogo', title: 'Logo dell\'agenzia', form: formLogo, action: path('agency_company_sheet')
+        } %}
+            {% block modalBody %}
+                <div {{ form_errors(formLogo.file) }}>
+                    <label class="form-label" for="{{ formLogo.file.vars.id }}">Immagine *</label>
+                    {{ form_widget(formLogo.file) }}
+                </div>
+                <div class="form-text">JPG, PNG o WEBP, fino a 2 MB. Sostituisce il logo attuale.</div>
+            {% endblock %}
+            {% block modalSubmit %}Carica{% endblock %}
+        {% endembed %}
+    {% endif %}
+{% endblock %}
+
+{% block page_javascripts %}
+    {% if canEdit %}
+        {# Il picker città sta dentro il modale anagrafico: al ritorno lo si riapre. #}
+        {% include 'components/js/city_js.html.twig' with {
+            number: 1, formName: 'companyProfile', modalToClose: 'companyProfileModal'
+        } only %}
+        <script>
+            /* I modali partono sempre dai dati salvati, anche dopo un "Annulla". */
+            function companyProfileOpen() {
+                document.getElementById('company_profile_name').value = {{ company.name|json_encode|raw }};
+                document.getElementById('company_profile_clientType').value = {{ company.clientType|json_encode|raw }};
+                document.getElementById('company_profile_address').value = {{ (company.address ?? '')|json_encode|raw }};
+                document.getElementById('company_profile_civic').value = {{ (company.civic ?? '')|json_encode|raw }};
+                companyProfileShow();
+            }
+
+            function companyTaxOpen() {
+                document.getElementById('company_tax_vatNumber').value = {{ (company.vatNumber ?? '')|json_encode|raw }};
+                document.getElementById('company_tax_taxCode').value = {{ (company.taxCode ?? '')|json_encode|raw }};
+                document.getElementById('company_tax_sdi').value = {{ (company.sdi ?? '')|json_encode|raw }};
+                document.getElementById('company_tax_pec').value = {{ (company.pec ?? '')|json_encode|raw }};
+                companyTaxShow();
+            }
+        </script>
+    {% endif %}
+{% endblock %}

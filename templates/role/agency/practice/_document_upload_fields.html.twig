@@ -1,0 +1,29 @@
+{# 12.3.2.6 / 17.1.1.1.5.3 Campi del nuovo allegato (PracticeDocumentUploadType), usati
+   dall'agenzia e dal notaio. Variabili: form, noteLabel (etichetta della nota). #}
+<div class="row g-3">
+    <div class="col-12">
+        <div {{ form_errors(form.practiceDocument) }}>
+            <label class="form-label" for="{{ form.practiceDocument.vars.id }}">Documento *</label>
+            {{ form_widget(form.practiceDocument) }}
+        </div>
+    </div>
+    <div class="col-12">
+        <div {{ form_errors(form.name) }}>
+            <label class="form-label" for="{{ form.name.vars.id }}">Nome allegato *</label>
+            {{ form_widget(form.name) }}
+        </div>
+        <div class="form-text">Il file viene salvato con questo nome (più l'estensione), non con quello originale.</div>
+    </div>
+    <div class="col-12">
+        <div {{ form_errors(form.file) }}>
+            <label class="form-label" for="{{ form.file.vars.id }}">File * <span class="op_07 font_13">(solo PDF)</span></label>
+            {{ form_widget(form.file) }}
+        </div>
+    </div>
+    <div class="col-12">
+        <div {{ form_errors(form.note) }}>
+            <label class="form-label" for="{{ form.note.vars.id }}">{{ noteLabel }}</label>
+            {{ form_widget(form.note) }}
+        </div>
+    </div>
+</div>

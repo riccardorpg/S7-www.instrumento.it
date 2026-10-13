@@ -20,16 +20,16 @@ class ExternalAccount
     use ActiveTrait;
     use TimestampsTrait;
 
-    #[ORM\Column(type: 'string', length: 128)]
+    #[ORM\Column(name: 'name', type: 'string', length: 128)]
     private ?string $name = null;
 
-    #[ORM\Column(type: 'string', length: 128)]
+    #[ORM\Column(name: 'surname', type: 'string', length: 128)]
     private ?string $surname = null;
 
-    #[ORM\Column(type: 'string', length: 191)]
+    #[ORM\Column(name: 'email', type: 'string', length: 191)]
     private ?string $email = null;
 
-    #[ORM\Column(type: 'string', length: 32, nullable: true)]
+    #[ORM\Column(name: 'phone', type: 'string', length: 32, nullable: true)]
     private ?string $phone = null;
 
     /** 8.1.5 Studio notarile di riferimento = cliente (Company). */
@@ -103,8 +103,13 @@ class ExternalAccount
     }
 
     /** Nessuna dipendenza: sempre eliminabile. */
-    public function canDelete(): bool
+    public function getCanDelete(): bool
     {
         return true;
+    }
+
+    public function __toString(): string
+    {
+        return $this->getFullName();
     }
 }

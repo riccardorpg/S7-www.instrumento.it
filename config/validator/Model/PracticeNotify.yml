@@ -1,0 +1,9 @@
+# Notifica di aggiornamento file (12.3.2.7), gruppo practice_notify. Che il destinatario sia
+# fra quelli della pratica lo garantisce la tendina (valore fuori elenco = campo non valido).
+App\Form\Model\PracticeNotify:
+  properties:
+    recipient:
+      - NotBlank: { message: "Campo obbligatorio", groups: [practice_notify] }
+      - Email: { message: "E-mail non valida", groups: [practice_notify] }
+    message:
+      - NotBlank: { message: "Campo obbligatorio", groups: [practice_notify] }

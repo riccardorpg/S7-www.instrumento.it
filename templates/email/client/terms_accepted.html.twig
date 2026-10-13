@@ -18,7 +18,7 @@
                 <tr><td style="padding:4px 12px 4px 0;"><strong>Cliente</strong></td><td style="padding:4px 0;">{{ company.name }}</td></tr>
                 <tr><td style="padding:4px 12px 4px 0;"><strong>Codice</strong></td><td style="padding:4px 0;">{{ company.code }}</td></tr>
                 <tr><td style="padding:4px 12px 4px 0;"><strong>Accettato il</strong></td><td style="padding:4px 0;">{{ company.termsAcceptedAt|date('d/m/Y H:i') }}</td></tr>
-                <tr><td style="padding:4px 12px 4px 0;"><strong>Licenza</strong></td><td style="padding:4px 0;">{{ company.licenseTypeLabel }}{% if company.licenseExpiresAt %} — scadenza {{ company.licenseExpiresAt|date('d/m/Y') }}{% endif %}</td></tr>
+                <tr><td style="padding:4px 12px 4px 0;"><strong>Licenza</strong></td><td style="padding:4px 0;">{{ company.licenseTypeLabel }}{% if company.licenseExpiresAt %}, scadenza {{ company.licenseExpiresAt|date('d/m/Y') }}{% endif %}</td></tr>
             </table>
         </td>
     </tr>

@@ -40,22 +40,22 @@ class Practice
     ];
 
     /** 12.1.6 Numero/codice pratica. */
-    #[ORM\Column(type: 'string', length: 60)]
+    #[ORM\Column(name: 'number', type: 'string', length: 60)]
     private string $number = '';
 
     /**
      * 12.2.4 Tipo di pratica: con mutuo / senza mutuo. È il flag che decide quali tipi
      * di documento entrano nella pratica (13.1.1.3).
      */
-    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    #[ORM\Column(name: 'mortgage', type: 'boolean', options: ['default' => false])]
     private bool $mortgage = false;
 
     /** Oggetto/immobile della pratica. */
-    #[ORM\Column(type: 'text', nullable: true)]
+    #[ORM\Column(name: 'subject', type: 'text', nullable: true)]
     private ?string $subject = null;
 
     /** 11.2.3.7 Indirizzo dell'immobile oggetto della pratica. */
-    #[ORM\Column(type: 'string', length: 255, nullable: true)]
+    #[ORM\Column(name: 'address', type: 'string', length: 255, nullable: true)]
     private ?string $address = null;
 
     /**
@@ -65,10 +65,10 @@ class Practice
      * e City/Zip nel master, quindi una FK fra i due database non è possibile. Teniamo
      * anche gli id di origine, che servono a ripopolare il picker in modifica.
      */
-    #[ORM\Column(type: 'string', length: 190, nullable: true)]
+    #[ORM\Column(name: 'city', type: 'string', length: 190, nullable: true)]
     private ?string $city = null;
 
-    #[ORM\Column(type: 'string', length: 10, nullable: true)]
+    #[ORM\Column(name: 'zip', type: 'string', length: 10, nullable: true)]
     private ?string $zip = null;
 
     #[ORM\Column(name: 'city_ref_id', type: 'integer', nullable: true)]
@@ -77,7 +77,7 @@ class Practice
     #[ORM\Column(name: 'zip_ref_id', type: 'integer', nullable: true)]
     private ?int $zipRefId = null;
 
-    #[ORM\Column(type: 'string', length: 20)]
+    #[ORM\Column(name: 'status', type: 'string', length: 20)]
     private string $status = self::STATUS_OPEN;
 
     /**
@@ -268,7 +268,7 @@ class Practice
             trim(($this->zip ?? '') . ' ' . ($this->city ?? '')),
         ], static fn (?string $p) => $p !== null && trim($p) !== '');
 
-        return implode(' — ', $parts);
+        return implode(', ', $parts);
     }
 
     public function getStatus(): string
@@ -431,7 +431,7 @@ class Practice
     }
 
     /** 17.1.1 Il notaio segna "completata" solo a documenti richiesti tutti verificati. */
-    public function canBeCompleted(): bool
+    public function getCanComplete(): bool
     {
         return $this->getDocumentsPendingVerification()->count() === 0;
     }
@@ -472,7 +472,7 @@ class Practice
      * 12.3.5.2 L'archiviazione è possibile solo dopo il via libera del notaio, che
      * mette la pratica in "archiviabile".
      */
-    public function canBeArchived(): bool
+    public function getCanArchive(): bool
     {
         return $this->status === self::STATUS_ARCHIVABLE;
     }
@@ -504,5 +504,10 @@ class Practice
         }
 
         return false;
+    }
+
+    public function __toString(): string
+    {
+        return (string) $this->number;
     }
 }

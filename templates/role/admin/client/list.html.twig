@@ -1,0 +1,138 @@
+{% extends 'role/admin/layout.html.twig' %}
+{% import 'components/action_icons.html.twig' as ico %}
+
+{% block title %} - Clienti{% endblock %}
+{% block role_page_title_inner %}Clienti{% endblock %}
+
+{% block sub_menu_left %}
+    <li class="nav-item"><a class="nav-link" href="{{ path('admin_index') }}"><i class="bi-arrow-left"></i> Torna alla scrivania</a></li>
+{% endblock %}
+
+{% block sub_menu_right %}
+    <li class="nav-item"><a class="nav-link" href="{{ path('admin_client_new') }}"><i class="bi-plus-lg"></i> Nuovo</a></li>
+{% endblock %}
+
+{% block role_page_title_breadcrumb %}
+    <li class="breadcrumb-item"><a href="{{ path('admin_index') }}">Amministrazione</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Clienti</li>
+{% endblock %}
+
+{% block role_content %}
+    <section class="content-wrap">
+        <div class="container">
+            {# Form filtri (GET) esterno alla tabella; gli input lo raggiungono via form="clientsFilter".
+               Preserva l'ordinamento corrente con hidden sort/direction. #}
+            <form id="clientsFilter" method="get" action="{{ path('admin_clients') }}">
+                <input type="hidden" name="filterSet" value="1">
+                <input type="hidden" id="clientsFilter_sort" name="sortField" value="{{ filters.sortField }}">
+                <input type="hidden" id="clientsFilter_direction" name="sortOrder" value="{{ filters.sortOrder }}">
+            </form>
+
+            <div>
+                <table class="table table-hover table-bordered align-middle m_b_none v_a_m">
+                    <thead>
+                        <tr class="tr_filter">
+                            {# 1 Stato: solo ordinamento, qui l'esclusione dei filtri #}
+                            <td class="txt_a_r">{{ ico.action(path('remove_filter', {route: 'admin_clients'}), 'close', 'Escludi filtro', 'red') }}</td>
+                            {# 2 Codice #}
+                            <td><input form="clientsFilter" name="f_code" value="{{ filters.code }}" class="form-control form-control-sm"></td>
+                            {# 3 Tipo: multi-selezione #}
+                            <td>
+                                <input form="clientsFilter" type="text" class="form-control form-control-sm cursor_p" id="filter_multi_value_2" readonly onclick="filterMulti2()" autocomplete="off">
+                                <input form="clientsFilter" type="hidden" id="filter_multi_id_2" name="f_type" value="{{ filters.type }}">
+                            </td>
+                            {# 4 Ragione sociale / Nome #}
+                            <td><input form="clientsFilter" name="f_name" value="{{ filters.name }}" class="form-control form-control-sm"></td>
+                            {# 5 Licenza: multi-selezione #}
+                            <td>
+                                <input form="clientsFilter" type="text" class="form-control form-control-sm cursor_p" id="filter_multi_value_3" readonly onclick="filterMulti3()" autocomplete="off">
+                                <input form="clientsFilter" type="hidden" id="filter_multi_id_3" name="f_license" value="{{ filters.license }}">
+                            </td>
+                            {# 6 Scadenza: daterange #}
+                            <td><input form="clientsFilter" type="text" class="form-control form-control-sm daterange" id="daterange_clients" name="f_expiry" value="{{ filters.expiry }}" autocomplete="off"></td>
+                            {# 7 Azioni: Filtra #}
+                            <td class="txt_a_l text-nowrap">
+                                <button form="clientsFilter" type="submit" class="btn p-0 border-0 bg-transparent" data-bs-toggle="tooltip" data-bs-title="Filtra">
+                                    <img src="{{ asset(PATH_GRAPHICS ~ 'icons/search.png') }}" class="icon_action icon_green" alt="Filtra">
+                                </button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th class="td_w_50p">{{ ico.sort('Stato', 'c.active') }}</th>
+                            <th class="td_w_100p">{{ ico.sort('Codice', 'c.code') }}</th>
+                            <th class="td_w_100p">{{ ico.sort('Tipo', 'c.clientType') }}</th>
+                            <th class="td_w_250p">{{ ico.sort('Ragione sociale / Nome', 'c.name') }}</th>
+                            <th class="td_w_100p">{{ ico.sort('Licenza', 'lt.type') }}</th>
+                            <th class="td_w_100p">{{ ico.sort('Scadenza', 'l.expirationDate') }}</th>
+                            <th class="td_w_100p txt_a_c">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for c in records %}
+                        {% set status = c.isActive ? {icon: 'circle_green', label: 'Attivo'} : {icon: 'circle_red', label: 'Sospeso'} %}
+                        <tr>
+                            {# Stato del cliente: pallino colorato, il nome nel tooltip #}
+                            <td class="txt_a_c">
+                                <img src="{{ asset(PATH_GRAPHICS ~ 'icons/' ~ status.icon ~ '.png') }}" class="icon_status"
+                                     alt="{{ status.label }}" data-bs-toggle="tooltip" data-bs-title="{{ status.label }}">
+                            </td>
+                            <td>{{ c.code }}</td>
+                            <td>{{ c.clientTypeLabel }}</td>
+                            <td><a href="{{ path('admin_client_sheet', {id: c.id}) }}">{{ c.name }}</a></td>
+                            <td>
+                                {% if c.license %}
+                                    {% set days = c.daysToExpiry %}
+                                    {% if not c.license.isAdminActive %}
+                                        {% set lb = {cls: 'bg-danger', label: 'Disattivata'} %}
+                                    {% elseif days < 0 %}
+                                        {% set lb = {cls: 'bg-danger', label: 'Scaduta'} %}
+                                    {% elseif days <= 30 %}
+                                        {% set lb = {cls: 'bg-warning', label: 'In scadenza'} %}
+                                    {% else %}
+                                        {% set lb = {cls: 'bg-success', label: 'Attiva'} %}
+                                    {% endif %}
+                                    {{ c.licenseTypeLabel }}
+                                    <span class="badge f_right {{ lb.cls }}">{{ lb.label }}</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Senza licenza</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ c.licenseExpiresAt ? c.licenseExpiresAt|date('d/m/Y') : '-' }}</td>
+                            <td class="txt_a_c text-nowrap">
+                                {{ ico.action(path('admin_client_sheet', {id: c.id}), 'sheet', 'Scheda', 'pr') }}
+                                {% if c.canDelete %}
+                                    {{ ico.action("javascript:clientDelete('" ~ path('admin_client_delete', {id: c.id}) ~ "')", 'delete', 'Elimina', 'red') }}
+                                {% else %}
+                                    {{ ico.disabled('delete-grey', 'Sospendi il cliente per poterlo eliminare') }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="7" class="op_07 text-center">Nessun cliente trovato.</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {% include 'components/table/paginator.html.twig' with {records: records} only %}
+            </div>
+        </div>
+    </section>
+{% endblock %}
+
+{% block modals %}
+    {% include 'components/modals/delete.html.twig' with {type: 'client', title: 'Cliente', text: 'eliminerai il cliente e il suo database'} %}
+
+    {% include 'components/modals/filter_multi.html.twig' with {number: 2, title: 'Filtra per tipo', options: [
+        {id: 'company', label: 'Azienda'}, {id: 'professional', label: 'Privato'}
+    ]} only %}
+    {% include 'components/modals/filter_multi.html.twig' with {number: 3, title: 'Filtra per licenza', options: licenseTypes|map(t => {'id': t.id, 'label': t.label})|merge([{'id': 'none', 'label': 'Senza licenza'}])} only %}
+{% endblock %}
+
+{% block page_javascripts %}
+{% include 'components/table/sort_js.html.twig' with {
+    formName: 'clientsFilter', sortId: 'clientsFilter_sort', directionId: 'clientsFilter_direction',
+    actualSort: filters.sortField, actualDirection: filters.sortOrder
+} only %}
+{% include 'components/js/daterangepicker_js.html.twig' with {id: 'daterange_clients', hasTimePicker: 'false', format: 'DD/MM/YYYY'} %}
+{% include 'components/js/filter_multi_js.html.twig' with {number: 2} only %}
+{% include 'components/js/filter_multi_js.html.twig' with {number: 3} only %}
+{% endblock %}

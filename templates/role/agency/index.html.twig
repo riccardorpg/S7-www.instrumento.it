@@ -8,6 +8,15 @@
 {% block role_content %}
     <section class="content-wrap">
         <div class="container">
+            {# Le stesse sezioni del menu, nello stesso ordine e con gli stessi permessi;
+               le configurazioni in fondo (CONVENZIONI 8). #}
+            <div class="row g-3 m_b_30p">
+                {% include 'components/page_link.html.twig' with {route: 'agency_company_sheet', icon: 'building', title: 'Anagrafica agenzia', text: 'Dati anagrafici e fiscali, logo e abbonamento.', visible: is_granted('view', 'company')} only %}
+                {% include 'components/page_link.html.twig' with {route: 'agency_practices', icon: 'folder2-open', title: 'Pratiche', text: 'Pratiche, documenti, avvisi e notaio.', visible: is_granted('view', 'practices')} only %}
+                {% include 'components/page_link.html.twig' with {route: 'agency_staff', icon: 'people', title: 'Staff', text: 'Utenti dell\'agenzia, ruoli e permessi.', visible: is_granted('view', 'staff')} only %}
+                {% include 'components/page_link.html.twig' with {route: 'agency_customers', icon: 'person-vcard', title: 'Clienti', text: 'Anagrafica di venditori e acquirenti.', visible: is_granted('view', 'customers')} only %}
+                {% include 'components/page_link.html.twig' with {route: 'agency_configuration_document_types', icon: 'gear', title: 'Configurazioni', text: 'Tipi di documento, contrassegni e tag delle pratiche.', visible: is_granted('view', 'configurations')} only %}
+            </div>
 
             <div class="row g-3">
                 {# ===== 9.1 Spazio disponibile / spazio totale licenza ===== #}
@@ -26,7 +35,7 @@
                                          role="progressbar" style="width: {{ usedPercent < 3 ? 3 : usedPercent }}%;"
                                          aria-valuenow="{{ usedPercent }}" aria-valuemin="0" aria-valuemax="100">{{ usedPercent }}%</div>
                                 </div>
-                                <table class="table align-middle m_b_none">
+                                <table class="table align-middle m_b_none v_a_m">
                                     <tr>
                                         <th style="width:50%">Spazio disponibile</th>
                                         <td><strong>{{ freeMb|number_format(1, ',', '.') }} MB</strong></td>
@@ -68,7 +77,7 @@
                             {% if alerts is empty %}
                                 <p class="op_07 m_b_none">Nessun avviso inserito sulle pratiche.</p>
                             {% else %}
-                                <table class="table table-hover align-middle m_b_none">
+                                <table class="table table-hover align-middle m_b_none v_a_m">
                                     <thead>
                                         <tr>
                                             <th class="td_w_120p">Data</th>
@@ -83,7 +92,7 @@
                                                 {{ a.remindAt|date('d/m/Y') }}
                                                 {% if a.due %}<span class="badge bg-danger">scaduto</span>{% endif %}
                                             </td>
-                                            <td><a href="{{ path('agency_practice_show', {id: a.practice.id}) }}">{{ a.practice.number }}</a></td>
+                                            <td><a href="{{ path('agency_practice_sheet', {id: a.practice.id}) }}">{{ a.practice.number }}</a></td>
                                             <td>{{ a.message }}</td>
                                         </tr>
                                     {% endfor %}
@@ -103,7 +112,7 @@
                     {% if markedPractices is empty %}
                         <p class="op_07 m_b_none">Nessuna pratica contrassegnata.</p>
                     {% else %}
-                        <table class="table table-hover table-bordered align-middle m_b_none">
+                        <table class="table table-hover table-bordered align-middle m_b_none v_a_m">
                             <thead>
                                 <tr>
                                     <th class="td_w_150p">Contrassegno</th>
@@ -120,11 +129,11 @@
                                 <tr>
                                     <td><span class="badge" style="background:{{ p.mark.color }}; color:{{ p.mark.contrastColor }};">{{ p.mark.value }}</span></td>
                                     <td>{{ practiceStatus.badge(p.status, p.statusLabel) }}</td>
-                                    <td><a href="{{ path('agency_practice_show', {id: p.id}) }}"><strong>{{ p.number }}</strong></a></td>
-                                    <td>{{ p.seller ? p.seller.fullName : '—' }}</td>
-                                    <td>{{ p.buyer ? p.buyer.fullName : '—' }}</td>
-                                    <td>{{ p.address ?: '—' }}</td>
-                                    <td class="txt_a_c">{{ ico.action(path('agency_practice_show', {id: p.id}), 'sheet', 'Apri la scheda', 'green') }}</td>
+                                    <td><a href="{{ path('agency_practice_sheet', {id: p.id}) }}"><strong>{{ p.number }}</strong></a></td>
+                                    <td>{{ p.seller ? p.seller.fullName : '-' }}</td>
+                                    <td>{{ p.buyer ? p.buyer.fullName : '-' }}</td>
+                                    <td>{{ p.address ?: '-' }}</td>
+                                    <td class="txt_a_c">{{ ico.action(path('agency_practice_sheet', {id: p.id}), 'sheet', 'Apri la scheda', 'green') }}</td>
                                 </tr>
                             {% endfor %}
                             </tbody>

@@ -29,7 +29,7 @@ class UserPermission
     #[ORM\JoinColumn(name: 'permission_id', referencedColumnName: 'id', nullable: false, onDelete: 'CASCADE')]
     private ?Permission $permission = null;
 
-    #[ORM\Column(type: 'string', length: 2)]
+    #[ORM\Column(name: 'value', type: 'string', length: 2)]
     private string $value = self::READ;
 
     public function getUser(): ?User

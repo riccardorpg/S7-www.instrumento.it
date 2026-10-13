@@ -2,11 +2,14 @@
 
 namespace App\Controller;
 
-use App\Entity\Master\Company;
 use App\Entity\Master\DemoRequest;
-use App\Service\AppMailer;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Form\ContactType;
+use App\Form\DemoRequestType;
+use App\Form\Model\Contact;
+use App\Repository\Master\DemoRequestRepository;
+use App\Service\MailerService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -14,14 +17,59 @@ use Symfony\Component\Routing\Attribute\Route;
 /**
  * Parte esterna (pubblica) del sito: homepage marketing, form contatti/demo, pagine legali.
  *
- * I submit validano CSRF e campi obbligatori, notificano via e-mail (14.1 / 14.2) e
- * mostrano un flash di conferma. TODO: verifica reCaptcha server-side.
+ * I due moduli (contatti e demo) sono form Symfony gestiti dalla homepage stessa: la validazione
+ * sta nel validator (Model/Contact.yml, Master/DemoRequest.yml), poi notifica via e-mail (14.1 / 14.2)
+ * e flash di conferma. TODO: verifica reCaptcha server-side.
  */
 class DefaultController extends AbstractController
 {
-    #[Route('/', name: 'homepage', methods: ['GET'])]
-    public function home(Request $request): Response
+    /**
+     * Homepage, con i due moduli della sezione Contatti (CONVENZIONI 6): si inviano a questa
+     * stessa pagina, che li gestisce e torna a #contatti con il messaggio di conferma; se non sono
+     * validi la pagina si ripresenta con il modulo aperto, i campi segnati e i dati già scritti.
+     */
+    #[Route('/', name: 'homepage', methods: ['GET', 'POST'])]
+    public function home(Request $request, FormFactoryInterface $formFactory, DemoRequestRepository $demoRequests, MailerService $mailer): Response
     {
+        // 14.1 Richiedi informazioni: non si salva, diventa una notifica interna.
+        $formContact = $formFactory->createNamed('contact', ContactType::class, new Contact());
+        $formContact->handleRequest($request);
+        if ($formContact->isSubmitted() && $formContact->isValid()) {
+            /** @var Contact $contact */
+            $contact = $formContact->getData();
+            // TODO: verifica reCaptcha server-side.
+            $mailer->contactRequest($contact->getName(), $contact->getSurname(), $contact->getEmail(), (string) $contact->getMessage());
+            $this->addFlash('notice_success', 'Grazie ' . $contact->getName() . '! Abbiamo ricevuto la tua richiesta e ti risponderemo al più presto.');
+
+            return $this->redirect($this->generateUrl('homepage') . '#contatti', Response::HTTP_SEE_OTHER);
+        }
+
+        // Attiva la demo: la richiesta (lead) si evade in area admin (allarme 6.1.1).
+        $formDemo = $formFactory->createNamed('demo_request', DemoRequestType::class, new DemoRequest());
+        $formDemo->handleRequest($request);
+        if ($formDemo->isSubmitted() && $formDemo->isValid()) {
+            /** @var DemoRequest $demo */
+            $demo = $formDemo->getData();
+            // TODO: verifica reCaptcha server-side.
+            $demoRequests->add($demo);
+            // 14.2 Avvisa l'indirizzo interno: la richiesta è anche un allarme in scrivania.
+            $mailer->demoRequest($demo);
+            $this->addFlash('notice_success', 'Richiesta demo ricevuta! Ti invieremo a breve le istruzioni di accesso all\'indirizzo ' . $demo->getEmail() . '.');
+
+            return $this->redirect($this->generateUrl('homepage') . '#contatti', Response::HTTP_SEE_OTHER);
+        }
+
+        // Modulo inviato con errori: la pagina lo riapre (come faceva l'ancora #contatti-contact /
+        // #contatti-demo) e ci porta dentro il messaggio, oltre ai campi segnati.
+        $openPanel = null;
+        foreach (['contact' => $formContact, 'demo' => $formDemo] as $panel => $form) {
+            if ($form->isSubmitted()) {
+                $openPanel = $panel;
+                $messages = array_map(static fn ($e) => $e->getMessage(), iterator_to_array($form->getErrors()));
+                $this->addFlash('notice_danger', trim(implode(' ', $messages) . ' Controlla i campi evidenziati in rosso.'));
+            }
+        }
+
         // Sezione da raggiungere in scroll (impostata da homepage_with_section quando si
         // arriva da un'altra pagina). Consumata una sola volta.
         $section = null;
@@ -32,6 +80,9 @@ class DefaultController extends AbstractController
 
         return $this->render('default/index.html.twig', [
             'section' => $section,
+            'openPanel' => $openPanel,
+            'formContact' => $formContact->createView(),
+            'formDemo' => $formDemo->createView(),
         ]);
     }
 
@@ -42,98 +93,6 @@ class DefaultController extends AbstractController
         $request->getSession()->set('section', $section);
 
         return $this->redirectToRoute('homepage');
-    }
-
-    #[Route('/contatti/invia', name: 'contact_submit', methods: ['POST'])]
-    public function contactSubmit(Request $request, AppMailer $mailer): Response
-    {
-        if (!$this->isCsrfTokenValid('contact', (string) $request->request->get('_csrf_token'))) {
-            $this->addFlash('danger', 'Sessione scaduta, riprova a inviare il modulo.');
-
-            // #contatti-contact: la homepage riapre il modulo contatti (vedi 1.7.0).
-            return $this->redirect($this->generateUrl('homepage') . '#contatti-contact', Response::HTTP_SEE_OTHER);
-        }
-
-        $name = trim((string) $request->request->get('name'));
-        $surname = trim((string) $request->request->get('surname'));
-        $email = trim((string) $request->request->get('email'));
-        $message = trim((string) $request->request->get('message'));
-
-        if ($name === '' || $surname === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || $message === '') {
-            $this->addFlash('danger', 'Controlla i campi: nome, cognome, e-mail valida e messaggio sono obbligatori.');
-
-            return $this->redirect($this->generateUrl('homepage') . '#contatti-contact', Response::HTTP_SEE_OTHER);
-        }
-
-        // 14.1 Notifica interna della richiesta. TODO: verifica reCaptcha server-side.
-        $mailer->contactRequest($name, $surname, $email, $message);
-        $this->addFlash('success', 'Grazie ' . $name . '! Abbiamo ricevuto la tua richiesta e ti risponderemo al più presto.');
-
-        return $this->redirect($this->generateUrl('homepage') . '#contatti', Response::HTTP_SEE_OTHER);
-    }
-
-    #[Route('/demo/richiedi', name: 'demo_request_submit', methods: ['POST'])]
-    public function demoRequestSubmit(Request $request, EntityManagerInterface $em, AppMailer $mailer): Response
-    {
-        if (!$this->isCsrfTokenValid('demo', (string) $request->request->get('_csrf_token'))) {
-            $this->addFlash('danger', 'Sessione scaduta, riprova a inviare il modulo.');
-
-            // #contatti-demo: la homepage riapre il modulo demo (vedi 1.7.0).
-            return $this->redirect($this->generateUrl('homepage') . '#contatti-demo', Response::HTTP_SEE_OTHER);
-        }
-
-        $accountType = (string) $request->request->get('account_type');
-        $email = trim((string) $request->request->get('email'));
-        $emailConfirm = trim((string) $request->request->get('email_confirm'));
-        $businessName = trim((string) $request->request->get('business_name'));
-        $address = trim((string) $request->request->get('address'));
-        $civic = trim((string) $request->request->get('civic'));
-        $city = trim((string) $request->request->get('city'));
-        $zip = trim((string) $request->request->get('zip'));
-
-        $errors = [];
-        if (!in_array($accountType, [Company::TYPE_COMPANY, Company::TYPE_PROFESSIONAL], true)) {
-            $errors[] = 'Seleziona il tipo di account.';
-        }
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $errors[] = 'Inserisci un indirizzo e-mail valido.';
-        } elseif ($email !== $emailConfirm) {
-            $errors[] = 'Le due e-mail non coincidono.';
-        }
-        if ($businessName === '' || $address === '' || $civic === '' || $city === '') {
-            $errors[] = 'Compila tutti i campi anagrafici obbligatori.';
-        }
-        if (!preg_match('/^\d{5}$/', $zip)) {
-            $errors[] = 'Il CAP deve essere di 5 cifre.';
-        }
-
-        if ($errors !== []) {
-            $this->addFlash('danger', implode(' ', $errors));
-
-            return $this->redirect($this->generateUrl('homepage') . '#contatti-demo', Response::HTTP_SEE_OTHER);
-        }
-
-        // Persistenza come richiesta demo (lead) da evadere in area admin (allarme 6.1.1).
-        // TODO: verifica reCaptcha server-side.
-        $demo = new DemoRequest();
-        $demo->setAccountType($accountType)
-            ->setEmail($email)
-            ->setBusinessName($businessName)
-            ->setAddress($address)
-            ->setCivic($civic)
-            ->setCity($city)
-            ->setZip($zip)
-            ->setSdi(trim((string) $request->request->get('sdi')) ?: null)
-            ->setPec(trim((string) $request->request->get('pec')) ?: null);
-        $em->persist($demo);
-        $em->flush();
-
-        // 14.2 Avvisa l'indirizzo interno: la richiesta è anche un allarme in scrivania.
-        $mailer->demoRequest($demo);
-
-        $this->addFlash('success', 'Richiesta demo ricevuta! Ti invieremo a breve le istruzioni di accesso all\'indirizzo ' . $email . '.');
-
-        return $this->redirect($this->generateUrl('homepage') . '#contatti', Response::HTTP_SEE_OTHER);
     }
 
     #[Route('/cookie-policy', name: 'legal_cookie', methods: ['GET'])]

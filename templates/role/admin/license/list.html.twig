@@ -1,0 +1,211 @@
+{% extends 'role/admin/layout.html.twig' %}
+{% import 'components/action_icons.html.twig' as ico %}
+
+{% block title %} - Licenze{% endblock %}
+{% block role_page_title_inner %}Licenze{% endblock %}
+
+{% block sub_menu_left %}
+    <li class="nav-item"><a class="nav-link" href="{{ path('admin_index') }}"><i class="bi-arrow-left"></i> Torna alla scrivania</a></li>
+{% endblock %}
+
+{% block sub_menu_right %}
+    <li class="nav-item"><a class="nav-link" href="javascript:licenseNewShow()"><i class="bi-plus-lg"></i> Crea licenze</a></li>
+{% endblock %}
+
+{% block role_content %}
+    {# Scheda attiva dalla sessione (tab_session, chiave "admin_licenses_tab"), non dall'URL #}
+    {% set occupied = app.session.get('admin_licenses_tab') != 'libere' %}
+    <section class="content-wrap">
+        <div class="container">
+            {# Due schede, come in eaml: le licenze in uso (assegnate a un cliente, valide o no: una per riga)
+               e quelle ancora da assegnare (raggruppate per tipo). #}
+            <ul class="nav nav-tabs canvas-alt-tabs tabs-tb m_b_20p" role="tablist">
+                <li class="nav-item">
+                    <button type="button" class="nav-link tab_session{{ occupied ? ' active' : '' }}" data-filter-tab="occupate" data-bs-toggle="tab" data-bs-target="#tab-occupate">
+                        Licenze occupate <span class="badge bg-secondary">{{ counts.occupate }}</span>
+                    </button>
+                </li>
+                <li class="nav-item">
+                    <button type="button" class="nav-link tab_session{{ occupied ? '' : ' active' }}" data-filter-tab="libere" data-bs-toggle="tab" data-bs-target="#tab-libere">
+                        Licenze libere <span class="badge bg-secondary">{{ counts.libere }}</span>
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content">
+            <div class="tab-pane fade{{ occupied ? ' show active' : '' }}" id="tab-occupate">
+                <form id="licensesFilter" method="get" action="{{ path('admin_licenses') }}">
+                    <input type="hidden" name="filterSet" value="1">
+                    <input type="hidden" id="licensesFilter_sort" name="sortField" value="{{ filters.sortField }}">
+                    <input type="hidden" id="licensesFilter_direction" name="sortOrder" value="{{ filters.sortOrder }}">
+                </form>
+
+                <div>
+                    <table class="table table-hover table-bordered align-middle m_b_none v_a_m">
+                        <thead>
+                            <tr class="tr_filter">
+                                {# Stato: solo ordinamento, nessun filtro #}
+                                <td class="txt_a_c">{{ ico.action(path('remove_filter', {route: 'admin_licenses'}), 'close', 'Escludi filtro', 'red') }}</td>
+                                {# Tipo: multi-selezione #}
+                                <td>
+                                    <input form="licensesFilter" type="text" class="form-control form-control-sm cursor_p" id="filter_multi_value_2" readonly onclick="filterMulti2()" autocomplete="off">
+                                    <input form="licensesFilter" type="hidden" id="filter_multi_id_2" name="f_type" value="{{ filters.type }}">
+                                </td>
+                                {# Cliente #}
+                                <td><input form="licensesFilter" name="f_company" value="{{ filters.company }}" class="form-control form-control-sm"></td>
+                                {# Creazione, attivazione, scadenza: daterange #}
+                                <td><input form="licensesFilter" type="text" class="form-control form-control-sm daterange" id="daterange_licenses_created" name="f_created" value="{{ filters.created }}" autocomplete="off"></td>
+                                <td><input form="licensesFilter" type="text" class="form-control form-control-sm daterange" id="daterange_licenses_started" name="f_started" value="{{ filters.started }}" autocomplete="off"></td>
+                                <td><input form="licensesFilter" type="text" class="form-control form-control-sm daterange" id="daterange_licenses" name="f_expiry" value="{{ filters.expiry }}" autocomplete="off"></td>
+                                {# Azioni: Filtra #}
+                                <td class="txt_a_c text-nowrap">
+                                    <button form="licensesFilter" type="submit" class="btn p-0 border-0 bg-transparent" data-bs-toggle="tooltip" data-bs-title="Filtra">
+                                        <img src="{{ asset(PATH_GRAPHICS ~ 'icons/search.png') }}" class="icon_action icon_green" alt="Filtra">
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th class="td_w_100p">{{ ico.sort('Stato', 'statusSort') }}</th>
+                                <th class="td_w_200p">{{ ico.sort('Tipo', 't.type') }}</th>
+                                <th>{{ ico.sort('Cliente', 'c.name') }}</th>
+                                <th class="td_w_150p">{{ ico.sort('Creazione', 'l.creationDate') }}</th>
+                                <th class="td_w_150p">{{ ico.sort('Attivazione', 'l.startDate') }}</th>
+                                <th class="td_w_150p">{{ ico.sort('Scadenza', 'l.expirationDate') }}</th>
+                                <th class="td_w_100p txt_a_c">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for l in records %}
+                            {% set days = l.daysToExpiry %}
+                            {# Stato: l'interruttore dell'amministratore (attiva / disattivata), pallino con il nome nel tooltip.
+                               La scadenza ha il suo avviso accanto alla data. #}
+                            {% set status = l.isAdminActive ? {icon: 'circle_green', label: 'Attiva'} : {icon: 'circle_red', label: 'Disattivata'} %}
+                            <tr>
+                                <td class="txt_a_c">
+                                    <img src="{{ asset(PATH_GRAPHICS ~ 'icons/' ~ status.icon ~ '.png') }}" class="icon_status"
+                                         alt="{{ status.label }}" data-bs-toggle="tooltip" data-bs-title="{{ status.label }}">
+                                </td>
+                                <td>{{ l.type.label }} <span class="op_07 font_13">({{ l.type.spaceIncluded|number_format(0, ',', '.') }} MB)</span></td>
+                                <td>
+                                    <a href="{{ path('admin_client_sheet', {id: l.company.id}) }}">{{ l.company.name }}</a> <span class="op_07 font_13">({{ l.company.code }})</span>
+                                </td>
+                                <td>{{ l.creationDate|date('d/m/Y') }}</td>
+                                <td>{{ l.startDate ? l.startDate|date('d/m/Y') : '-' }}</td>
+                                <td>
+                                    {{ l.expirationDate ? l.expirationDate|date('d/m/Y') : '-' }}
+                                    {% if days is not null and days < 0 %}
+                                        <span class="badge bg-danger" data-bs-toggle="tooltip" data-bs-title="Scaduta da {{ -days }} {{ days == -1 ? 'giorno' : 'giorni' }}">scaduta</span>
+                                    {% endif %}
+                                </td>
+                                <td class="txt_a_c text-nowrap">
+                                    {# Come eaml: cambia stato e revoca (torna libera); cambio e rinnovo dalla scheda del cliente (link sul nome) #}
+                                    {% set csrf = csrf_token('license_' ~ l.id) %}
+                                    {{ ico.action("javascript:licenseConfirm('" ~ path('admin_license_toggle', {id: l.id}) ~ "', '" ~ csrf ~ "', '" ~ (l.isAdminActive ? 'disattiverai' : 'attiverai') ~ " la licenza di " ~ l.company.name|e('js') ~ "')", 'exchange', l.isAdminActive ? 'Disattiva' : 'Attiva', 'pr') }}
+                                    {{ ico.action("javascript:licenseConfirm('" ~ path('admin_license_revoke', {id: l.id}) ~ "', '" ~ csrf ~ "', 'revocherai la licenza a " ~ l.company.name|e('js') ~ ", che tornerà libera')", 'delete', 'Revoca', 'red') }}
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="7" class="op_07 text-center">Nessuna licenza occupata.</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                    {% include 'components/table/paginator.html.twig' with {records: records} only %}
+                </div>
+            </div>
+
+            <div class="tab-pane fade{{ occupied ? '' : ' show active' }}" id="tab-libere">
+                {# Licenze libere: tutte uguali fra loro, quindi una riga per tipo con la quantità. #}
+                <table class="table table-hover table-bordered align-middle m_b_none v_a_m">
+                    <thead>
+                        <tr>
+                            <th>Tipo</th>
+                            <th class="td_w_200p txt_a_c">Quantità</th>
+                            <th class="td_w_100p txt_a_c">Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for g in freeGroups %}
+                        <tr>
+                            <td>{{ g.type.label }} <span class="op_07 font_13">({{ g.type.spaceIncluded|number_format(0, ',', '.') }} MB)</span></td>
+                            <td class="txt_a_c">{{ g.quantity }}</td>
+                            <td class="txt_a_c text-nowrap">
+                                {{ ico.action("javascript:licenseFreeDelete(" ~ g.type.id ~ ", '" ~ g.type.label|e('js') ~ "', " ~ g.quantity ~ ")", 'delete', 'Elimina', 'red') }}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr><td colspan="3" class="op_07 text-center">Nessuna licenza libera: creane con "Crea licenze".</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            </div>
+        </div>
+    </section>
+{% endblock %}
+
+{% block modals %}
+    {# Conferma per "Cambia stato" e "Revoca" delle licenze in uso #}
+    {% include 'components/modals/confirm.html.twig' with {type: 'license', title: 'Conferma'} only %}
+
+    {# CREA: si invia a questa stessa pagina (CONVENZIONI 6) #}
+    {% embed 'components/modals/form.html.twig' with {type: 'licenseNew', title: 'Crea licenze', form: formNew, action: path('admin_licenses')} %}
+        {% block modalBody %}
+            <div class="row g-3">
+                <div class="col-12">
+                    <div {{ form_errors(formNew.type) }}><label class="form-label" for="{{ formNew.type.vars.id }}">Tipo di licenza *</label>{{ form_widget(formNew.type) }}</div>
+                </div>
+                <div class="col-12">
+                    <div {{ form_errors(formNew.quantity) }}><label class="form-label" for="{{ formNew.quantity.vars.id }}">Quantità *</label>{{ form_widget(formNew.quantity) }}</div>
+                </div>
+                <div class="col-12">
+                    <small class="op_07">Le licenze create restano libere finché non le assegni dalla scheda del cliente, con la data di attivazione: da quel giorno durano un anno.</small>
+                </div>
+            </div>
+        {% endblock %}
+        {% block modalSubmit %}Crea{% endblock %}
+    {% endembed %}
+
+    {# ELIMINA LICENZE LIBERE: il tipo lo imposta il bottone della riga, si sceglie quante eliminarne #}
+    {% set deleteType = formDelete.vars.value.type %}
+    {% embed 'components/modals/form.html.twig' with {type: 'licenseFreeDelete', title: 'Elimina licenze libere', form: formDelete, action: path('admin_licenses')} %}
+        {% block modalBody %}
+            <div class="row g-3">
+                <div class="col-12">
+                    Tipo: <strong id="licenseFreeDeleteTypeLabel">{{ deleteType ? deleteType.label : '' }}</strong>
+                    &middot; libere: <strong id="licenseFreeDeleteAvailable">{{ deleteType ? freeGroups|filter(g => g.type.id == deleteType.id)|map(g => g.quantity)|first|default(0) : '' }}</strong>
+                    <div class="d-none">{{ form_widget(formDelete.type) }}</div>
+                </div>
+                <div class="col-12">
+                    <div {{ form_errors(formDelete.quantity) }}><label class="form-label" for="{{ formDelete.quantity.vars.id }}">Quante ne vuoi eliminare? *</label>{{ form_widget(formDelete.quantity) }}</div>
+                </div>
+            </div>
+        {% endblock %}
+        {% block modalSubmit %}Elimina{% endblock %}
+    {% endembed %}
+
+    {% include 'components/modals/filter_multi.html.twig' with {number: 2, title: 'Filtra per tipo', options: licenseTypes|map(t => {'id': t.id, 'label': t.label})} only %}
+{% endblock %}
+
+{% block page_javascripts %}
+{% include 'components/js/tab_session_js.html.twig' %}
+{% include 'components/table/sort_js.html.twig' with {
+    formName: 'licensesFilter', sortId: 'licensesFilter_sort', directionId: 'licensesFilter_direction',
+    actualSort: filters.sortField, actualDirection: filters.sortOrder
+} only %}
+{% include 'components/js/daterangepicker_js.html.twig' with {id: 'daterange_licenses_created', hasTimePicker: 'false', format: 'DD/MM/YYYY'} %}
+{% include 'components/js/daterangepicker_js.html.twig' with {id: 'daterange_licenses_started', hasTimePicker: 'false', format: 'DD/MM/YYYY'} %}
+{% include 'components/js/daterangepicker_js.html.twig' with {id: 'daterange_licenses', hasTimePicker: 'false', format: 'DD/MM/YYYY'} %}
+{% include 'components/js/filter_multi_js.html.twig' with {number: 2} only %}
+<script>
+    // Apre "Elimina licenze libere" sul tipo della riga: quantità proposta 1, massimo le libere di quel tipo.
+    function licenseFreeDelete(typeId, typeLabel, available) {
+        document.getElementById('{{ formDelete.type.vars.id }}').value = typeId;
+        var qty = document.getElementById('{{ formDelete.quantity.vars.id }}');
+        qty.value = 1;
+        qty.max = available;
+        document.getElementById('licenseFreeDeleteTypeLabel').textContent = typeLabel;
+        document.getElementById('licenseFreeDeleteAvailable').textContent = available;
+        licenseFreeDeleteShow();
+    }
+</script>
+{% endblock %}

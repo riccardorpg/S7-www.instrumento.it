@@ -11,20 +11,20 @@ use Doctrine\ORM\Mapping as ORM;
  */
 trait UserSecurityTrait
 {
-    #[ORM\Column(type: 'string', length: 191, unique: true)]
+    #[ORM\Column(name: 'email', type: 'string', length: 191, unique: true)]
     protected ?string $email = null;
 
-    #[ORM\Column(type: 'string', length: 191, nullable: true)]
+    #[ORM\Column(name: 'name', type: 'string', length: 191, nullable: true)]
     protected ?string $name = null;
 
-    #[ORM\Column(type: 'string', length: 191, nullable: true)]
+    #[ORM\Column(name: 'surname', type: 'string', length: 191, nullable: true)]
     protected ?string $surname = null;
 
-    #[ORM\Column(type: 'string', nullable: true)]
+    #[ORM\Column(name: 'password', type: 'string', nullable: true)]
     protected ?string $password = null;
 
     /** Un solo ruolo per utente, salvato come stringa. */
-    #[ORM\Column(type: 'string', length: 64)]
+    #[ORM\Column(name: 'role', type: 'string', length: 64)]
     protected string $role = 'ROLE_USER';
 
     #[ORM\Column(name: 'theme', type: 'string', length: 16, options: ['default' => 'light'])]

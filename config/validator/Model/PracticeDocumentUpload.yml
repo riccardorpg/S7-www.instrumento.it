@@ -1,0 +1,23 @@
+# Nuovo allegato di una pratica (12.3.2.6 agenzia, 17.1.1.1.5.3 notaio), gruppo practice_document_upload.
+# Solo PDF: l'estensione dichiarata deve essere .pdf E il contenuto deve risultare application/pdf
+# (un file rinominato in .pdf viene scartato). Il nome diventa il nome del file salvato (colonna
+# name, 190 caratteri).
+App\Form\Model\PracticeDocumentUpload:
+  properties:
+    practiceDocument:
+      - NotNull: { message: "Seleziona il documento a cui allegare il file", groups: [practice_document_upload] }
+    name:
+      - NotBlank: { message: "Campo obbligatorio", groups: [practice_document_upload] }
+      - Length: { max: 190, maxMessage: "Massimo 190 caratteri", groups: [practice_document_upload] }
+    file:
+      - NotNull: { message: "Seleziona un file da caricare", groups: [practice_document_upload] }
+      - File:
+          extensions: { pdf: [application/pdf] }
+          extensionsMessage: "Sono ammessi solo file PDF"
+          mimeTypesMessage: "Il file non è un PDF valido"
+          uploadIniSizeErrorMessage: "File troppo grande: massimo {{ limit }} {{ suffix }}"
+          uploadFormSizeErrorMessage: "File troppo grande"
+          uploadPartialErrorMessage: "Caricamento incompleto: riprova"
+          uploadNoFileErrorMessage: "Seleziona un file da caricare"
+          uploadErrorMessage: "Caricamento non riuscito"
+          groups: [practice_document_upload]

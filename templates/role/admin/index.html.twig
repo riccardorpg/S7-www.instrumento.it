@@ -6,6 +6,7 @@
 {% block role_content %}
     <section class="content-wrap">
         <div class="container">
+            {# La scrivania admin mostra solo gli allarmi: le sezioni si raggiungono dal menu. #}
             <ul class="nav nav-tabs canvas-alt-tabs tabs-tb" role="tablist">
                 <li class="nav-item">
                     <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-richieste" type="button">
@@ -56,5 +57,5 @@
 
 {% block modals %}
     {% include 'role/admin/_request_detail_modal.html.twig' %}
-    {% include 'components/modals/confirm_modal.html.twig' with {type: 'demoRequest', title: 'Richieste demo'} only %}
+    {% include 'components/modals/confirm.html.twig' with {type: 'demoRequest', title: 'Richieste demo'} only %}
 {% endblock %}

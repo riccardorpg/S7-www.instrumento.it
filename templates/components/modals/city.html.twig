@@ -11,7 +11,7 @@
             <div class="modal-body">
                 <label class="m_b_10p">Cerca comune</label>
                 <input id="city_filter_val_{{ number }}" type="text" class="form-control m_b_20p" placeholder="Inserisci parte del nome del comune" onkeyup="cityFilter{{ number }}()" autocomplete="off">
-                <table class="table table-bordered">
+                <table class="table table-bordered v_a_m">
                     <thead>
                         <tr class="bg_pr">
                             <th><label class="color_w m_b_none">Città (Provincia)</label></th>
@@ -21,8 +21,8 @@
                     <tbody id="city_table_{{ number }}">
                         {% for c in cities|default([]) %}
                             <tr>
-                                <td>{{ c.name }} ({{ c.province ? c.province.sign : '—' }})</td>
-                                <td class="txt_a_c"><a href='javascript:citySelect{{ number }}({{ c.id }}, "{{ c.name|e('js') }} ({{ c.province ? c.province.sign : '—' }})", "{{ c.displayZips }}")' data-bs-toggle="tooltip" title="Seleziona"><img class="icon_action icon_green" src="{{ asset(PATH_GRAPHICS ~ 'icons/select.png') }}" alt="Seleziona"></a></td>
+                                <td>{{ c.name }} ({{ c.province ? c.province.sign : '-' }})</td>
+                                <td class="txt_a_c"><a href='javascript:citySelect{{ number }}({{ c.id }}, "{{ c.name|e('js') }} ({{ c.province ? c.province.sign : '-' }})", "{{ c.displayZips }}")' data-bs-toggle="tooltip" title="Seleziona"><img class="icon_action icon_green" src="{{ asset(PATH_GRAPHICS ~ 'icons/select.png') }}" alt="Seleziona"></a></td>
                             </tr>
                         {% endfor %}
                     </tbody>

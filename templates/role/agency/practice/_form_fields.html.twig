@@ -1,0 +1,173 @@
+{# 12.2 Campi della pratica (PracticeType), condivisi da inserimento (pagina) e modifica (modale).
+   Variabili:
+     form          : FormView del PracticeType
+     prefix        : prefisso degli id usati da autocomplete, picker città e cliente rapido
+                     (es. 'practiceNew'); i campi Symfony li ricevono con form_widget(..., {id: ...})
+     quickCustomer : mostra il "+" per creare un cliente al volo
+     notaries      : notai disponibili (solo per il testo sotto al campo)
+     geoNumber     : suffisso del picker città
+     geo           : {cityId, cityName, zipId, error} del picker città/CAP, che sta fuori dal form
+   Se il form torna indietro con errori, i campi ripartono dai valori inviati (autocomplete
+   compresi: id negli hidden, etichetta nei campi di ricerca). Gli errori vanno su un div
+   senza altre classi (form/errors.html.twig). #}
+{% set mortgageOn = form.mortgage.vars.checked %}
+<div class="row g-3">
+    {# 12.2.1 / 12.2.2 Le parti si cercano nell'anagrafica clienti (11): i risultati
+       compaiono sotto al campo, come nell'autocomplete studi dell'area admin. #}
+    <div class="col-md-6 position-relative">
+        <div {{ form_errors(form.seller) }}>
+            <label class="form-label" for="{{ prefix }}_sellerName">Venditore *</label>
+            <div class="input-group">
+                {{ form_widget(form.sellerLabel, {id: prefix ~ '_sellerName', attr: {
+                    class: 'form-control', autocomplete: 'off', placeholder: 'Digita nome, cognome o codice fiscale…',
+                    oninput: "customerSearch('" ~ prefix ~ "', 'seller')", onfocus: "customerSearch('" ~ prefix ~ "', 'seller', true)"
+                }}) }}
+                {# Il cliente non c'è ancora in anagrafica: lo si crea da qui senza perdere la pratica. #}
+                {% if quickCustomer %}
+                    <button type="button" class="btn btn-outline-secondary" onclick="quickCustomerOpen('seller')"
+                            data-bs-toggle="tooltip" data-bs-title="Nuovo cliente">+</button>
+                {% endif %}
+            </div>
+            {{ form_widget(form.seller, {id: prefix ~ '_seller'}) }}
+        </div>
+        <ul id="{{ prefix }}_sellerResults" class="list-group position-absolute w-100 shadow-sm"
+            style="z-index:1085; max-height:220px; overflow-y:auto; display:none;"></ul>
+    </div>
+    <div class="col-md-6 position-relative">
+        <div {{ form_errors(form.buyer) }}>
+            <label class="form-label" for="{{ prefix }}_buyerName">Acquirente *</label>
+            <div class="input-group">
+                {{ form_widget(form.buyerLabel, {id: prefix ~ '_buyerName', attr: {
+                    class: 'form-control', autocomplete: 'off', placeholder: 'Digita nome, cognome o codice fiscale…',
+                    oninput: "customerSearch('" ~ prefix ~ "', 'buyer')", onfocus: "customerSearch('" ~ prefix ~ "', 'buyer', true)"
+                }}) }}
+                {% if quickCustomer %}
+                    <button type="button" class="btn btn-outline-secondary" onclick="quickCustomerOpen('buyer')"
+                            data-bs-toggle="tooltip" data-bs-title="Nuovo cliente">+</button>
+                {% endif %}
+            </div>
+            {{ form_widget(form.buyer, {id: prefix ~ '_buyer'}) }}
+        </div>
+        <ul id="{{ prefix }}_buyerResults" class="list-group position-absolute w-100 shadow-sm"
+            style="z-index:1085; max-height:220px; overflow-y:auto; display:none;"></ul>
+    </div>
+
+    {# 12.2.3 Data di creazione #}
+    <div class="col-md-3">
+        <div {{ form_errors(form.createdAt) }}>
+            <label class="form-label" for="{{ form.createdAt.vars.id }}">Data di creazione *</label>
+            {{ form_widget(form.createdAt) }}
+        </div>
+    </div>
+
+    {# 12.2.7 Contrassegno #}
+    <div class="col-md-3">
+        <div {{ form_errors(form.mark) }}>
+            <label class="form-label" for="{{ form.mark.vars.id }}">Contrassegno</label>
+            {{ form_widget(form.mark) }}
+        </div>
+    </div>
+
+    {# 12.2.4 Tipo di pratica: interruttore fra senza mutuo (spento) e con mutuo (acceso). #}
+    <div class="col-md-6">
+        <label class="form-label d-block">
+            Tipo di pratica *
+            <img src="{{ asset(PATH_GRAPHICS ~ 'icons/info.png') }}" class="icon_info" alt="Informazioni"
+                 data-bs-toggle="tooltip"
+                 data-bs-title="Con mutuo entrano anche i documenti marcati «mutuo» nelle configurazioni.">
+        </label>
+        <div class="d-flex align-items-center gap-2">
+            <span id="{{ prefix }}_mortgage_off" class="{{ mortgageOn ? 'op_07' : '' }}">Senza mutuo</span>
+            <div class="form-check form-switch m-0">
+                {{ form_widget(form.mortgage, {id: prefix ~ '_mortgage'}) }}
+            </div>
+            <label id="{{ prefix }}_mortgage_on" class="form-check-label m-0 {{ mortgageOn ? '' : 'op_07' }}" for="{{ prefix }}_mortgage">Con mutuo</label>
+        </div>
+    </div>
+
+    {# 12.2.5 Indirizzo, con città e CAP dal catalogo geografico del master: tutti e tre
+       sulla stessa riga (6 + 4 + 2). Il picker sta fuori dal form Symfony: i suoi errori
+       arrivano in geo.error e colorano i due campi. #}
+    <div class="col-md-6">
+        <div {{ form_errors(form.address) }}>
+            <label class="form-label" for="{{ form.address.vars.id }}">Indirizzo dell'immobile *</label>
+            {{ form_widget(form.address) }}
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div {% if geo.error %}class="error" data-bs-toggle="tooltip" data-placement="top" title="{{ geo.error }}"{% endif %}>
+            <div class="row g-3">
+                {% include 'components/geo/city_picker.html.twig' with {
+                    formName: prefix,
+                    number: geoNumber|default(1),
+                    required: true,
+                    cityCols: 8,
+                    zipCols: 4,
+                    cityId: geo.cityId,
+                    cityName: geo.cityName,
+                    zipId: geo.zipId
+                } only %}
+            </div>
+        </div>
+    </div>
+
+    {# 12.2.9 Notaio assegnato: si cerca fra i notai in piattaforma (li crea
+       l'amministrazione), come le parti ma senza inserimento. È questa scelta a dare
+       al notaio l'accesso alla pratica, quindi il campo vuoto = nessun notaio. #}
+    <div class="col-md-6 position-relative">
+        <div {{ form_errors(form.notaryEmail) }}>
+            <label class="form-label" for="{{ prefix }}_notaryName">Notaio</label>
+            {{ form_widget(form.notaryLabel, {id: prefix ~ '_notaryName', attr: {
+                class: 'form-control', autocomplete: 'off', placeholder: 'Digita nome o e-mail del notaio…',
+                oninput: "notarySearch('" ~ prefix ~ "')", onfocus: "notarySearch('" ~ prefix ~ "', true)"
+            }}) }}
+            {{ form_widget(form.notaryEmail, {id: prefix ~ '_notary'}) }}
+        </div>
+        <ul id="{{ prefix }}_notaryResults" class="list-group position-absolute w-100 shadow-sm"
+            style="z-index:1085; max-height:220px; overflow-y:auto; display:none;"></ul>
+        <div class="form-text">
+            {% if notaries|length %}
+                Lascia vuoto per non assegnare nessun notaio.
+            {% else %}
+                Nessun notaio disponibile: li inserisce l'amministrazione della piattaforma.
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div {{ form_errors(form.subject) }}>
+            <label class="form-label" for="{{ form.subject.vars.id }}">Oggetto / note</label>
+            {{ form_widget(form.subject) }}
+        </div>
+    </div>
+
+    {# 12.2.6 Tag (più di uno): una casella per tag, con il colore del tag. #}
+    <div class="col-12">
+        <label class="form-label d-block">Tag</label>
+        {% for child in form.tags %}
+            {% set tag = (form.tags.vars.choices|filter(c => c.value == child.vars.value)|first).data %}
+            <div class="form-check form-check-inline">
+                {{ form_widget(child, {attr: {class: 'form-check-input'}}) }}
+                <label class="form-check-label" for="{{ child.vars.id }}">
+                    <span class="badge" style="background:{{ tag.color }}; color:{{ tag.contrastColor }};">{{ tag.value }}</span>
+                </label>
+            </div>
+        {% else %}
+            <small class="op_07">Nessun tag configurato. Puoi crearli nelle configurazioni.</small>
+        {% endfor %}
+        {% do form.tags.setRendered %}
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Interruttore mutuo: evidenzia la scritta corrispondente allo stato.
+        var mortgage = document.getElementById('{{ prefix }}_mortgage');
+        if (mortgage) {
+            mortgage.addEventListener('change', function () {
+                document.getElementById('{{ prefix }}_mortgage_off').classList.toggle('op_07', this.checked);
+                document.getElementById('{{ prefix }}_mortgage_on').classList.toggle('op_07', !this.checked);
+            });
+        }
+    });
+</script>

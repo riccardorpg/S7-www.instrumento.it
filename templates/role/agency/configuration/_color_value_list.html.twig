@@ -1,0 +1,70 @@
+{# =====================================================================
+   Elenco di un'etichetta colorata: contrassegni (13.2) e tag (13.3) hanno la stessa
+   identica gestione, cambiano solo etichette e rotte.
+   Filtro e ordinamento agiscono solo su "valore".
+   Variabili:
+     prefix       : 'mark' | 'tag': prefisso delle funzioni JS dei modali e del form filtri
+     alias        : alias DQL usato dal controller ('m' | 't'), per il campo di ordinamento
+     records      : pagina di risultati (KnpPaginator)
+     filters      : filtri della lista (FilterService), qui solo "value" e l'ordinamento
+     label        : nome al singolare, minuscolo (es. 'contrassegno')
+     indexRoute   : rotta dell'elenco, che gestisce anche i form: la modifica ci arriva con ?edit=ID (data-action)
+     deleteRoute  : rotta POST di eliminazione
+   ===================================================================== #}
+{% import 'components/action_icons.html.twig' as ico %}
+
+<form id="{{ prefix }}Filter" method="get" action="{{ path(indexRoute) }}">
+    <input type="hidden" name="filterSet" value="1">
+    <input type="hidden" id="{{ prefix }}Filter_sort" name="sortField" value="{{ filters.sortField }}">
+    <input type="hidden" id="{{ prefix }}Filter_direction" name="sortOrder" value="{{ filters.sortOrder }}">
+</form>
+
+<table class="table table-hover table-bordered align-middle m_b_none v_a_m">
+    <thead>
+        <tr class="tr_filter">
+            <td></td>
+            <td>
+                <div class="d-flex align-items-center gap-1">
+                    {{ ico.action(path('remove_filter', {route: indexRoute}), 'close', 'Escludi filtro', 'red') }}
+                    <input form="{{ prefix }}Filter" name="f_value" value="{{ filters.value }}" class="form-control form-control-sm">
+                </div>
+            </td>
+            <td></td>
+            <td class="txt_a_c text-nowrap">
+                <button form="{{ prefix }}Filter" type="submit" class="btn p-0 border-0 bg-transparent" data-bs-toggle="tooltip" data-bs-title="Filtra">
+                    <img src="{{ asset(PATH_GRAPHICS ~ 'icons/search.png') }}" class="icon_action icon_green" alt="Filtra">
+                </button>
+            </td>
+        </tr>
+        <tr>
+            <th class="td_w_150p">Anteprima</th>
+            <th>{{ ico.sort('Valore', alias ~ '.value') }}</th>
+            <th class="td_w_100p txt_a_c">Colore</th>
+            <th class="td_w_100p txt_a_c">Azioni</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for r in records %}
+        <tr>
+            <td><span class="badge" style="background:{{ r.color }}; color:{{ r.contrastColor }};">{{ r.value }}</span></td>
+            <td>{{ r.value }}</td>
+            <td class="txt_a_c font_13 op_07">{{ r.color }}</td>
+            <td class="txt_a_c text-nowrap">
+              {% if is_granted('edit', 'configurations') %}
+                <a href="javascript:void(0)" class="d-inline-block m_r_5p" data-bs-toggle="tooltip" data-bs-title="Modifica"
+                   onclick="{{ prefix }}EditOpen(this)"
+                   data-id="{{ r.id }}" data-action="{{ path(indexRoute, {edit: r.id}) }}" data-value="{{ r.value }}" data-color="{{ r.color }}">
+                    <img src="{{ asset(PATH_GRAPHICS ~ 'icons/edit.png') }}" class="icon_action icon_amber" alt="Modifica">
+                </a>
+                {{ ico.action("javascript:" ~ prefix ~ "Delete('" ~ path(deleteRoute, {id: r.id}) ~ "')", 'delete', 'Elimina', 'red') }}
+              {% else %}
+                <span class="op_07">-</span>
+              {% endif %}
+            </td>
+        </tr>
+    {% else %}
+        <tr><td colspan="4" class="op_07 text-center">Nessun {{ label }} trovato.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% include 'components/table/paginator.html.twig' with {records: records} only %}

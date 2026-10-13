@@ -1,0 +1,15 @@
+# Logo dell'agenzia: JPG, PNG o WEBP fino a 2 MB. Il tipo è quello rilevato dal contenuto,
+# non quello dichiarato dal browser: un file rinominato in .png viene scartato.
+App\Form\Model\CompanyLogo:
+  properties:
+    file:
+      - NotNull: { message: "Seleziona l'immagine del logo", groups: [company_logo] }
+      - File:
+          maxSize: 2097152
+          maxSizeMessage: "Il logo non può superare i 2 MB"
+          mimeTypes: [image/jpeg, image/png, image/webp]
+          mimeTypesMessage: "Sono ammesse solo immagini JPG, PNG o WEBP"
+          uploadErrorMessage: "Caricamento non riuscito, riprova"
+          uploadIniSizeErrorMessage: "Il logo non può superare i 2 MB"
+          uploadFormSizeErrorMessage: "Il logo non può superare i 2 MB"
+          groups: [company_logo]

@@ -3,9 +3,11 @@
 namespace App\Service;
 
 use App\Bundle\DynamicConnection;
+use App\Controller\Script\ScriptMigrationController;
 use App\Entity\Master\Company;
 use App\Entity\Slave\User as SlaveUser;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Tools\SchemaTool;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -47,6 +49,25 @@ class CompanyService
         return $this->registry->getManager('master')
             ->getRepository(Company::class)
             ->findOneBy(['code' => trim($code)]);
+    }
+
+    /**
+     * Crea il database di una nuova agenzia con lo schema corrente delle entità Slave e
+     * registra come già eseguite tutte le migration dello slave (CONVENZIONI 12): il database
+     * nasce aggiornato, quindi la pagina /script/migration non deve proporgliele.
+     * Lascia la connessione slave puntata sul nuovo database.
+     */
+    public function provisionDatabase(string $dbName): EntityManagerInterface
+    {
+        $this->registry->getConnection('master')->executeStatement(
+            sprintf('CREATE DATABASE IF NOT EXISTS `%s` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci', $dbName)
+        );
+
+        $em = $this->pointSlaveToDbName($dbName);
+        (new SchemaTool($em))->createSchema($em->getMetadataFactory()->getAllMetadata());
+        ScriptMigrationController::markAllSlaveExecuted($em->getConnection(), (string) $this->params->get('kernel.project_dir'));
+
+        return $em;
     }
 
     /**
@@ -119,7 +140,7 @@ class CompanyService
         }
 
         $company = $this->getCompanyByCode($code);
-        if ($company === null || !$company->isActive()) {
+        if ($company === null || !$company->isOperational()) {
             return null;
         }
 

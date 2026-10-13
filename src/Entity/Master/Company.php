@@ -25,23 +25,18 @@ class Company
     public const TYPE_COMPANY = 'company';
     public const TYPE_PROFESSIONAL = 'professional';
 
-    public const LICENSE_DEMO = 'demo';
-    public const LICENSE_BASE = 'base';
-    public const LICENSE_PRO = 'pro';
-    public const LICENSE_ENTERPRISE = 'enterprise';
-
-    #[ORM\Column(type: 'string', length: 64, unique: true)]
+    #[ORM\Column(name: 'code', type: 'string', length: 64, unique: true)]
     private ?string $code = null;
 
     /** Ragione sociale oppure Nome e cognome (7.1.4). */
-    #[ORM\Column(type: 'string', length: 191)]
+    #[ORM\Column(name: 'name', type: 'string', length: 191)]
     private ?string $name = null;
 
     #[ORM\Column(name: 'db_name', type: 'string', length: 191, unique: true)]
     private ?string $dbName = null;
 
     /** 7.1.3 Tipo cliente. */
-    #[ORM\Column(type: 'string', length: 20, options: ['default' => self::TYPE_COMPANY])]
+    #[ORM\Column(name: 'client_type', type: 'string', length: 20, options: ['default' => self::TYPE_COMPANY])]
     private string $clientType = self::TYPE_COMPANY;
 
     // --- 7.1.9.1 Dati fiscali studio ---
@@ -51,10 +46,10 @@ class Company
     #[ORM\Column(name: 'tax_code', type: 'string', length: 32, nullable: true)]
     private ?string $taxCode = null;
 
-    #[ORM\Column(type: 'string', length: 191, nullable: true)]
+    #[ORM\Column(name: 'address', type: 'string', length: 191, nullable: true)]
     private ?string $address = null;
 
-    #[ORM\Column(type: 'string', length: 16, nullable: true)]
+    #[ORM\Column(name: 'civic', type: 'string', length: 16, nullable: true)]
     private ?string $civic = null;
 
     // Città e CAP normalizzati (FK verso il sottosistema geo Master).
@@ -66,35 +61,31 @@ class Company
     #[ORM\JoinColumn(name: 'zip_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
     private ?Zip $zip = null;
 
-    #[ORM\Column(type: 'string', length: 7, nullable: true)]
+    #[ORM\Column(name: 'sdi', type: 'string', length: 7, nullable: true)]
     private ?string $sdi = null;
 
-    #[ORM\Column(type: 'string', length: 191, nullable: true)]
+    #[ORM\Column(name: 'pec', type: 'string', length: 191, nullable: true)]
     private ?string $pec = null;
 
-    // --- 7.1.7 / 7.1.2 Licenza ---
-    #[ORM\Column(name: 'license_type', type: 'string', length: 20, options: ['default' => self::LICENSE_DEMO])]
-    private string $licenseType = self::LICENSE_DEMO;
-
-    #[ORM\Column(name: 'license_expires_at', type: 'date_immutable', nullable: true)]
-    private ?\DateTimeImmutable $licenseExpiresAt = null;
+    // --- 7.1.7 / 7.1.2 Licenza: creata e assegnata dall'admin (vedi LicenseController) ---
+    #[ORM\OneToOne(targetEntity: License::class, inversedBy: 'company')]
+    #[ORM\JoinColumn(name: 'license_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    private ?License $license = null;
 
     /**
-     * 14.6 Quando è partito l'avviso di scadenza per la licenza corrente: evita di
-     * ripeterlo a ogni esecuzione del comando. Azzerato al rinnovo.
+     * 7.1.8 Pacchetto di spazio aggiuntivo: uno solo per cliente (i pacchetti sono
+     * crescenti, si passa a quello più grande). La quota totale è lo spazio compreso
+     * nella licenza più il pacchetto; l'occupato si calcola a runtime (CompanyService).
      */
-    #[ORM\Column(name: 'license_notice_sent_at', type: 'datetime_immutable', nullable: true)]
-    private ?\DateTimeImmutable $licenseNoticeSentAt = null;
-
-    // --- 7.1.8 Spazio (quota in MB; occupato calcolato a runtime da information_schema) ---
-    #[ORM\Column(name: 'storage_quota_mb', type: 'integer', options: ['default' => 5120])]
-    private int $storageQuotaMb = 5120;
+    #[ORM\ManyToOne(targetEntity: SpaceExtra::class)]
+    #[ORM\JoinColumn(name: 'space_extra_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    private ?SpaceExtra $spaceExtra = null;
 
     /**
      * 7.1.9.8 Logo dell'agenzia: nome del file dentro la cartella del tenant
-     * (vedi CompanyLogoStorage). Lo carica l'agenzia dalla propria anagrafica.
+     * (vedi CompanyLogoService). Lo carica l'agenzia dalla propria anagrafica.
      */
-    #[ORM\Column(type: 'string', length: 191, nullable: true)]
+    #[ORM\Column(name: 'logo', type: 'string', length: 191, nullable: true)]
     private ?string $logo = null;
 
     // --- 7.1.9.7 Contratto termini e condizioni ---
@@ -268,62 +259,71 @@ class Company
         return $this;
     }
 
-    public function getLicenseType(): string
+    public function getLicense(): ?License
     {
-        return $this->licenseType;
+        return $this->license;
     }
 
-    public function setLicenseType(string $licenseType): static
+    /**
+     * Assegna (o toglie) la licenza, tenendo allineato il lato inverso. È l'unico punto in cui
+     * una licenza entra o esce da un cliente:
+     * - quella che arriva, se non è ancora partita, parte oggi (un anno, License::start());
+     * - quella che esce torna libera, senza partenza né scadenza (License::release()).
+     */
+    public function setLicense(?License $license): static
     {
-        $this->licenseType = $licenseType;
+        if ($this->license !== null && $this->license !== $license) {
+            $this->license->setCompany(null)->release();
+        }
+        if ($license !== null && $license->getStartDate() === null) {
+            $license->start();
+        }
+        $license?->setCompany($this);
+        $this->license = $license;
 
         return $this;
     }
 
+    public function getSpaceExtra(): ?SpaceExtra
+    {
+        return $this->spaceExtra;
+    }
+
+    public function setSpaceExtra(?SpaceExtra $spaceExtra): static
+    {
+        $this->spaceExtra = $spaceExtra;
+
+        return $this;
+    }
+
+    // --- Valori derivati da licenza e pacchetti (sola lettura) ---
+
     public function getLicenseTypeLabel(): string
     {
-        return match ($this->licenseType) {
-            self::LICENSE_BASE => 'Base',
-            self::LICENSE_PRO => 'Pro',
-            self::LICENSE_ENTERPRISE => 'Enterprise',
-            default => 'Demo',
-        };
+        return $this->license?->getType()?->getLabel() ?? 'Nessuna';
     }
 
     public function getLicenseExpiresAt(): ?\DateTimeImmutable
     {
-        return $this->licenseExpiresAt;
+        return $this->license?->getExpirationDate();
     }
 
-    public function setLicenseExpiresAt(?\DateTimeImmutable $licenseExpiresAt): static
+    /** Spazio compreso nella licenza, in MB. */
+    public function getStorageIncludedMb(): int
     {
-        $this->licenseExpiresAt = $licenseExpiresAt;
-
-        return $this;
+        return $this->license?->getType()?->getSpaceIncluded() ?? 0;
     }
 
-    public function getLicenseNoticeSentAt(): ?\DateTimeImmutable
+    /** Spazio del pacchetto aggiuntivo, in MB. */
+    public function getStorageExtraMb(): int
     {
-        return $this->licenseNoticeSentAt;
+        return $this->spaceExtra?->getSpace() ?? 0;
     }
 
-    public function setLicenseNoticeSentAt(?\DateTimeImmutable $licenseNoticeSentAt): static
-    {
-        $this->licenseNoticeSentAt = $licenseNoticeSentAt;
-
-        return $this;
-    }
-
+    /** Quota totale: licenza + pacchetto, in MB. */
     public function getStorageQuotaMb(): int
     {
-        return $this->storageQuotaMb;
-    }
-
-    public function setStorageQuotaMb(int $storageQuotaMb): static
-    {
-        $this->storageQuotaMb = $storageQuotaMb;
-
-        return $this;
+        return $this->getStorageIncludedMb() + $this->getStorageExtraMb();
     }
 
     public function getTermsAcceptedAt(): ?\DateTimeImmutable
@@ -345,42 +345,35 @@ class Company
 
     public function isDemo(): bool
     {
-        return $this->licenseType === self::LICENSE_DEMO;
+        return $this->license?->isDemo() ?? false;
     }
 
-    /** Giorni residui alla scadenza licenza (null se senza scadenza, negativo se scaduta). */
+    /** Ha una licenza valida: assegnata, attiva per l'amministratore e non scaduta (License::isValid). */
+    public function hasValidLicense(): bool
+    {
+        return $this->license !== null && $this->license->isValid();
+    }
+
+    /**
+     * L'agenzia si può usare (come lo studio "attivo" di eaml): cliente non sospeso e licenza
+     * valida. Senza, il suo staff e i notai non entrano.
+     */
+    public function isOperational(): bool
+    {
+        return $this->isActive() && $this->hasValidLicense();
+    }
+
+    /** Giorni residui alla scadenza licenza (null se senza licenza, negativo se scaduta). */
     public function getDaysToExpiry(?\DateTimeImmutable $now = null): ?int
     {
-        if ($this->licenseExpiresAt === null) {
-            return null;
-        }
-        $now ??= new \DateTimeImmutable('today');
-
-        return (int) $now->diff($this->licenseExpiresAt)->format('%r%a');
-    }
-
-    /** 7.1.1 Stato cliente derivato. */
-    public function getStatusLabel(?\DateTimeImmutable $now = null): string
-    {
-        if (!$this->isActive()) {
-            return 'Sospeso';
-        }
-        $days = $this->getDaysToExpiry($now);
-        if ($days !== null && $days < 0) {
-            return 'Scaduto';
-        }
-        if ($this->isDemo()) {
-            return 'Demo';
-        }
-
-        return 'Attivo';
+        return $this->license?->getDaysToExpiry($now);
     }
 
     /**
      * Un cliente è eliminabile solo se sospeso (non attivo): va prima disattivato.
      * Evita la cancellazione accidentale di clienti operativi (con DB e dati).
      */
-    public function canDelete(): bool
+    public function getCanDelete(): bool
     {
         return !$this->isActive();
     }

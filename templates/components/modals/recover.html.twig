@@ -1,0 +1,38 @@
+{# ===========================================================================
+   Modale "Recupera password", condivisa dalle pagine di accesso.
+   Parametro obbligatorio `form`: il form password_recover (PasswordRecoverType) creato dalla
+   pagina di accesso, con l'action verso password_recover. Sulla pagina dedicata dell'agenzia il
+   form porta già il codice dell'agenzia (campo nascosto), così il controller cerca l'utente nel
+   DB del tenant e non solo sul master. Se l'e-mail non è valida password_recover ripresenta la
+   sua pagina con il campo segnato; altrimenti redirige a login con un messaggio generico
+   (nessuna user enumeration).
+   Includere con with_context = false.
+   =========================================================================== #}
+<div class="modal fade" id="modalRecover" tabindex="-1" aria-labelledby="modalRecoverLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0">
+            <div class="modal-header border-0">
+                <h5 class="modal-title" id="modalRecoverLabel">Recupera password</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+            </div>
+            {{ form_start(form, {attr: {id: 'recoverForm', novalidate: 'novalidate'}}) }}
+                <div class="modal-body pt-0">
+                    <p class="text-muted font_13">
+                        Inserisci la tua e-mail: ti invieremo un link per impostare una nuova password.
+                    </p>
+                    <div class="form-group mb-0">
+                        <div {{ form_errors(form.email) }}>
+                            <label class="form-label" for="{{ form.email.vars.id }}">E-mail</label>
+                            {{ form_widget(form.email) }}
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="submit" class="button button-3d button-rounded m-0 w-100" style="background:var(--eb-brand);">
+                        Invia link <i class="bi-send"></i>
+                    </button>
+                </div>
+            {{ form_end(form) }}
+        </div>
+    </div>
+</div>

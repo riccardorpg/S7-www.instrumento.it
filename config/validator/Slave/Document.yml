@@ -1,0 +1,9 @@
+# Allegato di una pratica. Gruppi:
+# - document_edit: modifica dall'agenzia (12.3.2.5.5), nome e note dell'agente;
+# - document_notary_note: note del notaio (17.1.1.1.5.2.6), facoltative.
+# Il nuovo allegato passa dal Model PracticeDocumentUpload (config/validator/Model/).
+App\Entity\Slave\Document:
+  properties:
+    name:
+      - NotBlank: { message: "Campo obbligatorio", groups: [document_edit] }
+      - Length: { max: 190, maxMessage: "Massimo 190 caratteri", groups: [document_edit] }

@@ -3,7 +3,7 @@
 namespace App\Command;
 
 use App\Entity\Master\Company;
-use App\Service\AppMailer;
+use App\Service\MailerService;
 use App\Service\CompanyService;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -16,7 +16,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 /**
  * 14.5 / 14.6 Le due notifiche legate al tempo, da lanciare una volta al giorno:
  *  - licenza in scadenza entro --days giorni → avviso al cliente (una volta per periodo:
- *    la data dell'avviso resta su Company e si azzera al rinnovo);
+ *    la data dell'avviso resta sulla License e si azzera al cambio di scadenza);
  *  - demo scaduta → il cliente viene sospeso e riceve l'avviso di sospensione.
  *
  * Le licenze non-demo scadute non vengono sospese da qui: la scelta resta all'admin.
@@ -30,7 +30,7 @@ class NotifyLicensesCommand extends Command
     public function __construct(
         private readonly ManagerRegistry $registry,
         private readonly CompanyService $companyService,
-        private readonly AppMailer $mailer,
+        private readonly MailerService $mailer,
     ) {
         parent::__construct();
     }
@@ -57,7 +57,7 @@ class NotifyLicensesCommand extends Command
         $skipped = 0;
 
         foreach ($companies as $company) {
-            if ($company->getLicenseExpiresAt() === null) {
+            if ($company->getLicense() === null) {
                 continue;
             }
 
@@ -75,7 +75,7 @@ class NotifyLicensesCommand extends Command
 
                 if (!$dryRun) {
                     $company->setActive(false);
-                    $company->setLicenseNoticeSentAt(new \DateTimeImmutable());
+                    $company->getLicense()->setNoticeSentAt(new \DateTimeImmutable());
                     $master->flush();
                     if (!$this->mailer->demoSuspended($company, $to)) {
                         $io->warning($label . ': sospeso, ma invio a ' . $to . ' non riuscito.');
@@ -88,7 +88,7 @@ class NotifyLicensesCommand extends Command
 
             // --- 14.6 Licenza in scadenza: un avviso per periodo ---
             if ($left >= 0 && $left <= $days) {
-                if ($company->getLicenseNoticeSentAt() !== null) {
+                if ($company->getLicense()->getNoticeSentAt() !== null) {
                     ++$skipped;
                     continue; // già avvisato per questa scadenza
                 }
@@ -101,7 +101,7 @@ class NotifyLicensesCommand extends Command
                 }
 
                 if (!$dryRun) {
-                    $company->setLicenseNoticeSentAt(new \DateTimeImmutable());
+                    $company->getLicense()->setNoticeSentAt(new \DateTimeImmutable());
                     $master->flush();
                     if (!$this->mailer->licenseExpiring($company, $to, $left)) {
                         $io->warning($label . ': invio a ' . $to . ' non riuscito.');

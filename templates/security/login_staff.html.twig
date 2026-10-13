@@ -87,5 +87,5 @@
 {% endblock %}
 
 {% block modals %}
-    {{ include('components/modal_recover.html.twig', {}, with_context = false) }}
+    {{ include('components/modals/recover.html.twig', {form: recoverForm}, with_context = false) }}
 {% endblock %}

@@ -15,7 +15,7 @@ class Zip
     use IdTrait;
 
     /** Il CAP. */
-    #[ORM\Column(type: 'string', length: 16)]
+    #[ORM\Column(name: 'code', type: 'string', length: 16)]
     private ?string $code = null;
 
     /** @var Collection<int, City> — lato proprietario della ManyToMany. */

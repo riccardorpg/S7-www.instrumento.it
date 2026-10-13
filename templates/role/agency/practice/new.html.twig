@@ -1,0 +1,76 @@
+{% extends 'role/agency/layout.html.twig' %}
+
+{# 12.2.1 / 12.2.2 Il "+" accanto alle parti crea un cliente: serve il permesso sull'anagrafica. #}
+{% set canAddCustomer = is_granted('edit', 'customers') %}
+
+{% block title %} - Nuova pratica{% endblock %}
+{% block role_page_title_inner %}Nuova pratica{% endblock %}
+
+{% block role_page_title_breadcrumb %}
+    <li class="breadcrumb-item"><a href="{{ path('agency_index') }}">Agenzia</a></li>
+    <li class="breadcrumb-item"><a href="{{ path('agency_practices') }}">Pratiche</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Nuova</li>
+{% endblock %}
+
+{% block sub_menu_left %}
+    <li class="nav-item"><a class="nav-link" href="{{ path('agency_practices') }}"><i class="bi-arrow-left"></i> Torna all'elenco</a></li>
+{% endblock %}
+
+{% block role_content %}
+    <section class="content-wrap">
+        <div class="container">
+            {% if customerCount < 2 %}
+                <div class="alert alert-warning">
+                    Per aprire una pratica servono un venditore e un acquirente in anagrafica.
+                    {% if canAddCustomer %}
+                        Puoi crearli qui col <strong>+</strong> accanto ai due campi, oppure
+                        <a href="{{ path('agency_customers') }}">vai ai clienti</a>.
+                    {% else %}
+                        <a href="{{ path('agency_customers') }}">Vai ai clienti</a>.
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            {{ form_start(form, {attr: {id: 'practiceNewForm', novalidate: 'novalidate'}}) }}
+                {# Errori non legati a un campo: città/CAP (picker fuori dal form) o token scaduto. #}
+                {% if form.vars.errors|length %}
+                    <div class="alert alert-danger">{% for error in form.vars.errors %}{{ error.message }}{% if not loop.last %}<br>{% endif %}{% endfor %}</div>
+                {% endif %}
+
+                {% include 'role/agency/practice/_form_fields.html.twig' with {
+                    form: form, prefix: 'practiceNew', geoNumber: 1, geo: geo,
+                    quickCustomer: canAddCustomer, notaries: notaries
+                } only %}
+
+                {# Stessa disposizione dei modali: Annulla a sinistra, azione a destra. #}
+                <div class="d-flex justify-content-between align-items-center p_t_20p">
+                    <a href="{{ path('agency_practices') }}" class="button button-3d button-small button-red m-0">Annulla</a>
+                    {# 12.2.8 Crea la pratica e apre la scheda #}
+                    <button type="submit" class="button button-3d button-small button-green m-0"
+                            data-needs-customers{{ customerCount < 2 ? ' disabled' : '' }}>
+                        Inserisci
+                    </button>
+                </div>
+            {{ form_end(form) }}
+        </div>
+    </section>
+{% endblock %}
+
+{% block modals %}
+    {# Ricerca comune per il picker Città/CAP #}
+    {% include 'components/modals/city.html.twig' with {number: 1, cities: []} only %}
+
+    {# 12.2.1 / 12.2.2 Nuovo cliente al volo dal "+" accanto alle parti #}
+    {% if canAddCustomer %}
+        {% include 'role/agency/practice/_customer_quick_new.html.twig' with {
+            prefix: 'practiceNew', modalToClose: ''
+        } only %}
+    {% endif %}
+
+    {# Datepicker: dopo i modali, così trova anche i campi data che stanno lì. #}
+{% endblock %}
+
+{% block page_javascripts %}
+    {% include 'role/agency/practice/_customer_autocomplete.html.twig' %}
+    {% include 'components/js/city_js.html.twig' with {number: 1, formName: 'practiceNew', modalToClose: ''} only %}
+{% endblock %}

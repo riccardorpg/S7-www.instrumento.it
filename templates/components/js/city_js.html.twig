@@ -29,7 +29,7 @@
 
         window.cityFilter{{ number }} = function () {
             var name = document.getElementById('city_filter_val_{{ number }}').value;
-            jQuery.post("{{ path('post_update_cities') }}", {name: name}, function (response) {
+            jQuery.post("{{ path('geo_cities') }}", {name: name}, function (response) {
                 if (response.code !== 200 || !response.success) return;
                 var tbody = document.getElementById('city_table_{{ number }}');
                 tbody.innerHTML = '';
@@ -81,7 +81,7 @@
             while (select.options.length) select.remove(0);
             if (!cityId) { hiddenZip.value = ''; return; }
 
-            jQuery.post("{{ path('post_update_city_zips') }}", {cityId: cityId}, function (response) {
+            jQuery.post("{{ path('geo_city_zips') }}", {cityId: cityId}, function (response) {
                 if (response.code !== 200 || !response.success || !response.zips) return;
                 var pairs = response.zips.split(',');
                 for (var i = 0; i < pairs.length; i++) {

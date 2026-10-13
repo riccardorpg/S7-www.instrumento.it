@@ -16,12 +16,12 @@
         <td style="padding:0 20px 20px 20px">
             <table style="border-collapse:collapse; color:#333;">
                 <tr><td style="padding:4px 12px 4px 0;"><strong>Tipo account</strong></td><td style="padding:4px 0;">{{ request.accountTypeLabel }}</td></tr>
-                <tr><td style="padding:4px 12px 4px 0;"><strong>Ragione sociale / Nome</strong></td><td style="padding:4px 0;">{{ request.businessName ?: '—' }}</td></tr>
+                <tr><td style="padding:4px 12px 4px 0;"><strong>Ragione sociale / Nome</strong></td><td style="padding:4px 0;">{{ request.businessName ?: '-' }}</td></tr>
                 <tr><td style="padding:4px 12px 4px 0;"><strong>E-mail</strong></td><td style="padding:4px 0;">{{ request.email }}</td></tr>
-                <tr><td style="padding:4px 12px 4px 0;"><strong>Indirizzo</strong></td><td style="padding:4px 0;">{{ (request.address ~ ' ' ~ request.civic)|trim ?: '—' }}</td></tr>
-                <tr><td style="padding:4px 12px 4px 0;"><strong>Città</strong></td><td style="padding:4px 0;">{{ request.city ?: '—' }} {{ request.zip }}</td></tr>
-                <tr><td style="padding:4px 12px 4px 0;"><strong>PEC</strong></td><td style="padding:4px 0;">{{ request.pec ?: '—' }}</td></tr>
-                <tr><td style="padding:4px 12px 4px 0;"><strong>Codice SDI</strong></td><td style="padding:4px 0;">{{ request.sdi ?: '—' }}</td></tr>
+                <tr><td style="padding:4px 12px 4px 0;"><strong>Indirizzo</strong></td><td style="padding:4px 0;">{{ (request.address ~ ' ' ~ request.civic)|trim ?: '-' }}</td></tr>
+                <tr><td style="padding:4px 12px 4px 0;"><strong>Città</strong></td><td style="padding:4px 0;">{{ request.city ?: '-' }} {{ request.zip }}</td></tr>
+                <tr><td style="padding:4px 12px 4px 0;"><strong>PEC</strong></td><td style="padding:4px 0;">{{ request.pec ?: '-' }}</td></tr>
+                <tr><td style="padding:4px 12px 4px 0;"><strong>Codice SDI</strong></td><td style="padding:4px 0;">{{ request.sdi ?: '-' }}</td></tr>
             </table>
         </td>
     </tr>

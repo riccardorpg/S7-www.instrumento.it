@@ -1,0 +1,24 @@
+{# 13.2.2 / 13.3.2 Campi di contrassegni e tag (PracticeMarkType / PracticeTagType): colore + valore,
+   con anteprima dell'etichetta (colorPreview() in _color_value_js, con l'id del form come prefisso).
+   Variabili: form, placeholder. #}
+{% set preview = "colorPreview('" ~ form.vars.id ~ "')" %}
+<div class="row g-3">
+    <div class="col-md-8">
+        <div {{ form_errors(form.value) }}>
+            <label class="form-label" for="{{ form.value.vars.id }}">Valore *</label>
+            {{ form_widget(form.value, {attr: form.value.vars.attr|merge({placeholder: placeholder|default('Es. Urgente'), oninput: preview})}) }}
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div {{ form_errors(form.color) }}>
+            <label class="form-label" for="{{ form.color.vars.id }}">Colore *</label>
+            {{ form_widget(form.color, {attr: form.color.vars.attr|merge({oninput: preview})}) }}
+        </div>
+    </div>
+    <div class="col-12">
+        <span class="op_07 font_13">Anteprima:</span>
+        <span id="{{ form.vars.id }}_preview" class="badge ms-1" data-placeholder="{{ placeholder|default('Es. Urgente') }}" style="background:#1D4ED8; color:#ffffff;">
+            {{ placeholder|default('Es. Urgente') }}
+        </span>
+    </div>
+</div>

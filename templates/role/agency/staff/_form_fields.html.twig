@@ -1,25 +1,11 @@
-{# 10.2 Campi del membro dello staff. I permessi si gestiscono a parte (10.1.5). #}
+{# 10.2 Campi del membro dello staff (AgencyStaffType). Variabile: form.
+   I permessi si gestiscono a parte (10.1.5). Errori su un div senza altre classi (form/errors.html.twig). #}
 <div class="row g-3">
-    <div class="col-md-6">
-        <label class="form-label" for="{{ prefix }}_name">Nome *</label>
-        <input type="text" id="{{ prefix }}_name" name="name" class="form-control" maxlength="190" required>
-    </div>
-    <div class="col-md-6">
-        <label class="form-label" for="{{ prefix }}_surname">Cognome *</label>
-        <input type="text" id="{{ prefix }}_surname" name="surname" class="form-control" maxlength="190" required>
-    </div>
+    <div class="col-md-6"><div {{ form_errors(form.name) }}><label class="form-label" for="{{ form.name.vars.id }}">Nome *</label>{{ form_widget(form.name) }}</div></div>
+    <div class="col-md-6"><div {{ form_errors(form.surname) }}><label class="form-label" for="{{ form.surname.vars.id }}">Cognome *</label>{{ form_widget(form.surname) }}</div></div>
+    <div class="col-12"><div {{ form_errors(form.email) }}><label class="form-label" for="{{ form.email.vars.id }}">E-mail *</label>{{ form_widget(form.email) }}</div></div>
     <div class="col-12">
-        <label class="form-label" for="{{ prefix }}_email">E-mail *</label>
-        <input type="email" id="{{ prefix }}_email" name="email" class="form-control" maxlength="190" required
-               placeholder="nome@esempio.it">
-    </div>
-    <div class="col-12">
-        <label class="form-label" for="{{ prefix }}_role">Ruolo *</label>
-        <select id="{{ prefix }}_role" name="staff_role" class="form-select" required>
-            {% for value, label in roles %}
-                <option value="{{ value }}">{{ label }}</option>
-            {% endfor %}
-        </select>
+        <div {{ form_errors(form.staffRole) }}><label class="form-label" for="{{ form.staffRole.vars.id }}">Ruolo *</label>{{ form_widget(form.staffRole) }}</div>
         <small class="op_07">L'amministratore ha sempre accesso completo, senza passare dai permessi.</small>
     </div>
 </div>

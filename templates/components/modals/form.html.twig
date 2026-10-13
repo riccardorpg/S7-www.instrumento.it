@@ -1,0 +1,58 @@
+{# =====================================================================
+   Modale con form. Usare via embed.
+   Variabili:
+     type        : prefisso ID (es. 'externalNew', 'clientEdit')
+     title       : titolo
+     form        : (opz) FormView di un form Symfony (CONVENZIONI 6). Se c'è, il <form>, il token
+                   e i campi non resi a mano li genera Symfony; se il form è stato inviato con
+                   errori il modale si riapre da solo al caricamento, con i campi segnati.
+                   Senza form: <form> HTML con token CSRF "type" (azioni senza entity).
+     action      : (opz) URL del POST; per i modali di modifica si imposta via JS ({type}Form.action)
+     size        : (opz) 'modal-lg' | 'modal-xl' | ''
+     enctype     : (opz) es. 'multipart/form-data' per upload file (solo senza form)
+   Blocchi: modalBody (campi), modalSubmit (label bottone verde, default 'Salva').
+   Espone: window["{type}Show"]().
+   ===================================================================== #}
+{% set hasForm = form is defined and form is not null %}
+<div id="{{ type }}Modal" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog {{ size|default('') }}" role="document">
+        <div class="modal-content">
+            {% if hasForm %}
+                {{ form_start(form, {action: action|default(form.vars.action), attr: {id: type ~ 'Form', novalidate: 'novalidate'}}) }}
+            {% else %}
+                <form id="{{ type }}Form" method="post" action="{{ action|default('') }}"{% if enctype is defined and enctype %} enctype="{{ enctype }}"{% endif %} novalidate>
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token(type) }}">
+            {% endif %}
+                <div class="modal-header"><h3 class="modal-title">{{ title }}</h3></div>
+                <div class="modal-stripe"></div>
+                <div class="modal-body">
+                    {# Errori non legati a un campo (es. regole su più campi). #}
+                    {% if hasForm and form.vars.errors|length %}
+                        <div class="alert alert-danger">{% for error in form.vars.errors %}{{ error.message }}{% if not loop.last %}<br>{% endif %}{% endfor %}</div>
+                    {% endif %}
+                    {% block modalBody %}{% endblock %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="button button-3d button-small button-red f_left" data-bs-dismiss="modal">Annulla</button>
+                    <button type="submit" class="button button-3d button-small button-green f_right">{% block modalSubmit %}Salva{% endblock %}</button>
+                </div>
+            {% if hasForm %}
+                {{ form_end(form) }}
+            {% else %}
+                </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+<script>
+    (function () {
+        var el = document.getElementById("{{ type }}Modal");
+        if (!el) return;
+        var modal = new bootstrap.Modal(el, {backdrop: 'static', keyboard: false});
+        window["{{ type }}Show"] = function () { modal.show(); };
+        {% if hasForm and form.vars.submitted and not form.vars.valid %}
+            // Inviato con errori: si riapre con i campi segnati (tooltip da form/errors.html.twig).
+            document.addEventListener('DOMContentLoaded', function () { modal.show(); });
+        {% endif %}
+    })();
+</script>

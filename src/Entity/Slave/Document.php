@@ -26,7 +26,7 @@ class Document
     private ?PracticeDocument $practiceDocument = null;
 
     /** 12.3.2.5.1 Nome dell'allegato (di default il nome del file caricato). */
-    #[ORM\Column(type: 'string', length: 190)]
+    #[ORM\Column(name: 'name', type: 'string', length: 190)]
     private string $name = '';
 
     #[ORM\Column(name: 'original_filename', type: 'string', length: 255, nullable: true)]
@@ -155,5 +155,10 @@ class Document
     public function hasFile(): bool
     {
         return $this->storagePath !== null && $this->storagePath !== '';
+    }
+
+    public function __toString(): string
+    {
+        return (string) $this->name;
     }
 }

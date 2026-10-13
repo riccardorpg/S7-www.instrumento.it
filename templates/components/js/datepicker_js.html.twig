@@ -1,0 +1,24 @@
+{# =====================================================================
+   Datepicker sui campi dei form Symfony (CustomDateType / CustomDateNullableType hanno la
+   classe "datepicker"). Incluso una sola volta in role/base: le pagine non lo includono.
+   Dentro un modale il calendario si aggancia al modale, altrimenti finirebbe sotto lo sfondo scuro.
+   Regole del singolo campo come attributi data-date-* (es. data-date-end-date="0d": niente date
+   future), che bootstrap-datepicker legge da sé.
+   ===================================================================== #}
+<script>
+    // Al DOMContentLoaded: i modali (e i loro campi data) sono resi dopo i javascripts della pagina.
+    document.addEventListener('DOMContentLoaded', function () {
+        var jq = window.jQuery;
+        if (!jq || typeof jq.fn.datepicker !== 'function') return;
+        jq('input.datepicker').not('.hasDatepickerInit').addClass('hasDatepickerInit').each(function () {
+            var modal = jq(this).closest('.modal');
+            jq(this).datepicker({
+                format: 'dd-mm-yyyy',
+                weekStart: 1,
+                autoclose: true,
+                todayHighlight: true,
+                container: modal.length ? '#' + modal.attr('id') : 'body'
+            });
+        });
+    });
+</script>

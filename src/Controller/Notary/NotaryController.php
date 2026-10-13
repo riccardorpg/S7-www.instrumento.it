@@ -6,15 +6,21 @@ use App\Entity\Master\Company;
 use App\Entity\Slave\Document;
 use App\Entity\Slave\Practice;
 use App\Entity\Slave\PracticeDocument;
+use App\Form\DocumentNotaryNoteType;
+use App\Form\Model\PracticeDocumentUpload;
+use App\Form\PracticeDocumentUploadType;
+use App\Repository\Slave\PracticeRepository;
 use App\Service\CompanyService;
-use App\Service\DocumentStorage;
-use App\Service\NotaryAgencyAccess;
-use App\Service\PracticeNotifier;
+use App\Service\DocumentStorageService;
+use App\Service\FilterService;
+use App\Service\NotaryAgencyAccessService;
+use App\Service\PracticeNotifierService;
 use Doctrine\Persistence\ManagerRegistry;
 use Knp\Component\Pager\PaginatorInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\FormError;
+use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
-use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -33,13 +39,13 @@ class NotaryController extends AbstractController
     public function __construct(
         private readonly ManagerRegistry $registry,
         private readonly CompanyService $companyService,
-        private readonly NotaryAgencyAccess $agencyAccess,
+        private readonly NotaryAgencyAccessService $agencyAccess,
     ) {
     }
 
     /** 17. Scrivania: 17.1 selezione agenzia (solo quelle abbinate al notaio). */
     #[Route('', name: 'notary_index', methods: ['GET'])]
-    public function index(): Response
+    public function notaryIndex(): Response
     {
         return $this->render('role/notary/index.html.twig', [
             'companies' => $this->allowedCompanies(),
@@ -49,10 +55,10 @@ class NotaryController extends AbstractController
 
     /** 17.1 Seleziona agenzia: ripunta lo slave e prosegue alle pratiche. */
     #[Route('/seleziona-agenzia', name: 'notary_select_agency', methods: ['POST'])]
-    public function selectAgency(Request $request): RedirectResponse
+    public function notarySelectAgency(Request $request): RedirectResponse
     {
         if (!$this->isCsrfTokenValid('notarySelectAgency', (string) $request->request->get('_csrf_token'))) {
-            $this->addFlash('danger', 'Token non valido, riprova.');
+            $this->addFlash('notice_danger', 'Token non valido, riprova.');
 
             return $this->redirectToRoute('notary_index');
         }
@@ -61,7 +67,7 @@ class NotaryController extends AbstractController
         $company = $id ? $this->registry->getManager('master')->getRepository(Company::class)->find($id) : null;
         // Deve essere attiva E tra le agenzie abbinate al notaio.
         if ($company === null || !$this->agencyAccess->hasAccess($this->getUser(), $company)) {
-            $this->addFlash('danger', 'Agenzia non valida o non autorizzata.');
+            $this->addFlash('notice_danger', 'Agenzia non valida o non autorizzata.');
 
             return $this->redirectToRoute('notary_index');
         }
@@ -73,7 +79,7 @@ class NotaryController extends AbstractController
 
     /** Deseleziona l'agenzia corrente. */
     #[Route('/cambia-agenzia', name: 'notary_deselect_agency', methods: ['GET'])]
-    public function deselectAgency(): RedirectResponse
+    public function notaryDeselectAgency(): RedirectResponse
     {
         $this->companyService->clearSession();
 
@@ -81,69 +87,38 @@ class NotaryController extends AbstractController
     }
 
     /** 17.1.1 Gestione pratiche: 17.1.1.1 elenco pratiche accessibili. */
-    #[Route('/pratiche', name: 'notary_practices', methods: ['GET'])]
-    public function practices(Request $request, PaginatorInterface $paginator): Response
+    #[Route('/pratiche/lista', name: 'notary_practices', methods: ['GET'])]
+    public function notaryPractices(Request $request, PaginatorInterface $paginator): Response
     {
         $company = $this->currentAllowedCompany();
         if ($company === null) {
-            $this->addFlash('danger', 'Seleziona prima un\'agenzia.');
+            $this->addFlash('notice_danger', 'Seleziona prima un\'agenzia.');
 
             return $this->redirectToRoute('notary_index');
         }
 
-        $filters = [
-            'q' => trim((string) $request->query->get('f_q', '')),
-            'buyer' => trim((string) $request->query->get('f_buyer', '')),
-            'seller' => trim((string) $request->query->get('f_seller', '')),
-            'status' => trim((string) $request->query->get('f_status', '')),
-        ];
-
         // 17.1 L'accesso all'agenzia è già stato verificato (una pratica assegnata al
         // notaio in questo slave): dentro l'agenzia vede tutte le sue pratiche.
-        /** @var \App\Repository\Slave\PracticeRepository $repo */
-        $repo = $this->registry->getManager('slave')->getRepository(Practice::class);
-        $qb = $repo->accessibleQueryBuilder(null);
+        $filters = FilterService::notaryPracticeFilter($request);
+        /** @var PracticeRepository $practices */
+        $practices = $this->registry->getManager('slave')->getRepository(Practice::class);
+        $records = $paginator->paginate($practices->queryNotaryFiltered($filters), FilterService::page($request, 'notary_practices'), 20);
 
-        if ($filters['q'] !== '') {
-            $qb->andWhere('p.number LIKE :q OR p.subject LIKE :q')
-                ->setParameter('q', '%' . $filters['q'] . '%');
-        }
-        // Le parti sono clienti dell'agenzia (11): il filtro cerca su nome e cognome.
-        if ($filters['buyer'] !== '') {
-            $qb->leftJoin('p.buyer', 'bc')
-                ->andWhere("CONCAT(COALESCE(bc.name, ''), ' ', COALESCE(bc.surname, '')) LIKE :b")
-                ->setParameter('b', '%' . $filters['buyer'] . '%');
-        }
-        if ($filters['seller'] !== '') {
-            $qb->leftJoin('p.seller', 'sc')
-                ->andWhere("CONCAT(COALESCE(sc.name, ''), ' ', COALESCE(sc.surname, '')) LIKE :s")
-                ->setParameter('s', '%' . $filters['seller'] . '%');
-        }
-        if ($filters['status'] !== '') {
-            $qb->andWhere('p.status = :st')->setParameter('st', $filters['status']);
-        }
-
-        $records = $paginator->paginate(
-            $qb->getQuery(),
-            $request->query->getInt('page', 1),
-            20,
-            [
-                'defaultSortFieldName' => 'p.createdAt',
-                'defaultSortDirection' => 'desc',
-                'sortFieldAllowList' => ['p.number', 'p.mortgage', 'p.status', 'p.createdAt'],
-            ]
-        );
-
-        return $this->render('role/notary/practices/index.html.twig', [
+        return $this->render('role/notary/practice/list.html.twig', [
             'company' => $company,
             'records' => $records,
             'filters' => $filters,
         ]);
     }
 
-    /** 17.1.1.1.5 Scheda pratica: dati, parti, elenco documenti, nuovo allegato. */
-    #[Route('/pratiche/{id}', name: 'notary_practice_show', requirements: ['id' => '\d+'], methods: ['GET'])]
-    public function show(int $id): Response
+    /**
+     * 17.1.1.1.5 Scheda pratica: dati, parti, elenco documenti, con i form dei modali
+     * (CONVENZIONI 6): nuovo allegato (17.1.1.1.5.3) e note del notaio su un allegato
+     * (17.1.1.1.5.2.6, ?edit_document=ID). I form si inviano a questa pagina, che salva e torna
+     * alla scheda; se non sono validi la scheda si ripresenta col modale aperto.
+     */
+    #[Route('/pratiche/scheda/{id}', name: 'notary_practice_sheet', requirements: ['id' => '\d+'], methods: ['GET', 'POST'])]
+    public function notaryPracticeSheet(int $id, Request $request, DocumentStorageService $storage, FormFactoryInterface $formFactory): Response
     {
         [$company, $practice] = $this->requirePractice($id);
         if ($company === null) {
@@ -152,52 +127,113 @@ class NotaryController extends AbstractController
         if ($practice === null) {
             throw $this->createNotFoundException('Pratica non trovata.');
         }
+        // 12.3.2 A documenti in sola lettura i form non si gestiscono: la POST si ferma qui.
+        if ($request->isMethod('POST') && $this->documentsLocked($practice)) {
+            return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
+        }
+        $em = $this->registry->getManager('slave');
 
-        return $this->render('role/notary/practices/show.html.twig', [
+        // ===== 17.1.1.1.5.3 Nuovo allegato =====
+        $upload = new PracticeDocumentUpload();
+        $formDocumentNew = $formFactory->createNamed('practice_document_new', PracticeDocumentUploadType::class, $upload, [
+            'rows' => $practice->getPracticeDocuments()->toArray(),
+        ]);
+        $formDocumentNew->handleRequest($request);
+        if ($formDocumentNew->isSubmitted() && $formDocumentNew->isValid()) {
+            $row = $upload->getPracticeDocument();
+            $name = trim($upload->getName());
+            $note = trim((string) $upload->getNote());
+            $doc = (new Document())->setName($name)->setNotaryNote($note !== '' ? $note : null);
+            $row->addDocument($doc);
+            $em->persist($doc);
+
+            try {
+                // Il file non conserva il nome originale: prende il "nome allegato" del form.
+                $meta = $storage->store((string) $company->getDbName(), $practice, $upload->getFile(), $name);
+                $doc->setOriginalFilename($meta['name'])
+                    ->setStoragePath($meta['path'])
+                    ->setMimeType($meta['mime'])
+                    ->setSizeBytes($meta['size']);
+                if ($row->getStatus() === PracticeDocument::STATUS_TO_UPLOAD) {
+                    $row->setStatus(PracticeDocument::STATUS_TO_VERIFY);
+                }
+                $em->flush();
+                $this->addFlash('notice_success', 'Allegato caricato.');
+
+                return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
+            } catch (\Throwable $e) {
+                // Salvataggio su disco non riuscito: il Document non resta e l'errore va sul campo.
+                $row->removeDocument($doc);
+                $em->detach($doc);
+                $formDocumentNew->get('file')->addError(new FormError('Caricamento non riuscito: ' . $e->getMessage()));
+            }
+        }
+
+        // ===== 17.1.1.1.5.2.6 Note del notaio (?edit_document=ID) =====
+        $editedDocument = $this->findDocument($practice, $request->query->getInt('edit_document'));
+        $formDocumentNote = $formFactory->createNamed('practice_document_note', DocumentNotaryNoteType::class, $editedDocument ?? new Document());
+        if ($editedDocument !== null) {
+            $formDocumentNote->handleRequest($request);
+            if ($formDocumentNote->isSubmitted() && $formDocumentNote->isValid()) {
+                $note = trim((string) $editedDocument->getNotaryNote());
+                $editedDocument->setNotaryNote($note !== '' ? $note : null);
+                $em->flush();
+                $this->addFlash('notice_success', 'Note aggiornate.');
+
+                return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
+            }
+            if ($formDocumentNote->isSubmitted()) {
+                $em->refresh($editedDocument);
+            }
+        }
+
+        return $this->render('role/notary/practice/sheet.html.twig', [
             'company' => $company,
             'practice' => $practice,
+            'formDocumentNew' => $formDocumentNew->createView(),
+            'formDocumentNote' => $formDocumentNote->createView(),
         ]);
     }
 
     /** 17.1.1.2 Cambio stato pratica: completata / archiviabile / riapri (aperta). */
     #[Route('/pratiche/{id}/stato', name: 'notary_practice_status', requirements: ['id' => '\d+'], methods: ['POST'])]
-    public function practiceStatus(int $id, Request $request): RedirectResponse
+    public function notaryPracticeStatus(int $id, Request $request): RedirectResponse
     {
         [$company, $practice] = $this->requirePractice($id);
         if ($practice === null) {
-            return $this->redirectToRoute($company ? 'notary_practice_show' : 'notary_index', $company ? ['id' => $id] : []);
+            return $this->redirectToRoute($company ? 'notary_practice_sheet' : 'notary_index', $company ? ['id' => $id] : []);
         }
         if (!$this->isCsrfTokenValid('practice_status_' . $practice->getId(), (string) $request->request->get('_csrf_token'))) {
-            return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
+            return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
         }
 
         $target = (string) $request->request->get('status', '');
         $allowed = [Practice::STATUS_OPEN, Practice::STATUS_COMPLETED, Practice::STATUS_ARCHIVABLE];
         if (!in_array($target, $allowed, true)) {
-            $this->addFlash('danger', 'Stato non valido.');
+            $this->addFlash('notice_danger', 'Stato non valido.');
 
-            return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
+            return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
         }
 
         // 17.1.1 "Completata" solo a documenti richiesti tutti verificati.
-        if ($target === Practice::STATUS_COMPLETED && !$practice->canBeCompleted()) {
+        if ($target === Practice::STATUS_COMPLETED && !$practice->getCanComplete()) {
             $pending = $practice->getDocumentsPendingVerification();
             $labels = array_map(static fn ($row) => $row->getLabel(), $pending->toArray());
-            $this->addFlash('danger', sprintf(
+            $this->addFlash('notice_danger', sprintf(
                 'Non puoi completare la pratica: %d document%s da verificare (%s).',
                 count($labels),
                 count($labels) === 1 ? 'o' : 'i',
                 implode(', ', $labels)
             ));
 
-            return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
+            return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
         }
 
         $practice->setStatus($target);
         $this->registry->getManager('slave')->flush();
-        $this->addFlash('success', 'Stato pratica aggiornato: ' . $practice->getStatusLabel() . '.');
+        $this->addFlash('notice_success', 'Stato pratica aggiornato: ' . $practice->getStatusLabel() . '.');
 
-        return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
+        return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
     }
 
     /**
@@ -205,38 +241,38 @@ class NotaryController extends AbstractController
      * Le note stanno già sugli allegati, questo è solo il campanello.
      */
     #[Route('/pratiche/{id}/note-inserite', name: 'notary_practice_notes_alert', requirements: ['id' => '\d+'], methods: ['POST'])]
-    public function notesAlert(int $id, Request $request, PracticeNotifier $notifier): RedirectResponse
+    public function notaryPracticeNotesAlert(int $id, Request $request, PracticeNotifierService $notifier): RedirectResponse
     {
         [$company, $practice] = $this->requirePractice($id);
         if ($practice === null) {
-            return $this->redirectToRoute($company ? 'notary_practice_show' : 'notary_index', $company ? ['id' => $id] : []);
+            return $this->redirectToRoute($company ? 'notary_practice_sheet' : 'notary_index', $company ? ['id' => $id] : []);
         }
         if (!$this->isCsrfTokenValid('notaryNotes', (string) $request->request->get('_csrf_token'))) {
-            return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
+            return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
         }
 
         $recipients = $notifier->agentEmailsFor($practice, $company);
         if ($recipients === []) {
-            $this->addFlash('danger', 'Nessun indirizzo a cui scrivere: l\'agenzia non ha un contatto per questa pratica.');
+            $this->addFlash('notice_danger', 'Nessun indirizzo a cui scrivere: l\'agenzia non ha un contatto per questa pratica.');
 
-            return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
+            return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
         }
 
         $sent = $notifier->notifyNotaryNotes($practice, $recipients, $this->getUser()->getFullName());
         if ($sent === 0) {
-            $this->addFlash('danger', 'Invio dell\'avviso non riuscito: riprova più tardi.');
+            $this->addFlash('notice_danger', 'Invio dell\'avviso non riuscito: riprova più tardi.');
         } elseif ($sent === count($recipients)) {
-            $this->addFlash('success', sprintf('Avviso inviato a %s.', implode(', ', $recipients)));
+            $this->addFlash('notice_success', sprintf('Avviso inviato a %s.', implode(', ', $recipients)));
         } else {
-            $this->addFlash('warning', sprintf('Avviso inviato a %d destinatari su %d.', $sent, count($recipients)));
+            $this->addFlash('notice_warning', sprintf('Avviso inviato a %d destinatari su %d.', $sent, count($recipients)));
         }
 
-        return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
+        return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
     }
 
     /** 17.1.1.1.5.2.3 Scarica file allegato. */
-    #[Route('/pratiche/{id}/documenti/{did}/scarica', name: 'notary_doc_download', requirements: ['id' => '\d+', 'did' => '\d+'], methods: ['GET'])]
-    public function docDownload(int $id, int $did, DocumentStorage $storage): Response
+    #[Route('/pratiche/{id}/documenti/{did}/scarica', name: 'notary_practice_document_download', requirements: ['id' => '\d+', 'did' => '\d+'], methods: ['GET'])]
+    public function notaryPracticeDocumentDownload(int $id, int $did, DocumentStorageService $storage): Response
     {
         [$company, $practice, $doc] = $this->requireDocument($id, $did);
         if ($doc === null) {
@@ -246,16 +282,16 @@ class NotaryController extends AbstractController
             throw $this->createNotFoundException('Documento non trovato.');
         }
         if (!$doc->hasFile()) {
-            $this->addFlash('danger', 'Nessun file caricato per questo documento.');
+            $this->addFlash('notice_danger', 'Nessun file caricato per questo documento.');
 
-            return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
+            return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
         }
 
         $abs = $storage->absolutePath((string) $company->getDbName(), (string) $doc->getStoragePath());
         if (!is_file($abs)) {
-            $this->addFlash('danger', 'File non presente sul server.');
+            $this->addFlash('notice_danger', 'File non presente sul server.');
 
-            return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
+            return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
         }
 
         $response = new BinaryFileResponse($abs);
@@ -271,8 +307,8 @@ class NotaryController extends AbstractController
      * Anteprima dell'allegato: lo stesso file servito inline, per l'iframe del modale.
      * Gli allegati sono solo PDF, quindi il browser lo mostra col suo viewer.
      */
-    #[Route('/pratiche/{id}/documenti/{did}/anteprima', name: 'notary_doc_preview', requirements: ['id' => '\d+', 'did' => '\d+'], methods: ['GET'])]
-    public function docPreview(int $id, int $did, DocumentStorage $storage): Response
+    #[Route('/pratiche/{id}/documenti/{did}/anteprima', name: 'notary_practice_document_preview', requirements: ['id' => '\d+', 'did' => '\d+'], methods: ['GET'])]
+    public function notaryPracticeDocumentPreview(int $id, int $did, DocumentStorageService $storage): Response
     {
         [$company, $practice, $doc] = $this->requireDocument($id, $did);
         if ($doc === null || $company === null) {
@@ -288,7 +324,7 @@ class NotaryController extends AbstractController
         }
 
         $response = new BinaryFileResponse($abs);
-        $response->headers->set('Content-Type', $doc->getMimeType() ?: DocumentStorage::ALLOWED_MIME);
+        $response->headers->set('Content-Type', $doc->getMimeType() ?: DocumentStorageService::ALLOWED_MIME);
         $response->setContentDisposition(
             HeaderUtils::DISPOSITION_INLINE,
             $doc->getOriginalFilename() ?: ($doc->getName() . '.pdf')
@@ -301,42 +337,42 @@ class NotaryController extends AbstractController
      * 17.1.1.1.5.2.4 Richiesto / non richiesto: dal punto 12 è la riga documentale
      * (il tipo previsto per la pratica) a essere richiesta, non il singolo allegato.
      */
-    #[Route('/pratiche/{id}/righe/{rid}/richiesto', name: 'notary_row_toggle_visible', requirements: ['id' => '\d+', 'rid' => '\d+'], methods: ['POST'])]
-    public function rowToggleVisible(int $id, int $rid, Request $request): RedirectResponse
+    #[Route('/pratiche/{id}/righe/{rid}/richiesto', name: 'notary_practice_row_toggle_visible', requirements: ['id' => '\d+', 'rid' => '\d+'], methods: ['POST'])]
+    public function notaryPracticeRowToggleVisible(int $id, int $rid, Request $request): RedirectResponse
     {
         [$company, $practice, $row] = $this->requireRow($id, $rid);
         if ($row === null) {
-            return $this->redirectToRoute($company ? 'notary_practice_show' : 'notary_index', $company ? ['id' => $id] : []);
+            return $this->redirectToRoute($company ? 'notary_practice_sheet' : 'notary_index', $company ? ['id' => $id] : []);
         }
         if ($this->documentsLocked($practice)) {
-            return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
+            return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
         }
         if ($this->isCsrfTokenValid('practice_doc_' . $practice->getId(), (string) $request->request->get('_csrf_token'))) {
             $row->setVisible(!$row->isVisible());
             $this->registry->getManager('slave')->flush();
         }
 
-        return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
+        return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
     }
 
     /** 17.1.1.1.5.2.5 Modifica stato della riga documentale: Da verificare / Verificato. */
-    #[Route('/pratiche/{id}/righe/{rid}/stato', name: 'notary_row_status', requirements: ['id' => '\d+', 'rid' => '\d+'], methods: ['POST'])]
-    public function rowStatus(int $id, int $rid, Request $request): RedirectResponse
+    #[Route('/pratiche/{id}/righe/{rid}/stato', name: 'notary_practice_row_status', requirements: ['id' => '\d+', 'rid' => '\d+'], methods: ['POST'])]
+    public function notaryPracticeRowStatus(int $id, int $rid, Request $request): RedirectResponse
     {
         [$company, $practice, $row] = $this->requireRow($id, $rid);
         if ($row === null) {
-            return $this->redirectToRoute($company ? 'notary_practice_show' : 'notary_index', $company ? ['id' => $id] : []);
+            return $this->redirectToRoute($company ? 'notary_practice_sheet' : 'notary_index', $company ? ['id' => $id] : []);
         }
         if ($this->documentsLocked($practice)) {
-            return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
+            return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
         }
         if ($this->isCsrfTokenValid('practice_doc_' . $practice->getId(), (string) $request->request->get('_csrf_token'))) {
             // Senza allegato non c'è nulla da verificare: lo stato non si tocca. Resta
             // possibile riaprire una riga già verificata (es. dopo aver eliminato il file).
             if (!$row->hasFiles() && $row->getStatus() !== PracticeDocument::STATUS_VERIFIED) {
-                $this->addFlash('danger', 'Nessun allegato caricato per «' . $row->getLabel() . '»: lo stato non è modificabile.');
+                $this->addFlash('notice_danger', 'Nessun allegato caricato per «' . $row->getLabel() . '»: lo stato non è modificabile.');
 
-                return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
+                return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
             }
 
             $row->setStatus(
@@ -347,110 +383,19 @@ class NotaryController extends AbstractController
             $this->registry->getManager('slave')->flush();
         }
 
-        return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
-    }
-
-    /** 17.1.1.1.5.2.6 Inserisci/aggiorna le note del notaio. */
-    #[Route('/pratiche/{id}/documenti/{did}/note', name: 'notary_doc_note', requirements: ['id' => '\d+', 'did' => '\d+'], methods: ['POST'])]
-    public function docNote(int $id, int $did, Request $request): RedirectResponse
-    {
-        [$company, $practice, $doc] = $this->requireDocument($id, $did);
-        if ($doc === null) {
-            return $this->redirectToRoute($company ? 'notary_practice_show' : 'notary_index', $company ? ['id' => $id] : []);
-        }
-        if ($this->documentsLocked($practice)) {
-            return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
-        }
-        if ($this->isCsrfTokenValid('docNote', (string) $request->request->get('_csrf_token'))) {
-            $note = trim((string) $request->request->get('notary_note', ''));
-            $doc->setNotaryNote($note !== '' ? $note : null);
-            $this->registry->getManager('slave')->flush();
-            $this->addFlash('success', 'Note aggiornate.');
-        }
-
-        return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
-    }
-
-    /** 17.1.1.1.5.3 Nuovo allegato: File + Note. */
-    #[Route('/pratiche/{id}/documenti/nuovo', name: 'notary_doc_new', requirements: ['id' => '\d+'], methods: ['POST'])]
-    public function docNew(int $id, Request $request, DocumentStorage $storage): RedirectResponse
-    {
-        [$company, $practice] = $this->requirePractice($id);
-        if ($practice === null) {
-            return $this->redirectToRoute($company ? 'notary_practice_show' : 'notary_index', $company ? ['id' => $id] : []);
-        }
-        if ($this->documentsLocked($practice)) {
-            return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
-        }
-        if (!$this->isCsrfTokenValid('docNew', (string) $request->request->get('_csrf_token'))) {
-            return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
-        }
-
-        /** @var UploadedFile|null $file */
-        $file = $request->files->get('file');
-        $name = trim((string) $request->request->get('name', ''));
-        // Sono ammessi solo PDF (controllo sul contenuto, non sull'estensione dichiarata).
-        $fileError = $storage->validationError($file);
-        if ($fileError !== null) {
-            $this->addFlash('danger', $fileError);
-
-            return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
-        }
-
-        // L'allegato va appeso a una riga documentale della pratica (12.3.2.5).
-        $row = $this->findRow($practice, (int) $request->request->get('practice_document_id'));
-        if ($row === null) {
-            $this->addFlash('danger', 'Seleziona il documento a cui allegare il file.');
-
-            return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
-        }
-
-        if ($name === '') {
-            $this->addFlash('danger', 'Indica il nome dell\'allegato: è il nome con cui il file viene salvato.');
-
-            return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
-        }
-
-        $doc = new Document();
-        $doc->setName($name)
-            ->setNotaryNote(trim((string) $request->request->get('note', '')) ?: null);
-        $row->addDocument($doc);
-        if ($row->getStatus() === PracticeDocument::STATUS_TO_UPLOAD) {
-            $row->setStatus(PracticeDocument::STATUS_TO_VERIFY);
-        }
-
-        $em = $this->registry->getManager('slave');
-        $em->persist($doc);
-        $em->flush(); // id pratica già presente; serve per il percorso file
-
-        try {
-            // Il file non conserva il nome originale: prende il "nome allegato" del form.
-            $meta = $storage->store((string) $company->getDbName(), $practice, $file, $name);
-            $doc->setOriginalFilename($meta['name'])
-                ->setStoragePath($meta['path'])
-                ->setMimeType($meta['mime'])
-                ->setSizeBytes($meta['size']);
-            $em->flush();
-            $this->addFlash('success', 'Allegato caricato.');
-        } catch (\Throwable $e) {
-            $em->remove($doc);
-            $em->flush();
-            $this->addFlash('danger', 'Caricamento non riuscito: ' . $e->getMessage());
-        }
-
-        return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
+        return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
     }
 
     /** Elimina un allegato (record + file). */
-    #[Route('/pratiche/{id}/documenti/{did}/elimina', name: 'notary_doc_delete', requirements: ['id' => '\d+', 'did' => '\d+'], methods: ['POST'])]
-    public function docDelete(int $id, int $did, Request $request, DocumentStorage $storage): RedirectResponse
+    #[Route('/pratiche/{id}/documenti/{did}/elimina', name: 'notary_practice_document_delete', requirements: ['id' => '\d+', 'did' => '\d+'], methods: ['POST'])]
+    public function notaryPracticeDocumentDelete(int $id, int $did, Request $request, DocumentStorageService $storage): RedirectResponse
     {
         [$company, $practice, $doc] = $this->requireDocument($id, $did);
         if ($doc === null) {
-            return $this->redirectToRoute($company ? 'notary_practice_show' : 'notary_index', $company ? ['id' => $id] : []);
+            return $this->redirectToRoute($company ? 'notary_practice_sheet' : 'notary_index', $company ? ['id' => $id] : []);
         }
         if ($this->documentsLocked($practice)) {
-            return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
+            return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
         }
         if ($this->isCsrfTokenValid('practice_doc_' . $practice->getId(), (string) $request->request->get('_csrf_token'))) {
             $storage->delete((string) $company->getDbName(), $doc->getStoragePath());
@@ -460,10 +405,10 @@ class NotaryController extends AbstractController
             $row?->removeDocument($doc)->resetStatusIfEmpty();
             $em->remove($doc);
             $em->flush();
-            $this->addFlash('success', 'Allegato eliminato.');
+            $this->addFlash('notice_success', 'Allegato eliminato.');
         }
 
-        return $this->redirectToRoute('notary_practice_show', ['id' => $id]);
+        return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
     }
 
     /**
@@ -477,7 +422,7 @@ class NotaryController extends AbstractController
             return false;
         }
 
-        $this->addFlash('danger', sprintf(
+        $this->addFlash('notice_danger', sprintf(
             'La pratica è %s: i documenti non sono più modificabili. Riaprila per intervenire.',
             mb_strtolower($practice->getStatusLabel())
         ));
@@ -494,7 +439,7 @@ class NotaryController extends AbstractController
     {
         $company = $this->currentAllowedCompany();
         if ($company === null) {
-            $this->addFlash('danger', 'Seleziona prima un\'agenzia.');
+            $this->addFlash('notice_danger', 'Seleziona prima un\'agenzia.');
 
             return [null, null];
         }
@@ -540,12 +485,18 @@ class NotaryController extends AbstractController
             return [$company, null, null];
         }
 
-        $doc = $this->registry->getManager('slave')->getRepository(Document::class)->find($did);
-        if ($doc === null || $doc->getPractice()?->getId() !== $practice->getId()) {
-            return [$company, $practice, null];
-        }
+        return [$company, $practice, $this->findDocument($practice, $did)];
+    }
 
-        return [$company, $practice, $doc];
+    /** Allegato della pratica, per id; null se non le appartiene. */
+    private function findDocument(Practice $practice, int $did): ?Document
+    {
+        if ($did <= 0) {
+            return null;
+        }
+        $doc = $this->registry->getManager('slave')->getRepository(Document::class)->find($did);
+
+        return $doc !== null && $doc->getPractice()?->getId() === $practice->getId() ? $doc : null;
     }
 
     /**

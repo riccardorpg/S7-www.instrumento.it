@@ -4,11 +4,17 @@ namespace App\Controller;
 
 use App\Entity\Master\User as MasterUser;
 use App\Entity\Slave\User as SlaveUser;
+use App\Form\Model\PasswordCreate;
+use App\Form\Model\PasswordRecover;
+use App\Form\PasswordCreateType;
+use App\Form\PasswordRecoverType;
 use App\Repository\Master\CompanyRepository;
-use App\Service\AppMailer;
+use App\Service\MailerService;
 use App\Service\CompanyService;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\FormFactoryInterface;
+use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
@@ -21,6 +27,7 @@ class SecurityController extends AbstractController
         private readonly ManagerRegistry $registry,
         private readonly CompanyService $companyService,
         private readonly UserPasswordHasherInterface $hasher,
+        private readonly FormFactoryInterface $formFactory,
     ) {
     }
 
@@ -38,6 +45,7 @@ class SecurityController extends AbstractController
         return $this->render('security/login.html.twig', [
             'last_username' => $utils->getLastUsername(),
             'error' => $utils->getLastAuthenticationError(),
+            'recoverForm' => $this->recoverForm()->createView(),
         ]);
     }
 
@@ -48,7 +56,7 @@ class SecurityController extends AbstractController
         $company = $code !== '' ? $companies->findOneByCode($code) : null;
 
         if ($company === null || !$company->isActive()) {
-            $this->addFlash('danger', 'Codice non valido. Verifica il codice personale della tua agenzia.');
+            $this->addFlash('notice_danger', 'Codice non valido. Verifica il codice personale della tua agenzia.');
 
             return $this->redirectToRoute('login');
         }
@@ -63,7 +71,7 @@ class SecurityController extends AbstractController
     {
         $company = $companies->findOneByCode($code);
         if ($company === null || !$company->isActive()) {
-            $this->addFlash('danger', 'Codice non valido.');
+            $this->addFlash('notice_danger', 'Codice non valido.');
 
             return $this->redirectToRoute('login');
         }
@@ -72,6 +80,7 @@ class SecurityController extends AbstractController
             'company' => $company,
             'last_username' => $utils->getLastUsername(),
             'error' => $utils->getLastAuthenticationError(),
+            'recoverForm' => $this->recoverForm((string) $company->getCode())->createView(),
         ]);
     }
 
@@ -86,6 +95,7 @@ class SecurityController extends AbstractController
         return $this->render('security/login_staff.html.twig', [
             'last_username' => $utils->getLastUsername(),
             'error' => $utils->getLastAuthenticationError(),
+            'recoverForm' => $this->recoverForm()->createView(),
         ]);
     }
 
@@ -103,20 +113,22 @@ class SecurityController extends AbstractController
 
     // ================= 3.3 RECUPERA PASSWORD =================
 
+    /**
+     * Pagina e destinazione del modale "Recupera password" delle pagine di accesso. Se l'e-mail
+     * non è valida la pagina si ripresenta con il campo segnato; se è valida il messaggio è
+     * sempre lo stesso, che l'utente esista o no (evita la user enumeration).
+     */
     #[Route('/recupera-password', name: 'password_recover', methods: ['GET', 'POST'])]
-    public function passwordRecover(Request $request, AppMailer $mailer): Response
+    public function passwordRecover(Request $request, MailerService $mailer): Response
     {
-        $code = trim((string) $request->query->get('code', $request->request->get('code', '')));
+        $form = $this->recoverForm(trim((string) $request->query->get('code', '')));
+        $form->handleRequest($request);
 
-        if ($request->isMethod('POST')) {
-            if (!$this->isCsrfTokenValid('recover', (string) $request->request->get('_csrf_token'))) {
-                $this->addFlash('danger', 'Sessione scaduta, riprova.');
-
-                return $this->redirectToRoute('password_recover', $code !== '' ? ['code' => $code] : []);
-            }
-
-            $email = mb_strtolower(trim((string) $request->request->get('email')));
-            [$user, $companyCode] = $this->resolveUserByEmail($email, $code);
+        if ($form->isSubmitted() && $form->isValid()) {
+            /** @var PasswordRecover $recover */
+            $recover = $form->getData();
+            $email = mb_strtolower($recover->getEmail());
+            [$user, $companyCode] = $this->resolveUserByEmail($email, trim((string) $recover->getCode()));
 
             if ($user !== null) {
                 $user->setOneTimeCode(bin2hex(random_bytes(16)));
@@ -135,12 +147,15 @@ class SecurityController extends AbstractController
             }
 
             // Messaggio generico (evita user enumeration)
-            $this->addFlash('success', 'Se l\'indirizzo è registrato, riceverai un\'email con le istruzioni per reimpostare la password.');
+            $this->addFlash('notice_success', 'Se l\'indirizzo è registrato, riceverai un\'email con le istruzioni per reimpostare la password.');
 
             return $this->redirectToRoute('login');
         }
 
-        return $this->render('security/password_recover.html.twig', ['code' => $code]);
+        return $this->render('security/password_recover.html.twig', [
+            'form' => $form->createView(),
+            'code' => (string) $form->getData()->getCode(),
+        ]);
     }
 
     // ================= 4. PAGINA CREAZIONE PASSWORD =================
@@ -148,7 +163,8 @@ class SecurityController extends AbstractController
     #[Route('/crea-password/{code}', name: 'password_create', methods: ['GET', 'POST'], requirements: ['code' => '[a-f0-9]{32}'])]
     public function passwordCreate(string $code, Request $request): Response
     {
-        $companyCode = trim((string) $request->query->get('c', $request->request->get('c', '')));
+        // Il codice agenzia sta nella query (anche al POST: è nell'action del form).
+        $companyCode = trim((string) $request->query->get('c', ''));
 
         // Se è un utente agenzia, punta lo slave al suo DB prima di cercarlo.
         if ($companyCode !== '') {
@@ -160,47 +176,45 @@ class SecurityController extends AbstractController
 
         $user = $this->findUserByOneTimeCode($code, $companyCode);
         if ($user === null) {
-            $this->addFlash('danger', 'Il link non è valido o è scaduto. Richiedi un nuovo recupero password.');
+            $this->addFlash('notice_danger', 'Il link non è valido o è scaduto. Richiedi un nuovo recupero password.');
 
             return $this->redirectToRoute('login');
         }
 
-        if ($request->isMethod('POST')) {
-            if (!$this->isCsrfTokenValid('create_password', (string) $request->request->get('_csrf_token'))) {
-                $this->addFlash('danger', 'Sessione scaduta, riprova.');
+        // 4.1 Le regole di robustezza stanno nel validator (config/validator/Model/PasswordCreate.yml).
+        $form = $this->formFactory->createNamed('password_create', PasswordCreateType::class, new PasswordCreate(), [
+            'action' => $this->generateUrl('password_create', ['code' => $code] + ($companyCode !== '' ? ['c' => $companyCode] : [])),
+        ]);
+        $form->handleRequest($request);
+        if ($form->isSubmitted() && $form->isValid()) {
+            $user->setPassword($this->hasher->hashPassword($user, (string) $form->getData()->getPassword()));
+            $user->setOneTimeCode(null);
+            $user->setExpirationOneTimeCode(null);
+            $em = $user instanceof SlaveUser ? $this->registry->getManager('slave') : $this->registry->getManager('master');
+            $em->flush();
 
-                return $this->redirectToRoute('password_create', ['code' => $code] + ($companyCode !== '' ? ['c' => $companyCode] : []));
-            }
+            $this->addFlash('notice_success', 'Password impostata con successo. Ora puoi accedere.');
 
-            $password = (string) $request->request->get('password');
-            $confirm = (string) $request->request->get('password_confirm');
-            $errors = $this->validateStrongPassword($password);
-            if ($password !== $confirm) {
-                $errors[] = 'Le due password non coincidono.';
-            }
-
-            if ($errors === []) {
-                $user->setPassword($this->hasher->hashPassword($user, $password));
-                $user->setOneTimeCode(null);
-                $user->setExpirationOneTimeCode(null);
-                $em = $user instanceof SlaveUser ? $this->registry->getManager('slave') : $this->registry->getManager('master');
-                $em->flush();
-
-                $this->addFlash('success', 'Password impostata con successo. Ora puoi accedere.');
-
-                return $this->redirectToRoute('login');
-            }
-
-            $this->addFlash('danger', implode(' ', $errors));
+            return $this->redirectToRoute('login');
         }
 
         return $this->render('security/password_create.html.twig', [
-            'code' => $code,
-            'companyCode' => $companyCode,
+            'form' => $form->createView(),
         ]);
     }
 
     // ================= helper =================
+
+    /**
+     * Form "Recupera password": la pagina dedicata e il modale delle pagine di accesso inviano
+     * entrambi a password_recover. $code è il codice dell'agenzia (vuoto per admin e notai).
+     */
+    private function recoverForm(string $code = ''): FormInterface
+    {
+        return $this->formFactory->createNamed('password_recover', PasswordRecoverType::class, new PasswordRecover($code !== '' ? $code : null), [
+            'action' => $this->generateUrl('password_recover'),
+        ]);
+    }
 
     /**
      * Risoluzione code-scoped (come il login): con codice agenzia si cerca nello slave di
@@ -239,33 +253,6 @@ class SecurityController extends AbstractController
         $master = $this->registry->getManager('master')->getRepository(MasterUser::class)->findOneBy(['oneTimeCode' => $code]);
 
         return ($master instanceof MasterUser && $master->isOneTimeCodeValid($code)) ? $master : null;
-    }
-
-    /**
-     * 4.1 Password resistente: min 10 caratteri, maiuscola, minuscola, cifra, carattere speciale.
-     *
-     * @return string[]
-     */
-    private function validateStrongPassword(string $password): array
-    {
-        $errors = [];
-        if (mb_strlen($password) < 10) {
-            $errors[] = 'La password deve avere almeno 10 caratteri.';
-        }
-        if (!preg_match('/[A-Z]/', $password)) {
-            $errors[] = 'Serve almeno una lettera maiuscola.';
-        }
-        if (!preg_match('/[a-z]/', $password)) {
-            $errors[] = 'Serve almeno una lettera minuscola.';
-        }
-        if (!preg_match('/\d/', $password)) {
-            $errors[] = 'Serve almeno una cifra.';
-        }
-        if (!preg_match('/[^A-Za-z0-9]/', $password)) {
-            $errors[] = 'Serve almeno un carattere speciale.';
-        }
-
-        return $errors;
     }
 
     private function redirectByRole(): Response

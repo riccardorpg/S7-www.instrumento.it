@@ -31,32 +31,32 @@ class DemoRequest
     #[ORM\Column(name: 'account_type', type: 'string', length: 20)]
     private string $accountType = Company::TYPE_COMPANY;
 
-    #[ORM\Column(type: 'string', length: 191)]
+    #[ORM\Column(name: 'email', type: 'string', length: 191)]
     private ?string $email = null;
 
     /** Ragione sociale oppure nome e cognome. */
     #[ORM\Column(name: 'business_name', type: 'string', length: 191, nullable: true)]
     private ?string $businessName = null;
 
-    #[ORM\Column(type: 'string', length: 191, nullable: true)]
+    #[ORM\Column(name: 'address', type: 'string', length: 191, nullable: true)]
     private ?string $address = null;
 
-    #[ORM\Column(type: 'string', length: 16, nullable: true)]
+    #[ORM\Column(name: 'civic', type: 'string', length: 16, nullable: true)]
     private ?string $civic = null;
 
-    #[ORM\Column(type: 'string', length: 128, nullable: true)]
+    #[ORM\Column(name: 'city', type: 'string', length: 128, nullable: true)]
     private ?string $city = null;
 
-    #[ORM\Column(type: 'string', length: 5, nullable: true)]
+    #[ORM\Column(name: 'zip', type: 'string', length: 5, nullable: true)]
     private ?string $zip = null;
 
-    #[ORM\Column(type: 'string', length: 7, nullable: true)]
+    #[ORM\Column(name: 'sdi', type: 'string', length: 7, nullable: true)]
     private ?string $sdi = null;
 
-    #[ORM\Column(type: 'string', length: 191, nullable: true)]
+    #[ORM\Column(name: 'pec', type: 'string', length: 191, nullable: true)]
     private ?string $pec = null;
 
-    #[ORM\Column(type: 'string', length: 20, options: ['default' => self::STATUS_NEW])]
+    #[ORM\Column(name: 'status', type: 'string', length: 20, options: ['default' => self::STATUS_NEW])]
     private string $status = self::STATUS_NEW;
 
     #[ORM\Column(name: 'processed_at', type: 'datetime_immutable', nullable: true)]
@@ -254,5 +254,10 @@ class DemoRequest
         $this->processedBy = null;
 
         return $this;
+    }
+
+    public function __toString(): string
+    {
+        return (string) ($this->businessName ?: $this->email);
     }
 }

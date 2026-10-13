@@ -8,7 +8,7 @@
    =========================================================================== #}
 {% extends 'base.html.twig' %}
 
-{% block body_class %}side-header open-header close-header-on-scroll{% endblock %}
+{% block body_class %}internal-area side-header open-header close-header-on-scroll{% endblock %}
 
 {% block preloader %}{% include 'components/preloader.html.twig' %}{% endblock %}
 
@@ -20,28 +20,22 @@
     <link rel="stylesheet" href="{{ asset('css/components/daterangepicker.css') }}">
     {# Tema scuro + classi dell'area privata (icone azione, card, tabelle, picker). #}
     <link rel="stylesheet" href="{{ asset('css/personal/themeOverride.css') }}">
+    {# Grafica dell'area interna allineata a EFT Immobiliare (palette, font, titolo, action bar). #}
+    <link rel="stylesheet" href="{{ asset('css/personal/internal.css') }}">
 {% endblock %}
 
 {% block header %}
+    {# Pannello laterale a scomparsa come EFT Immobiliare: logo in alto, menu sotto. #}
     <div id="header-trigger"><i class="bi-list"></i><i class="bi-x-lg"></i></div>
 
-    {% if is_granted('IS_IMPERSONATOR') %}
-        <div class="alert alert-warning alert-dismissible txt_a_c m_b_none" style="border-radius:0;position:relative;z-index:1000;">
-            <i class="fa-solid fa-user-secret"></i>
-            Stai impersonando <strong>{{ app.user.userIdentifier }}</strong> —
-            <a href="{{ path('agency_index', {'_switch_user': '_exit'}) }}">Torna ad amministratore</a>
-        </div>
-    {% endif %}
-
-    <header id="header">
-        <div id="header-wrap">
+    <header id="header" class="dark">
+        <div id="header-wrap" class="bg_pr">
             <div class="container">
                 <div class="header-row">
-                    <div id="logo" class="p_tb_15p">
+                    <div class="side_header_profile d-none d-lg-block">
                         <a href="{% block home_path %}{{ path('login') }}{% endblock %}">
-                            {# Header dell'area privata a fondo pieno (brand nel tema chiaro, quasi
-                               nero nello scuro): serve il marchio bianco su trasparente. #}
-                            <img src="{{ asset(PATH_GRAPHICS ~ 'logo-mono-white.svg') }}" alt="Instrumento" style="max-height:40px;">
+                            {# Fondo blu notte: serve il marchio bianco su trasparente. #}
+                            <img src="{{ asset(PATH_GRAPHICS ~ 'logos/wordmark-bianco.svg') }}" alt="Instrumento" class="img_profile">
                         </a>
                     </div>
                     <div class="primary-menu-trigger">
@@ -63,11 +57,11 @@
 
 {% block content %}
     {% block role_page_title %}
-        <section class="page-title">
+        <section class="page-title dark bg_pr" data-bs-theme="dark">
             <div class="container">
                 <div class="page-title-row">
                     <div class="page-title-content">
-                        <h3 class="m_b_none">{% block role_page_title_inner %}{% endblock %}</h3>
+                        <h1>{% block role_page_title_inner %}{% endblock %}</h1>
                     </div>
                     <nav aria-label="breadcrumb">
                         <ol class="breadcrumb">
@@ -84,7 +78,7 @@
             <div class="container">
                 <div class="mx-auto order-0">
                     <button class="navbar-toggler button button-mini" type="button" data-bs-toggle="collapse" data-bs-target="#navCollapse">
-                        <span class="color_w">Elenco azioni</span>
+                        <span>Elenco azioni</span>
                     </button>
                 </div>
                 <div id="navCollapse" class="navbar-collapse collapse">
@@ -104,6 +98,15 @@
         </nav>
     {% endblock %}
 
+    {# Sotto la barra azioni: in testa alla pagina coprirebbe il pulsante del pannello laterale. #}
+    {% if is_granted('IS_IMPERSONATOR') %}
+        <div class="alert alert-warning rpg_impersonation">
+            <i class="fa-solid fa-user-secret"></i>
+            Stai impersonando <strong>{{ app.user.userIdentifier }}</strong>.
+            <a href="{{ path('agency_index', {'_switch_user': '_exit'}) }}"><u>Torna ad amministratore</u></a>
+        </div>
+    {% endif %}
+
     {% block role_content %}{% endblock %}
 {% endblock %}
 
@@ -117,6 +120,8 @@
     <script type="text/javascript" src="{{ asset('js/components/daterangepicker.js') }}"></script>
     <script type="text/javascript" src="{{ asset('js/components/timepicker.js') }}"></script>
     <script type="text/javascript" src="{{ asset('js/personal/utilities.js') }}"></script>
+    {# Datepicker di tutti i campi data (anche nei modali): un solo init per l'area riservata. #}
+    {% include 'components/js/datepicker_js.html.twig' %}
 
     {# Scroll orizzontale su mobile: avvolge ogni .table in un .table-responsive. #}
     <script>

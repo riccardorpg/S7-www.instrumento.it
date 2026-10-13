@@ -1,0 +1,25 @@
+{# 11.2.1 / 11.2.2 Campi del cliente (CustomerType): anagrafici e fiscali. Variabile: form.
+   Gli errori vanno su un div senza altre classi (form/errors.html.twig), padre diretto del campo:
+   il modale del cliente al volo (JSON) segna gli errori sullo stesso div.
+   La data di nascita ha la classe "datepicker": l'init lo fa role/base (components/js/datepicker_js). #}
+<h6 class="m_b_10p">Dati anagrafici</h6>
+<div class="row g-3">
+    <div class="col-md-6"><div {{ form_errors(form.name) }}><label class="form-label" for="{{ form.name.vars.id }}">Nome</label>{{ form_widget(form.name) }}</div></div>
+    <div class="col-md-6"><div {{ form_errors(form.surname) }}><label class="form-label" for="{{ form.surname.vars.id }}">Cognome / Ragione sociale *</label>{{ form_widget(form.surname) }}</div></div>
+    <div class="col-md-6"><div {{ form_errors(form.birthPlace) }}><label class="form-label" for="{{ form.birthPlace.vars.id }}">Luogo di nascita</label>{{ form_widget(form.birthPlace) }}</div></div>
+    <div class="col-md-6"><div {{ form_errors(form.birthDate) }}><label class="form-label" for="{{ form.birthDate.vars.id }}">Data di nascita</label>{{ form_widget(form.birthDate) }}</div></div>
+    <div class="col-md-6"><div {{ form_errors(form.address) }}><label class="form-label" for="{{ form.address.vars.id }}">Indirizzo</label>{{ form_widget(form.address) }}</div></div>
+    <div class="col-md-4"><div {{ form_errors(form.city) }}><label class="form-label" for="{{ form.city.vars.id }}">Città</label>{{ form_widget(form.city) }}</div></div>
+    <div class="col-md-2"><div {{ form_errors(form.zip) }}><label class="form-label" for="{{ form.zip.vars.id }}">CAP</label>{{ form_widget(form.zip) }}</div></div>
+    <div class="col-md-6"><div {{ form_errors(form.email) }}><label class="form-label" for="{{ form.email.vars.id }}">E-mail</label>{{ form_widget(form.email) }}</div></div>
+    <div class="col-md-6"><div {{ form_errors(form.phone) }}><label class="form-label" for="{{ form.phone.vars.id }}">Telefono</label>{{ form_widget(form.phone) }}</div></div>
+</div>
+
+<h6 class="p_t_15p m_b_10p">Dati fiscali</h6>
+<div class="row g-3">
+    <div class="col-md-6"><div {{ form_errors(form.fiscalCode) }}><label class="form-label" for="{{ form.fiscalCode.vars.id }}">Codice fiscale</label>{{ form_widget(form.fiscalCode) }}</div></div>
+    <div class="col-md-6"><div {{ form_errors(form.vatNumber) }}><label class="form-label" for="{{ form.vatNumber.vars.id }}">Partita IVA</label>{{ form_widget(form.vatNumber) }}</div></div>
+    <div class="col-md-8"><div {{ form_errors(form.pec) }}><label class="form-label" for="{{ form.pec.vars.id }}">PEC</label>{{ form_widget(form.pec) }}</div></div>
+    <div class="col-md-4"><div {{ form_errors(form.sdi) }}><label class="form-label" for="{{ form.sdi.vars.id }}">Codice SDI</label>{{ form_widget(form.sdi) }}</div></div>
+    <div class="col-12"><div {{ form_errors(form.notes) }}><label class="form-label" for="{{ form.notes.vars.id }}">Note</label>{{ form_widget(form.notes) }}</div></div>
+</div>

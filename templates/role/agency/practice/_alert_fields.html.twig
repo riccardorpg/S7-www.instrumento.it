@@ -1,0 +1,16 @@
+{# 12.3.4.2 Campi dell'avviso (PracticeAlertType): data del promemoria e messaggio.
+   Variabili: form. Il datepicker lo aggancia components/js/datepicker_js.html.twig. #}
+<div class="row g-3">
+    <div class="col-12">
+        <div {{ form_errors(form.remindAt) }}>
+            <label class="form-label" for="{{ form.remindAt.vars.id }}">Ricorda in data *</label>
+            {{ form_widget(form.remindAt) }}
+        </div>
+    </div>
+    <div class="col-12">
+        <div {{ form_errors(form.message) }}>
+            <label class="form-label" for="{{ form.message.vars.id }}">Messaggio *</label>
+            {{ form_widget(form.message) }}
+        </div>
+    </div>
+</div>

@@ -162,10 +162,10 @@
                         <p class="pf-plan-desc">Amplia lo spazio della tua licenza in qualsiasi momento.</p>
                         <hr class="pf-card-hr">
                         <ul class="pf-feature-list">
-                            <li>{{ ico.svg('hdd') }} + 10 GB &nbsp;—&nbsp; € 9 / mese</li>
-                            <li>{{ ico.svg('hdd') }} + 50 GB &nbsp;—&nbsp; € 29 / mese</li>
-                            <li>{{ ico.svg('hdd') }} + 100 GB &nbsp;—&nbsp; € 49 / mese</li>
-                            <li>{{ ico.svg('hdd') }} + 500 GB &nbsp;—&nbsp; € 149 / mese</li>
+                            <li>{{ ico.svg('hdd') }} + 10 GB: € 9 / mese</li>
+                            <li>{{ ico.svg('hdd') }} + 50 GB: € 29 / mese</li>
+                            <li>{{ ico.svg('hdd') }} + 100 GB: € 49 / mese</li>
+                            <li>{{ ico.svg('hdd') }} + 500 GB: € 149 / mese</li>
                         </ul>
                         <a href="#contatti" class="pf-btn-secondary pf-btn-block" data-eb-open="contact">Parla con noi</a>
                     </div>
@@ -240,17 +240,17 @@
                             <button type="button" class="eb-form-card__close" data-eb-close aria-label="Chiudi il modulo">{{ ico.svg('x') }}</button>
                         </div>
                         <div class="eb-form-card__body">
-                        <form method="post" action="{{ path('contact_submit') }}" novalidate>
-                            <input type="hidden" name="_csrf_token" value="{{ csrf_token('contact') }}">
+                        {# Si invia alla homepage stessa: se torna con errori il pannello si riapre con i campi segnati. #}
+                        {{ form_start(formContact, {action: path('homepage'), attr: {id: 'contactForm', novalidate: 'novalidate'}}) }}
                             <div class="row g-3">
-                                <div class="col-md-6"><label class="form-label">Nome *</label><input type="text" name="name" class="form-control" required></div>
-                                <div class="col-md-6"><label class="form-label">Cognome *</label><input type="text" name="surname" class="form-control" required></div>
-                                <div class="col-12"><label class="form-label">E-mail *</label><input type="email" name="email" class="form-control" required></div>
-                                <div class="col-12"><label class="form-label">Messaggio *</label><textarea name="message" rows="4" class="form-control" required></textarea></div>
+                                <div class="col-md-6"><div {{ form_errors(formContact.name) }}><label class="form-label" for="{{ formContact.name.vars.id }}">Nome *</label>{{ form_widget(formContact.name) }}</div></div>
+                                <div class="col-md-6"><div {{ form_errors(formContact.surname) }}><label class="form-label" for="{{ formContact.surname.vars.id }}">Cognome *</label>{{ form_widget(formContact.surname) }}</div></div>
+                                <div class="col-12"><div {{ form_errors(formContact.email) }}><label class="form-label" for="{{ formContact.email.vars.id }}">E-mail *</label>{{ form_widget(formContact.email) }}</div></div>
+                                <div class="col-12"><div {{ form_errors(formContact.message) }}><label class="form-label" for="{{ formContact.message.vars.id }}">Messaggio *</label>{{ form_widget(formContact.message) }}</div></div>
                                 <div class="col-12"><div class="g-recaptcha" data-sitekey="RECAPTCHA_SITE_KEY"></div></div>
                                 <div class="col-12"><button type="submit" class="pf-btn-primary">Invia richiesta</button></div>
                             </div>
-                        </form>
+                        {{ form_end(formContact) }}
                         </div>
                     </div>
                 </div>
@@ -266,33 +266,35 @@
                             <button type="button" class="eb-form-card__close" data-eb-close aria-label="Chiudi il modulo">{{ ico.svg('x') }}</button>
                         </div>
                         <div class="eb-form-card__body">
-                        <form method="post" action="{{ path('demo_request_submit') }}" novalidate id="demoForm">
-                            <input type="hidden" name="_csrf_token" value="{{ csrf_token('demo') }}">
+                        {# Si invia alla homepage stessa: se torna con errori il pannello si riapre con i campi segnati. #}
+                        {{ form_start(formDemo, {action: path('homepage'), attr: {id: 'demoForm', novalidate: 'novalidate'}}) }}
                             <div class="row g-3">
                                 <div class="col-12">
-                                    <label class="form-label d-block">Tipo di account *</label>
-                                    <div class="form-check form-check-inline">
-                                        <input class="form-check-input" type="radio" name="account_type" id="acc_az" value="company" checked>
-                                        <label class="form-check-label" for="acc_az">Aziendale</label>
-                                    </div>
-                                    <div class="form-check form-check-inline">
-                                        <input class="form-check-input" type="radio" name="account_type" id="acc_pro" value="professional">
-                                        <label class="form-check-label" for="acc_pro">Professionista</label>
+                                    <div {{ form_errors(formDemo.accountType) }}>
+                                        <label class="form-label d-block">Tipo di account *</label>
+                                        {% for choice in formDemo.accountType %}
+                                            <div class="form-check form-check-inline">
+                                                {{ form_widget(choice, {attr: {class: 'form-check-input'}}) }}
+                                                <label class="form-check-label" for="{{ choice.vars.id }}">{{ choice.vars.label }}</label>
+                                            </div>
+                                        {% endfor %}
                                     </div>
                                 </div>
-                                <div class="col-md-6"><label class="form-label">E-mail per la registrazione *</label><input type="email" name="email" class="form-control" required></div>
-                                <div class="col-md-6"><label class="form-label">Verifica e-mail *</label><input type="email" name="email_confirm" class="form-control" required></div>
-                                <div class="col-12"><label class="form-label" id="labelRagioneSociale">Ragione sociale *</label><input type="text" name="business_name" class="form-control" required></div>
-                                <div class="col-md-9"><label class="form-label">Indirizzo *</label><input type="text" name="address" class="form-control" required></div>
-                                <div class="col-md-3"><label class="form-label">Civico *</label><input type="text" name="civic" class="form-control" required></div>
-                                <div class="col-md-8"><label class="form-label">Città *</label><input type="text" name="city" class="form-control" required></div>
-                                <div class="col-md-4"><label class="form-label">CAP *</label><input type="text" name="zip" class="form-control" maxlength="5" required></div>
-                                <div class="col-md-6"><label class="form-label">Codice SDI</label><input type="text" name="sdi" class="form-control" maxlength="7"></div>
-                                <div class="col-md-6"><label class="form-label">PEC</label><input type="email" name="pec" class="form-control"></div>
+                                {# La conferma è il secondo campo del RepeatedType: gli errori dell'e-mail (anche "non coincidono")
+                                   Symfony li porta sul primo campo. #}
+                                <div class="col-md-6"><div {{ form_errors(formDemo.email.first) }}><label class="form-label" for="{{ formDemo.email.first.vars.id }}">E-mail per la registrazione *</label>{{ form_widget(formDemo.email.first) }}</div></div>
+                                <div class="col-md-6"><div {{ form_errors(formDemo.email.second) }}><label class="form-label" for="{{ formDemo.email.second.vars.id }}">Verifica e-mail *</label>{{ form_widget(formDemo.email.second) }}</div></div>
+                                <div class="col-12"><div {{ form_errors(formDemo.businessName) }}><label class="form-label" id="labelRagioneSociale" for="{{ formDemo.businessName.vars.id }}">{{ formDemo.accountType.vars.value == 'professional' ? 'Nome e cognome *' : 'Ragione sociale *' }}</label>{{ form_widget(formDemo.businessName) }}</div></div>
+                                <div class="col-md-9"><div {{ form_errors(formDemo.address) }}><label class="form-label" for="{{ formDemo.address.vars.id }}">Indirizzo *</label>{{ form_widget(formDemo.address) }}</div></div>
+                                <div class="col-md-3"><div {{ form_errors(formDemo.civic) }}><label class="form-label" for="{{ formDemo.civic.vars.id }}">Civico *</label>{{ form_widget(formDemo.civic) }}</div></div>
+                                <div class="col-md-8"><div {{ form_errors(formDemo.city) }}><label class="form-label" for="{{ formDemo.city.vars.id }}">Città *</label>{{ form_widget(formDemo.city) }}</div></div>
+                                <div class="col-md-4"><div {{ form_errors(formDemo.zip) }}><label class="form-label" for="{{ formDemo.zip.vars.id }}">CAP *</label>{{ form_widget(formDemo.zip) }}</div></div>
+                                <div class="col-md-6"><div {{ form_errors(formDemo.sdi) }}><label class="form-label" for="{{ formDemo.sdi.vars.id }}">Codice SDI</label>{{ form_widget(formDemo.sdi) }}</div></div>
+                                <div class="col-md-6"><div {{ form_errors(formDemo.pec) }}><label class="form-label" for="{{ formDemo.pec.vars.id }}">PEC</label>{{ form_widget(formDemo.pec) }}</div></div>
                                 <div class="col-12"><div class="g-recaptcha" data-sitekey="RECAPTCHA_SITE_KEY"></div></div>
                                 <div class="col-12"><button type="submit" class="pf-btn-primary">Attiva la demo gratuita</button></div>
                             </div>
-                        </form>
+                        {{ form_end(formDemo) }}
                         </div>
                     </div>
                 </div>
@@ -376,7 +378,9 @@
                 });
             });
 
-            var hash = (window.location.hash || '').replace('#contatti-', '');
+            // Modulo da riaprire: quello inviato con errori (lo dice il controller) oppure, come prima,
+            // l'ancora #contatti-contact / #contatti-demo.
+            var hash = {{ (openPanel ?? '')|json_encode|raw }} || (window.location.hash || '').replace('#contatti-', '');
             if (hash === 'demo' || hash === 'contact') {
                 open(hash, false);
                 var panel = panelOf(hash);
@@ -401,7 +405,7 @@
             var form = document.getElementById('demoForm');
             if (!form) return;
             var label = document.getElementById('labelRagioneSociale');
-            form.querySelectorAll('input[name="account_type"]').forEach(function (r) {
+            form.querySelectorAll('input[name="demo_request[accountType]"]').forEach(function (r) {
                 r.addEventListener('change', function () {
                     label.textContent = (this.value === 'professional') ? 'Nome e cognome *' : 'Ragione sociale *';
                 });

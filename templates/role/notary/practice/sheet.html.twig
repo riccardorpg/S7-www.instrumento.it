@@ -1,0 +1,357 @@
+{% extends 'role/notary/layout.html.twig' %}
+{% import 'components/action_icons.html.twig' as ico %}
+{% import 'components/practice_status.html.twig' as practiceStatus %}
+
+{# 12.3.2 Da "completata" in poi i documenti sono in sola lettura anche per il notaio. #}
+{% set canEditDocuments = practice.areDocumentsEditable %}
+
+{% block title %} - Pratica {{ practice.number }}{% endblock %}
+{% block role_page_title_inner %}Pratica {{ practice.number }}{% endblock %}
+
+{% block sub_menu_left %}
+    <li class="nav-item"><a class="nav-link" href="{{ path('notary_practices') }}"><i class="bi-arrow-left"></i> Torna alle pratiche</a></li>
+{% endblock %}
+
+{% block sub_menu_right %}
+    {% set statusToken = csrf_token('practice_status_' ~ practice.id) %}
+    {% set statusUrl = path('notary_practice_status', {id: practice.id})|json_encode %}
+    {# 17.1.1.3 Avvisa l'agente che ci sono note da leggere. #}
+    <li class="nav-item"><a class="nav-link" href="javascript:notaryNotesConfirm({{ path('notary_practice_notes_alert', {id: practice.id})|json_encode }}, {{ csrf_token('notaryNotes')|json_encode }}, 'avviserai per e-mail l\'agente che hai inserito delle note')"><i class="bi-chat-left-text"></i> Ho messo delle note</a></li>
+    {% if practice.status == 'open' %}
+        {# 17.1.1 "Completata" si sblocca solo quando ogni documento richiesto è verificato. #}
+        {% if practice.canComplete %}
+            <li class="nav-item"><a class="nav-link" href="javascript:practiceStatusConfirm({{ statusUrl }}, {{ statusToken|json_encode }}, 'completed', 'segnerai la pratica come completata')"><i class="bi-check2-circle"></i> Segna come completata</a></li>
+        {% else %}
+            {% set pending = practice.documentsPendingVerification %}
+            <li class="nav-item" data-bs-toggle="tooltip" data-bs-title="Prima verifica: {{ pending|map(row => row.label)|join(', ') }}">
+                <span class="nav-link disabled op_05">Segna come completata ({{ pending|length }} da verificare)</span>
+            </li>
+        {% endif %}
+    {% elseif practice.status == 'completed' %}
+        <li class="nav-item"><a class="nav-link" href="javascript:practiceStatusConfirm({{ statusUrl }}, {{ statusToken|json_encode }}, 'archivable', 'segnerai la pratica come archiviabile')"><i class="bi-check2-square"></i> Segna come archiviabile</a></li>
+        <li class="nav-item"><a class="nav-link" href="javascript:practiceStatusConfirm({{ statusUrl }}, {{ statusToken|json_encode }}, 'open', 'riaprirai la pratica')"><i class="bi-arrow-counterclockwise"></i> Riapri</a></li>
+    {% else %}
+        <li class="nav-item"><a class="nav-link" href="javascript:practiceStatusConfirm({{ statusUrl }}, {{ statusToken|json_encode }}, 'open', 'riaprirai la pratica')"><i class="bi-arrow-counterclockwise"></i> Riapri</a></li>
+    {% endif %}
+{% endblock %}
+
+{% block role_page_title_breadcrumb %}
+    <li class="breadcrumb-item"><a href="{{ path('notary_index') }}">Notaio</a></li>
+    <li class="breadcrumb-item"><a href="{{ path('notary_practices') }}">Pratiche</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ practice.number }}</li>
+{% endblock %}
+
+{% block role_content %}
+    <section class="content-wrap">
+        <div class="container">
+            <div class="d-flex align-items-center mb-2 flex-wrap gap-2">
+                <span class="op_07">Agenzia:</span>
+                <span class="badge bg-secondary">{{ company.code }}</span>
+                <strong>{{ company.name }}</strong>
+                {{ practiceStatus.badge(practice.status, practice.statusLabel, 'ms-auto') }}
+            </div>
+
+            <ul class="nav nav-tabs canvas-alt-tabs tabs-tb" role="tablist">
+                <li class="nav-item"><button class="nav-link active tab_session" data-filter-tab="dati" data-bs-toggle="tab" data-bs-target="#tab-dati" type="button">Dati pratica</button></li>
+                <li class="nav-item"><button class="nav-link tab_session" data-filter-tab="documenti" data-bs-toggle="tab" data-bs-target="#tab-documenti" type="button">Documenti ({{ practice.countUploaded }}/{{ practice.countRequested }})</button></li>
+            </ul>
+
+            <div class="tab-content border border-top-0 p-3 bg-white">
+                {# ===== 17.1.1.1.5.1 DATI PRATICA + PARTI ===== #}
+                <div class="tab-pane fade show active" id="tab-dati">
+                    <table class="table align-middle m_b_none v_a_m">
+                        <tr><th style="width:22%">Numero</th><td>{{ practice.number }}</td></tr>
+                        <tr><th>Tipo</th><td>{{ practice.typeLabel }}</td></tr>
+                        <tr><th>Stato</th><td>{{ practiceStatus.badge(practice.status, practice.statusLabel) }}</td></tr>
+                        <tr><th>Oggetto</th><td>{{ practice.subject ?: '-' }}</td></tr>
+                        <tr><th>Inserita il</th><td>{{ practice.createdAt ? practice.createdAt|date('d/m/Y H:i') : '-' }}</td></tr>
+                    </table>
+
+                    <div class="row g-3 mt-1">
+                        <div class="col-md-6">
+                            <h6 class="mb-2">Acquirente</h6>
+                            {{ _self.partyTable(practice.buyer) }}
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="mb-2">Venditore</h6>
+                            {{ _self.partyTable(practice.seller) }}
+                        </div>
+                    </div>
+                </div>
+
+                {# ===== 17.1.1.1.5.2 ELENCO DOCUMENTI ===== #}
+                <div class="tab-pane fade" id="tab-documenti">
+                    {% if canEditDocuments %}
+                        <div class="d-flex justify-content-end mb-2">
+                            <a href="javascript:docNewShow()" class="button button-3d button-small button-green m_b_none">Nuovo allegato</a>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <i class="bi-lock"></i> La pratica è <strong>{{ practice.statusLabel|lower }}</strong>:
+                            i documenti sono in sola lettura. Riaprila per tornare a intervenire.
+                        </div>
+                    {% endif %}
+                    {# Dal punto 12 i documenti sono organizzati per TIPO: ogni riga è un tipo
+                       previsto per la pratica, con dentro i suoi allegati. #}
+                    {% set token = csrf_token('practice_doc_' ~ practice.id) %}
+                    <table class="table table-bordered align-middle m_b_none v_a_m">
+                        <thead>
+                            <tr>
+                                <th>Documento</th>
+                                <th class="txt_a_c td_w_100p">Richiesto</th>
+                                <th class="txt_a_c td_w_100p">Stato</th>
+                                <th class="txt_a_c td_w_100p">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for row in practice.practiceDocuments %}
+                            <tr class="{{ row.visible ? '' : 'op_05' }}">
+                                <td>
+                                    <strong>{{ row.label }}</strong>
+                                    {% if row.documentType and row.documentType.mortgage %}
+                                        <div><span class="badge bg-light text-dark">solo con mutuo</span></div>
+                                    {% endif %}
+                                </td>
+                                <td class="txt_a_c">
+                                    {% if canEditDocuments %}
+                                        <form method="post" action="{{ path('notary_practice_row_toggle_visible', {id: practice.id, rid: row.id}) }}" class="d-inline">
+                                            <input type="hidden" name="_csrf_token" value="{{ token }}">
+                                            <button type="submit" class="btn p-0 border-0 bg-transparent" data-bs-toggle="tooltip" data-bs-title="Clicca per {{ row.visible ? 'segnare non richiesto' : 'segnare richiesto' }}">
+                                                <span class="badge {{ row.visible ? 'bg-danger' : 'bg-secondary' }}">{{ row.visible ? 'Sì' : 'No' }}</span>
+                                            </button>
+                                        </form>
+                                    {% else %}
+                                        <span class="badge {{ row.visible ? 'bg-danger' : 'bg-secondary' }}">{{ row.visible ? 'Sì' : 'No' }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="txt_a_c">
+                                    {# Senza allegato non c'è nulla da verificare: lo stato resta bloccato.
+                                       Una riga già verificata resta modificabile, per poterla riaprire. #}
+                                    {% set statusBadge = row.status == 'verified' ? 'bg-success' : (row.status == 'to_verify' ? 'bg-warning text-dark' : (row.status == 'to_upload' ? 'bg-danger' : 'bg-secondary')) %}
+                                    {% if canEditDocuments and (row.hasFiles or row.status == 'verified') %}
+                                        <form method="post" action="{{ path('notary_practice_row_status', {id: practice.id, rid: row.id}) }}" class="d-inline">
+                                            <input type="hidden" name="_csrf_token" value="{{ token }}">
+                                            <button type="submit" class="btn p-0 border-0 bg-transparent" data-bs-toggle="tooltip" data-bs-title="Clicca per {{ row.status == 'verified' ? 'rimettere da verificare' : 'segnare verificato' }}">
+                                                <span class="badge {{ statusBadge }}">{{ row.statusLabel }}</span>
+                                            </button>
+                                        </form>
+                                    {% elseif canEditDocuments %}
+                                        <span class="badge {{ statusBadge }} op_07" data-bs-toggle="tooltip" data-bs-title="Nessun allegato caricato: lo stato non è modificabile">{{ row.statusLabel }}</span>
+                                    {% else %}
+                                        <span class="badge {{ statusBadge }}">{{ row.statusLabel }}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="txt_a_c text-nowrap">
+                                    {# Gli allegati stanno nel pannello a tendina: la riga resta compatta
+                                       e il dettaglio (note estese + azioni) si apre solo se serve. #}
+                                    {% if row.hasFiles %}
+                                        {{ ico.action("javascript:docPanelToggle(" ~ row.id ~ ")", 'documents', 'Mostra allegati (' ~ row.documents|length ~ ')', 'pr') }}
+                                    {% else %}
+                                        {{ ico.disabled('documents-grey', 'Nessun allegato') }}
+                                    {% endif %}
+                                    {% if canEditDocuments %}
+                                        {{ ico.action("javascript:docNewShow(" ~ row.id ~ ")", 'add', 'Aggiungi allegato', 'green') }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {# Pannello a tendina della riga: un allegato per riga, note per esteso. #}
+                            {% if row.hasFiles %}
+                                <tr>
+                                    <td colspan="4" class="p-0 border-0">
+                                        <div class="collapse" id="docPanel{{ row.id }}">
+                                            <table class="table table-sm table-bordered align-middle m_b_none v_a_m">
+                                                <thead>
+                                                    <tr>
+                                                        <th class="td_w_250p">Allegato</th>
+                                                        <th>Note agente</th>
+                                                        <th>Note notaio</th>
+                                                        <th class="td_w_150p">Ultimo aggiornamento</th>
+                                                        <th class="txt_a_c td_w_140p">Azioni</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                {% for d in row.documents %}
+                                                    <tr>
+                                                        <td>
+                                                            {{ d.originalFilename ?: d.name }}
+                                                            {% if d.hasFile %}
+                                                                {% if d.sizeBytes %}<div class="op_07 font_13">{{ (d.sizeBytes / 1024)|round }} KB</div>{% endif %}
+                                                            {% else %}
+                                                                <div><span class="badge bg-danger">senza file</span></div>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td class="font_13">{{ d.agentNote ?: '-' }}</td>
+                                                        <td class="font_13">{{ d.notaryNote ?: '-' }}</td>
+                                                        {# Aggiornamento dell'allegato: la data è sua, non della riga documentale. #}
+                                                        <td class="font_13">{{ (d.updatedAt ?? d.createdAt) ? (d.updatedAt ?? d.createdAt)|date('d/m/Y H:i') : '-' }}</td>
+                                                        <td class="txt_a_c text-nowrap">
+                                                            {% if d.hasFile %}
+                                                                {{ ico.action("javascript:docPreviewShow(" ~ path('notary_practice_document_preview', {id: practice.id, did: d.id})|json_encode ~ ", " ~ (d.originalFilename ?: d.name)|json_encode ~ ")", 'preview', 'Anteprima', 'pr') }}
+                                                                {{ ico.action(path('notary_practice_document_download', {id: practice.id, did: d.id}), 'download', 'Scarica file', 'pr') }}
+                                                            {% else %}
+                                                                {{ ico.disabled('preview', 'Nessun file da mostrare') }}
+                                                                {{ ico.disabled('download', 'Nessun file da scaricare') }}
+                                                            {% endif %}
+                                                            {% if canEditDocuments %}
+                                                                {# 17.1.1.1.5.2.6 Note del notaio #}
+                                                                {{ ico.action("javascript:docNoteOpen(" ~ path('notary_practice_sheet', {id: practice.id, edit_document: d.id})|json_encode ~ ", " ~ (d.notaryNote|default('')|json_encode) ~ ")", 'notes', 'Modifica note notaio', 'pr') }}
+                                                                {{ ico.action("javascript:docDeleteConfirm(" ~ path('notary_practice_document_delete', {id: practice.id, did: d.id})|json_encode ~ ", " ~ token|json_encode ~ ", " ~ ('eliminerai l’allegato «' ~ (d.originalFilename ?: d.name) ~ '»')|json_encode ~ ")", 'delete', 'Elimina', 'red') }}
+                                                            {% endif %}
+                                                        </td>
+                                                    </tr>
+                                                {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        {% else %}
+                            <tr><td colspan="4" class="op_07 text-center">Nessun documento previsto per questa pratica.</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+{% endblock %}
+
+{# Tabella anagrafica di una parte: dal punto 11 le parti sono clienti dell'agenzia. #}
+{% macro partyTable(customer) %}
+    {% if customer is null %}
+        <p class="op_07 m_b_none">Parte non indicata.</p>
+    {% else %}
+        <table class="table align-middle m_b_none v_a_m">
+            <tr><th style="width:35%">Denominazione</th><td>{{ customer.fullName ?: '-' }}</td></tr>
+            <tr><th>CF / P.IVA</th><td>{{ customer.fiscalCode ?: customer.vatNumber ?: '-' }}</td></tr>
+            <tr><th>E-mail</th><td>{{ customer.email ?: '-' }}</td></tr>
+            <tr><th>Telefono</th><td>{{ customer.phone ?: '-' }}</td></tr>
+            <tr><th>Indirizzo</th><td>{{ customer.fullAddress ?: '-' }}</td></tr>
+        </table>
+    {% endif %}
+{% endmacro %}
+
+{% block modals %}
+    {# Conferma eliminazione allegato #}
+    {% include 'components/modals/confirm.html.twig' with {type: 'docDelete', title: 'Elimina allegato'} only %}
+
+    {# 17.1.1.1.5.3 Nuovo allegato #}
+    {% embed 'components/modals/form.html.twig' with {type: 'docNew', title: 'Nuovo allegato', form: formDocumentNew, action: path('notary_practice_sheet', {id: practice.id})} %}
+        {% block modalBody %}
+            {{ include('role/agency/practice/_document_upload_fields.html.twig', {form: formDocumentNew, noteLabel: 'Note'}, with_context = false) }}
+        {% endblock %}
+        {% block modalSubmit %}Carica{% endblock %}
+    {% endembed %}
+
+    {# 17.1.1.3 Conferma avviso note all'agente #}
+    {% include 'components/modals/confirm.html.twig' with {type: 'notaryNotes', title: 'Avvisa l\'agente'} only %}
+
+    {# 17.1.1.2 Conferma cambio stato pratica #}
+    <div id="praticaStatusModal" class="modal fade" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <form id="praticaStatusForm" method="post" action="">
+                    <input type="hidden" id="praticaStatusToken" name="_csrf_token" value="">
+                    <input type="hidden" id="praticaStatusValue" name="status" value="">
+                    <div class="modal-header"><h3 class="modal-title">Cambio stato pratica</h3></div>
+                    <div class="modal-stripe"></div>
+                    <div class="modal-body">
+                        <div class="txt_a_c">
+                            <label class="modal_subtitle">Attenzione!</label>
+                            <p class="modal-paragraph">
+                                Cliccando su <span class="button button-3d button-mini button-green">Conferma</span>
+                                <span id="praticaStatusText"></span>.<br>Sei sicuro di voler proseguire?
+                            </p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="button button-3d button-small button-red f_left" data-bs-dismiss="modal">Annulla</button>
+                        <button type="submit" class="button button-3d button-small button-green f_right">Conferma</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {# Anteprima PDF dell'allegato #}
+    <div id="docPreviewModal" class="modal fade" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-xl" role="document">
+            <div class="modal-content">
+                <div class="modal-header"><h3 class="modal-title">Anteprima: <span id="docPreviewName" style="color:inherit"></span></h3></div>
+                <div class="modal-stripe"></div>
+                <div class="modal-body p-0">
+                    {# Il PDF è servito dalla rotta di anteprima (inline): lo mostra il viewer del browser. #}
+                    <iframe id="docPreviewFrame" title="Anteprima allegato" style="width:100%; height:75vh; border:0;"></iframe>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="button button-3d button-small button-red f_left" data-bs-dismiss="modal">Chiudi</button>
+                    <a id="docPreviewDownload" href="#" class="button button-3d button-small button-green f_right">Scarica</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# 17.1.1.1.5.2.6 Inserisci note del notaio: l'action (?edit_document=ID) la imposta docNoteOpen() #}
+    {% embed 'components/modals/form.html.twig' with {type: 'docNote', title: 'Note notaio', form: formDocumentNote} %}
+        {% block modalBody %}
+            <div {{ form_errors(formDocumentNote.notaryNote) }}>{{ form_widget(formDocumentNote.notaryNote) }}</div>
+        {% endblock %}
+    {% endembed %}
+{% endblock %}
+
+{% block page_javascripts %}
+    {% include 'components/js/tab_session_js.html.twig' %}
+    <script>
+        // I modali sono in #divModals, renderizzato DOPO questo blocco: inizializzo al DOMContentLoaded.
+        document.addEventListener('DOMContentLoaded', function () {
+            // "Aggiungi allegato" da una riga: preseleziona il documento nel modale.
+            var baseDocNewShow = window.docNewShow;
+            window.docNewShow = function (rowId) {
+                var select = document.getElementById('practice_document_new_practiceDocument');
+                if (select && rowId) { select.value = rowId; }
+                baseDocNewShow();
+            };
+
+            // Note del notaio: action (?edit_document=ID) e testo arrivano dall'icona della riga.
+            window.docNoteOpen = function (url, note) {
+                document.getElementById('docNoteForm').action = url;
+                document.getElementById('practice_document_note_notaryNote').value = note || '';
+                docNoteShow();
+            };
+
+            // Anteprima PDF: carica il file nell'iframe solo all'apertura e lo scarica
+            // alla chiusura, per non tenere il documento in memoria.
+            var pvEl = document.getElementById('docPreviewModal');
+            if (pvEl) {
+                var pvModal = new bootstrap.Modal(pvEl, {backdrop: 'static', keyboard: false});
+                var pvFrame = document.getElementById('docPreviewFrame');
+                pvEl.addEventListener('hidden.bs.modal', function () { pvFrame.removeAttribute('src'); });
+                window.docPreviewShow = function (url, name) {
+                    document.getElementById('docPreviewName').textContent = name || '';
+                    document.getElementById('docPreviewDownload').href = url;
+                    pvFrame.src = url;
+                    pvModal.show();
+                };
+            }
+
+            // Apre/chiude il pannello allegati di una riga documentale.
+            window.docPanelToggle = function (rowId) {
+                var panel = document.getElementById('docPanel' + rowId);
+                if (panel) { bootstrap.Collapse.getOrCreateInstance(panel).toggle(); }
+            };
+
+            var stEl = document.getElementById('praticaStatusModal');
+            if (stEl) {
+                var stModal = new bootstrap.Modal(stEl, {backdrop: 'static', keyboard: false});
+                window.practiceStatusConfirm = function (url, csrf, status, message) {
+                    document.getElementById('praticaStatusForm').action = url;
+                    document.getElementById('praticaStatusToken').value = csrf;
+                    document.getElementById('praticaStatusValue').value = status;
+                    document.getElementById('praticaStatusText').textContent = message;
+                    stModal.show();
+                };
+            }
+        });
+    </script>
+{% endblock %}

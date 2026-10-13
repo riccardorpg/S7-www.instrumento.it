@@ -1,0 +1,17 @@
+{# Campi dell'account esterno (ExternalAccountType). Variabili: form, prefix (id dell'autocomplete).
+   Gli errori vanno su un div senza altre classi (form/errors.html.twig). #}
+<div class="row g-3">
+    <div class="col-md-6"><div {{ form_errors(form.name) }}><label class="form-label">Nome *</label>{{ form_widget(form.name) }}</div></div>
+    <div class="col-md-6"><div {{ form_errors(form.surname) }}><label class="form-label">Cognome *</label>{{ form_widget(form.surname) }}</div></div>
+    <div class="col-md-6"><div {{ form_errors(form.email) }}><label class="form-label">E-mail *</label>{{ form_widget(form.email) }}</div></div>
+    <div class="col-md-6"><div {{ form_errors(form.phone) }}><label class="form-label">Telefono</label>{{ form_widget(form.phone) }}</div></div>
+    <div class="col-12 position-relative">
+        <div {{ form_errors(form.company) }}>
+            <label class="form-label">Studio notarile di riferimento</label>
+            {# Autocomplete inline: i risultati appaiono sotto il campo (via JS), niente modale. #}
+            {{ form_widget(form.companyLabel, {id: prefix ~ '_companyName', attr: {class: 'form-control', autocomplete: 'off', placeholder: 'Digita nome o codice…', oninput: "companySearch('" ~ prefix ~ "')", onfocus: "companySearch('" ~ prefix ~ "')"}}) }}
+            {{ form_widget(form.company, {id: prefix ~ '_company'}) }}
+        </div>
+        <ul id="{{ prefix }}_companyResults" class="list-group position-absolute w-100 shadow-sm" style="z-index:1085; max-height:220px; overflow-y:auto; display:none;"></ul>
+    </div>
+</div>

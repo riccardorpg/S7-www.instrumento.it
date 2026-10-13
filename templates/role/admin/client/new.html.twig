@@ -1,0 +1,95 @@
+{% extends 'role/admin/layout.html.twig' %}
+
+{% block title %} - Nuovo cliente{% endblock %}
+{% block role_page_title_inner %}{{ demoRequest ? 'Nuovo cliente da richiesta demo' : 'Nuovo cliente' }}{% endblock %}
+
+{% block sub_menu_left %}
+    {% if demoRequest %}
+        <li class="nav-item"><a class="nav-link" href="{{ path('admin_index') }}"><i class="bi-arrow-left"></i> Torna alla scrivania</a></li>
+    {% else %}
+        <li class="nav-item"><a class="nav-link" href="{{ path('admin_clients') }}"><i class="bi-arrow-left"></i> Torna alla lista</a></li>
+    {% endif %}
+{% endblock %}
+
+{% block role_page_title_breadcrumb %}
+    <li class="breadcrumb-item"><a href="{{ path('admin_index') }}">Amministrazione</a></li>
+    <li class="breadcrumb-item"><a href="{{ path('admin_clients') }}">Clienti</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Nuovo</li>
+{% endblock %}
+
+{% block role_content %}
+    <section class="content-wrap">
+        <div class="container">
+            <div class="card">
+                <div class="card-body p-4">
+                    {# Un solo <form> HTML: dentro ci sono il form del cliente (company_new) e, da richiesta
+                       demo, quello del primo utente (client_first_user), ognuno con il suo token. #}
+                    {{ form_start(form, {action: path('admin_client_new', demoRequest ? {from: demoRequest.id} : {}), attr: {id: 'clientNewForm', novalidate: 'novalidate'}}) }}
+                        {% if demoRequest %}
+                            <div class="alert alert-info">
+                                Dati precompilati dalla richiesta del
+                                <strong>{{ demoRequest.createdAt ? demoRequest.createdAt|date('d/m/Y H:i') : '' }}</strong>
+                                ({{ demoRequest.email }}). Al salvataggio la richiesta viene marcata come evasa,
+                                la licenza parte come <strong>demo di 30 giorni</strong> e viene creato il primo
+                                utente dell'agenzia.
+                            </div>
+                        {% endif %}
+
+                        {# Errori non legati a un campo (token scaduto, richiesta senza e-mail valida). #}
+                        {% for f in [form, firstUserForm]|filter(f => f is not null and f.vars.errors|length) %}
+                            <div class="alert alert-danger">{% for error in f.vars.errors %}{{ error.message }}{% if not loop.last %}<br>{% endif %}{% endfor %}</div>
+                        {% endfor %}
+
+                        <h5 class="mb-3">Dati cliente</h5>
+                        <div class="mb-4">
+                            {% include 'role/admin/client/_fiscal_fields.html.twig' with {form: form, picker: 'clientNew', city: form.vars.value.city, zip: form.vars.value.zip} only %}
+                        </div>
+
+                        {# 7.1.10.2 Nome del database #}
+                        <h5 class="mb-3">Database dedicato</h5>
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <div {{ form_errors(form.dbName) }}>
+                                    <label class="form-label" for="{{ form.dbName.vars.id }}">Nome del database *</label>
+                                    {{ form_widget(form.dbName) }}
+                                </div>
+                                <div class="form-text">Verrà creato un database MySQL dedicato con lo schema dell'agenzia.</div>
+                            </div>
+                        </div>
+
+                        {% if demoRequest and firstUserForm %}
+                            {# Primo utente dell'agenzia: e-mail vincolata a quella della richiesta. #}
+                            <h5 class="mb-3">Primo utente dell'agenzia</h5>
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-4">
+                                    <div {{ form_errors(firstUserForm.name) }}><label class="form-label" for="{{ firstUserForm.name.vars.id }}">Nome *</label>{{ form_widget(firstUserForm.name) }}</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div {{ form_errors(firstUserForm.surname) }}><label class="form-label" for="{{ firstUserForm.surname.vars.id }}">Cognome *</label>{{ form_widget(firstUserForm.surname) }}</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">E-mail</label>
+                                    <input type="email" class="form-control" value="{{ demoRequest.email }}" readonly disabled>
+                                    <div class="form-text">Presa dalla richiesta. Nasce come amministratore dell'agenzia.</div>
+                                </div>
+                            </div>
+                            {{ form_rest(firstUserForm) }}
+                        {% endif %}
+
+                        <a href="{{ demoRequest ? path('admin_index') : path('admin_clients') }}" class="button button-3d button-small button-red m_b_none">Annulla</a>
+                        <button type="submit" class="button button-3d button-small button-green m_b_none f_right">Inserisci</button>
+                    {{ form_end(form) }}
+                </div>
+            </div>
+        </div>
+    </section>
+{% endblock %}
+
+{% block modals %}
+    {% include 'components/modals/city.html.twig' with {number: 1, cities: []} only %}
+{% endblock %}
+
+{% block page_javascripts %}
+    {% include 'components/js/city_js.html.twig' with {number: 1, formName: 'clientNew', modalToClose: ''} only %}
+    {% include 'role/admin/client/_fiscal_js.html.twig' with {prefix: form.vars.id} only %}
+{% endblock %}

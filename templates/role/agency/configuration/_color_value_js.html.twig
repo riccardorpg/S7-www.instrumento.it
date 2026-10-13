@@ -1,0 +1,54 @@
+{# =====================================================================
+   JS condiviso da contrassegni (13.2) e tag (13.3): apertura dei modali e
+   anteprima live dell'etichetta.
+   Variabili:
+     prefix   : 'mark' | 'tag' (prefisso dei modali: {prefix}NewForm, {prefix}EditShow, ...)
+     formName : 'practice_mark' | 'practice_tag' (form Symfony {formName}_new / {formName}_edit:
+                gli id dei campi sono {formName}_new_value, {formName}_edit_color, ...)
+   ===================================================================== #}
+<script>
+    (function () {
+
+        /* Stessa soglia di luminanza del getContrastColor() lato PHP. */
+        function contrastColor(hex) {
+            var h = (hex || '').replace('#', '');
+            if (h.length !== 6) return '#ffffff';
+            var l = (0.299 * parseInt(h.substr(0, 2), 16)
+                   + 0.587 * parseInt(h.substr(2, 2), 16)
+                   + 0.114 * parseInt(h.substr(4, 2), 16)) / 255;
+            return l > 0.6 ? '#10201c' : '#ffffff';
+        }
+
+        /* Richiamata dagli oninput dei campi (vedi _color_value_fields): formId è l'id del form Symfony. */
+        window.colorPreview = function (formId) {
+            var value = document.getElementById(formId + '_value');
+            var color = document.getElementById(formId + '_color');
+            var preview = document.getElementById(formId + '_preview');
+            if (!value || !color || !preview) return;
+            preview.textContent = value.value || preview.dataset.placeholder || '-';
+            preview.style.background = color.value;
+            preview.style.color = contrastColor(color.value);
+        };
+
+        window["{{ prefix }}NewOpen"] = function () {
+            document.getElementById("{{ prefix }}NewForm").reset();
+            colorPreview("{{ formName }}_new");
+            window["{{ prefix }}NewShow"]();
+        };
+
+        window["{{ prefix }}EditOpen"] = function (el) {
+            document.getElementById("{{ prefix }}EditForm").action = el.dataset.action;
+            document.getElementById("{{ formName }}_edit_value").value = el.dataset.value || '';
+            document.getElementById("{{ formName }}_edit_color").value = el.dataset.color || '#1D4ED8';
+            colorPreview("{{ formName }}_edit");
+            window["{{ prefix }}EditShow"]();
+        };
+
+        /* Un form ripresentato con errori riapre il modale con i valori inviati: l'anteprima
+           li deve già mostrare (i modali stanno in #divModals, dopo questo script). */
+        document.addEventListener('DOMContentLoaded', function () {
+            colorPreview("{{ formName }}_new");
+            colorPreview("{{ formName }}_edit");
+        });
+    })();
+</script>

@@ -1,0 +1,8 @@
+# Elimina licenze libere: tipo e quantità (il massimo, cioè quante ne restano libere, lo controlla il controller).
+App\Form\Model\LicenseFreeDelete:
+  properties:
+    type:
+      - NotNull: { message: "Campo obbligatorio", groups: [license_free_delete] }
+    quantity:
+      - NotNull: { message: "Campo obbligatorio", groups: [license_free_delete] }
+      - GreaterThanOrEqual: { value: 1, message: "Almeno 1", groups: [license_free_delete] }

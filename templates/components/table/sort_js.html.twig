@@ -1,13 +1,13 @@
 {# =====================================================================
-   Sort JS (pattern DualMoto) adattato a KnpPaginator (param sort/direction).
-   Clic sulla freccia → aggiorna gli hidden sort/direction del form filtri e submit.
+   Sort JS (pattern DualMoto): l'ordinamento viaggia nei filtri (sortField / sortOrder, CONVENZIONI 5).
+   Clic sulla freccia: aggiorna gli hidden sortField / sortOrder del form filtri e lo invia.
    Le frecce (arrow_up/down/sort.png) sono rese bianche dal CSS .filter_arrow img.
    Variabili (include ... only):
      formName       : id del <form> filtri (es. 'clientsFilter')
-     sortId         : id dell'input hidden name="sort"
-     directionId    : id dell'input hidden name="direction"
-     actualSort     : valore corrente di sort (es. 'c.name')
-     actualDirection: valore corrente di direction (asc|desc|'')
+     sortId         : id dell'input hidden name="sortField"
+     directionId    : id dell'input hidden name="sortOrder"
+     actualSort     : filters.sortField (es. 'c.name')
+     actualDirection: filters.sortOrder (asc|desc|'')
    ===================================================================== #}
 <script>
     (function () {
