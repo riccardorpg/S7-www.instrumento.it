@@ -5,10 +5,15 @@ namespace App\Controller\Notary;
 use App\Entity\Master\Company;
 use App\Entity\Slave\Document;
 use App\Entity\Slave\Practice;
+use App\Entity\Slave\PracticeAlert;
 use App\Entity\Slave\PracticeDocument;
 use App\Form\DocumentNotaryNoteType;
 use App\Form\Model\PracticeDocumentUpload;
+use App\Form\Model\PracticeNotify;
 use App\Form\PracticeDocumentUploadType;
+use App\Form\PracticeNotifyType;
+use App\Repository\Slave\PracticeAlertRepository;
+use App\Repository\Slave\PracticeDocumentRepository;
 use App\Repository\Slave\PracticeRepository;
 use App\Service\CompanyService;
 use App\Service\DocumentStorageService;
@@ -43,7 +48,7 @@ class NotaryController extends AbstractController
     ) {
     }
 
-    /** 17. Scrivania: 17.1 selezione agenzia (solo quelle abbinate al notaio). */
+    /** 17.1 Selezione agenzia (solo quelle abbinate al notaio); scelta l'agenzia si va alla sua scrivania (notary_desk). */
     #[Route('', name: 'notary_index', methods: ['GET'])]
     public function notaryIndex(): Response
     {
@@ -74,7 +79,33 @@ class NotaryController extends AbstractController
 
         $this->companyService->switchToCompany($company);
 
-        return $this->redirectToRoute('notary_practices');
+        return $this->redirectToRoute('notary_desk');
+    }
+
+    /**
+     * Scrivania dell'agenzia scelta (come quella dell'agenzia, per il notaio): le sezioni, gli
+     * avvisi e i documenti da verificare delle pratiche assegnate al notaio.
+     */
+    #[Route('/scrivania', name: 'notary_desk', methods: ['GET'])]
+    public function notaryDesk(): Response
+    {
+        $company = $this->currentAllowedCompany();
+        if ($company === null) {
+            return $this->redirectToRoute('notary_index');
+        }
+
+        $em = $this->registry->getManager('slave');
+        $email = $this->getUser()->getUserIdentifier();
+        /** @var PracticeAlertRepository $alerts */
+        $alerts = $em->getRepository(PracticeAlert::class);
+        /** @var PracticeDocumentRepository $rows */
+        $rows = $em->getRepository(PracticeDocument::class);
+
+        return $this->render('role/notary/desk.html.twig', [
+            'company' => $company,
+            'alerts' => $alerts->findForNotary($email),
+            'toVerify' => $rows->findToVerifyForNotary($email),
+        ]);
     }
 
     /** Deseleziona l'agenzia corrente. */
@@ -113,12 +144,13 @@ class NotaryController extends AbstractController
 
     /**
      * 17.1.1.1.5 Scheda pratica: dati, parti, elenco documenti, con i form dei modali
-     * (CONVENZIONI 6): nuovo allegato (17.1.1.1.5.3) e note del notaio su un allegato
-     * (17.1.1.1.5.2.6, ?edit_document=ID). I form si inviano a questa pagina, che salva e torna
+     * (CONVENZIONI 6): nuovo allegato (17.1.1.1.5.3), note del notaio su un allegato
+     * (17.1.1.1.5.2.6, ?edit_document=ID) e notifica di aggiornamento file (12.3.2.7, come
+     * nell'area agenzia). I form si inviano a questa pagina, che salva e torna
      * alla scheda; se non sono validi la scheda si ripresenta col modale aperto.
      */
     #[Route('/pratiche/scheda/{id}', name: 'notary_practice_sheet', requirements: ['id' => '\d+'], methods: ['GET', 'POST'])]
-    public function notaryPracticeSheet(int $id, Request $request, DocumentStorageService $storage, FormFactoryInterface $formFactory): Response
+    public function notaryPracticeSheet(int $id, Request $request, DocumentStorageService $storage, FormFactoryInterface $formFactory, PracticeNotifierService $notifier): Response
     {
         [$company, $practice] = $this->requirePractice($id);
         if ($company === null) {
@@ -187,11 +219,33 @@ class NotaryController extends AbstractController
             }
         }
 
+        // ===== 12.3.2.7 Notifica di aggiornamento file (come nell'area agenzia) =====
+        // Destinatari della pratica (parti, staff abilitato), senza il notaio stesso.
+        $self = mb_strtolower($this->getUser()->getUserIdentifier());
+        $recipients = array_filter($notifier->recipientsFor($practice), static fn ($label, $email) => mb_strtolower((string) $email) !== $self, ARRAY_FILTER_USE_BOTH);
+        $notify = new PracticeNotify('I documenti della pratica ' . $practice->getNumber() . ' sono stati aggiornati.');
+        $formNotify = $formFactory->createNamed('practice_notify', PracticeNotifyType::class, $notify, ['recipients' => $recipients]);
+        $formNotify->handleRequest($request);
+        if ($formNotify->isSubmitted() && $formNotify->isValid()) {
+            $to = (string) $notify->getRecipient();
+            $sent = $notifier->notifyFileUpdate($practice, $to, trim($notify->getMessage()), $this->getUser()->getFullName());
+            $this->addFlash(
+                $sent ? 'notice_success' : 'notice_warning',
+                $sent
+                    ? 'Notifica inviata a ' . $to . '.'
+                    : 'Notifica non inviata: il trasporto email ha rifiutato il messaggio.'
+            );
+
+            return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
+        }
+
         return $this->render('role/notary/practice/sheet.html.twig', [
             'company' => $company,
             'practice' => $practice,
             'formDocumentNew' => $formDocumentNew->createView(),
             'formDocumentNote' => $formDocumentNote->createView(),
+            'formNotify' => $formNotify->createView(),
+            'recipients' => $recipients,
         ]);
     }
 

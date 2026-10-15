@@ -98,15 +98,6 @@
         </nav>
     {% endblock %}
 
-    {# Sotto la barra azioni: in testa alla pagina coprirebbe il pulsante del pannello laterale. #}
-    {% if is_granted('IS_IMPERSONATOR') %}
-        <div class="alert alert-warning rpg_impersonation">
-            <i class="fa-solid fa-user-secret"></i>
-            Stai impersonando <strong>{{ app.user.userIdentifier }}</strong>.
-            <a href="{{ path('agency_index', {'_switch_user': '_exit'}) }}"><u>Torna ad amministratore</u></a>
-        </div>
-    {% endif %}
-
     {% block role_content %}{% endblock %}
 {% endblock %}
 

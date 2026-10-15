@@ -38,7 +38,6 @@ security:
         main:
             lazy: true
             provider: app_user_provider
-            switch_user: true
             custom_authenticator: App\Security\LoginFormAuthenticator
             entry_point: App\Security\LoginFormAuthenticator
             remember_me:
@@ -47,10 +46,6 @@ security:
             logout:
                 path: logout
                 target: login
-
-    role_hierarchy:
-        # Solo l'admin può impersonare (agenzie).
-        ROLE_ADMIN: [ROLE_ALLOWED_TO_SWITCH]
 
     access_control:
         - { path: ^/script, roles: ROLE_SCRIPT }

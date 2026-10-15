@@ -16,7 +16,8 @@ di Instrumento e le eccezioni motivate.
 - Prova in locale: `php -S 127.0.0.1:8137 -t public public/index.php` (porta 8137). Il dominio punta alla produzione.
 - Utenti di prova (marcati `CLAUDE-TEST` nel nome): `claude-test-admin@instrumento.local` (admin) e
   `notaio@ebasm.it` (notaio, è l'e-mail a cui sono assegnate le pratiche di prova di AG001).
-  Area agenzia: da admin, `/agenzia?_switch_user=agente@ag1.it&c=AG001`.
+  Area agenzia: si entra solo con un utente dello staff dalla pagina `/accedi/AG001` (l'impersonazione
+  da admin non esiste più) e serve una licenza valida.
 
 ## Valori del progetto
 

@@ -6,6 +6,7 @@ use App\Entity\Slave\PracticeAlert;
 use App\Form\Custom\CustomDateType;
 use App\Form\Custom\CustomTextareaType;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormInterface;
@@ -30,7 +31,12 @@ class PracticeAlertType extends AbstractType
                 },
             ])
             // Il messaggio è obbligatorio e il setter vuole una stringa: vuoto = ''.
-            ->add('message', CustomTextareaType::class, ['empty_data' => '']);
+            ->add('message', CustomTextareaType::class, ['empty_data' => ''])
+            // Mostra al notaio: l'avviso compare nella sua scheda pratica e sulla sua scrivania.
+            ->add('visibleToNotary', CheckboxType::class, [
+                'required' => false,
+                'attr' => ['class' => 'form-check-input', 'role' => 'switch'],
+            ]);
     }
 
     public function configureOptions(OptionsResolver $resolver): void

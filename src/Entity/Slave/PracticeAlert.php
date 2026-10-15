@@ -30,6 +30,10 @@ class PracticeAlert
     #[ORM\Column(name: 'message', type: 'text')]
     private string $message = '';
 
+    /** Mostra al notaio: l'avviso compare nella sua scheda pratica (tab "Avvisi") e sulla sua scrivania. */
+    #[ORM\Column(name: 'visible_to_notary', type: 'boolean', options: ['default' => false])]
+    private bool $visibleToNotary = false;
+
     public function getPractice(): ?Practice
     {
         return $this->practice;
@@ -62,6 +66,18 @@ class PracticeAlert
     public function setMessage(string $message): static
     {
         $this->message = $message;
+
+        return $this;
+    }
+
+    public function isVisibleToNotary(): bool
+    {
+        return $this->visibleToNotary;
+    }
+
+    public function setVisibleToNotary(bool $visibleToNotary): static
+    {
+        $this->visibleToNotary = $visibleToNotary;
 
         return $this;
     }

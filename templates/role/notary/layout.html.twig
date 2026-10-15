@@ -1,11 +1,12 @@
 {% extends 'role/base.html.twig' %}
 
-{% block home_path %}{{ path('notary_index') }}{% endblock %}
+{% block home_path %}{{ path(current_company() ? 'notary_desk' : 'notary_index') }}{% endblock %}
 
 {% block role_menu %}
     {% set activeCompany = current_company() %}
-    <li class="menu-item{{ app.request.attributes.get('_route') == 'notary_index' ? ' current' : '' }}">
-        <a class="menu-link" href="{{ path('notary_index') }}"><div>Scrivania</div></a>
+    {# Con un'agenzia scelta la scrivania è la sua (avvisi); senza, la scelta dell'agenzia #}
+    <li class="menu-item{{ app.request.attributes.get('_route') in ['notary_index', 'notary_desk'] ? ' current' : '' }}">
+        <a class="menu-link" href="{{ path(activeCompany ? 'notary_desk' : 'notary_index') }}"><div>Scrivania</div></a>
     </li>
 
     {% if activeCompany %}
@@ -39,14 +40,15 @@
 
 {% block role_page_title_breadcrumb %}
     {% set crumb_current = block('role_page_title_inner')|striptags|trim %}
+    {% set isHome = app.request.attributes.get('_route') in ['notary_index', 'notary_desk'] %}
     <li class="breadcrumb-item">
-        {% if app.request.attributes.get('_route') == 'notary_index' %}
+        {% if isHome %}
             Notaio
         {% else %}
-            <a href="{{ path('notary_index') }}">Notaio</a>
+            <a href="{{ path(current_company() ? 'notary_desk' : 'notary_index') }}">Notaio</a>
         {% endif %}
     </li>
-    {% if app.request.attributes.get('_route') != 'notary_index' and crumb_current %}
+    {% if not isHome and crumb_current %}
         <li class="breadcrumb-item active" aria-current="page">{{ crumb_current }}</li>
     {% endif %}
 {% endblock %}

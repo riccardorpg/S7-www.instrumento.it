@@ -77,7 +77,7 @@
                                 {% endif %}
                             </td>
                             <td class="txt_a_c text-nowrap">
-                                {{ ico.action("javascript:notaryEditOpen(" ~ path('admin_notaries', {edit: n.id})|json_encode ~ ", " ~ n.name|default('')|json_encode ~ ", " ~ n.surname|default('')|json_encode ~ ", " ~ n.email|json_encode ~ ")", 'edit', 'Modifica dati', 'pr') }}
+                                {{ ico.action("javascript:notaryEditOpen(" ~ path('admin_notaries', {edit: n.id})|json_encode ~ ", " ~ n.name|default('')|json_encode ~ ", " ~ n.surname|default('')|json_encode ~ ", " ~ n.email|json_encode ~ ")", 'edit', 'Modifica dati', 'amber') }}
                                 {{ ico.action("javascript:notaryCredConfirm(" ~ path('admin_notary_credentials', {id: n.id})|json_encode ~ ", " ~ csrf_token('notaryCredentials')|json_encode ~ ", " ~ ('invierai le credenziali di accesso a ' ~ n.email)|json_encode ~ ")", 'send', 'Invia credenziali', 'pr') }}
                             </td>
                         </tr>

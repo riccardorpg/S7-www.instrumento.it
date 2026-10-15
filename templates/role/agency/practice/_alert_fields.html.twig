@@ -1,4 +1,4 @@
-{# 12.3.4.2 Campi dell'avviso (PracticeAlertType): data del promemoria e messaggio.
+{# 12.3.4.2 Campi dell'avviso (PracticeAlertType): data del promemoria, messaggio e "mostra al notaio".
    Variabili: form. Il datepicker lo aggancia components/js/datepicker_js.html.twig. #}
 <div class="row g-3">
     <div class="col-12">
@@ -12,5 +12,12 @@
             <label class="form-label" for="{{ form.message.vars.id }}">Messaggio *</label>
             {{ form_widget(form.message) }}
         </div>
+    </div>
+    <div class="col-12">
+        <div class="form-check form-switch">
+            {{ form_widget(form.visibleToNotary) }}
+            <label class="form-check-label" for="{{ form.visibleToNotary.vars.id }}">Mostra al notaio</label>
+        </div>
+        <small class="op_07">Il notaio lo vede nella scheda della pratica e sulla sua scrivania.</small>
     </div>
 </div>

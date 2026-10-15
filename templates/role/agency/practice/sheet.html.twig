@@ -321,6 +321,7 @@
                             <tr>
                                 <th class="td_w_150p">Ricorda in data</th>
                                 <th>Messaggio</th>
+                                <th class="td_w_100p txt_a_c">Notaio</th>
                                 <th class="td_w_100p txt_a_c">Azioni</th>
                             </tr>
                         </thead>
@@ -332,11 +333,17 @@
                                     {% if a.due %}<span class="badge bg-danger">scaduto</span>{% endif %}
                                 </td>
                                 <td>{{ a.message|nl2br }}</td>
+                                {# Mostrato al notaio? (pallino, il significato nel tooltip) #}
+                                {% set notaryLabel = a.visibleToNotary ? 'Visibile al notaio' : 'Solo per l\'agenzia' %}
+                                <td class="txt_a_c">
+                                    <img src="{{ asset(PATH_GRAPHICS ~ 'icons/' ~ (a.visibleToNotary ? 'circle_green' : 'circle_grey') ~ '.png') }}" class="icon_status"
+                                         alt="{{ notaryLabel }}" data-bs-toggle="tooltip" data-bs-title="{{ notaryLabel }}">
+                                </td>
                                 <td class="txt_a_c text-nowrap">
                                     {% if canEdit %}
                                         <a href="javascript:void(0)" class="d-inline-block m_r_5p" data-bs-toggle="tooltip" data-bs-title="Modifica"
                                            onclick="alertEditOpen(this)"
-                                           data-id="{{ a.id }}" data-action="{{ path('agency_practice_sheet', {id: practice.id, edit_alert: a.id}) }}" data-date="{{ a.remindAt|date('d-m-Y') }}" data-message="{{ a.message }}">
+                                           data-id="{{ a.id }}" data-action="{{ path('agency_practice_sheet', {id: practice.id, edit_alert: a.id}) }}" data-date="{{ a.remindAt|date('d-m-Y') }}" data-message="{{ a.message }}" data-notary="{{ a.visibleToNotary ? 1 : 0 }}">
                                             <img src="{{ asset(PATH_GRAPHICS ~ 'icons/edit.png') }}" class="icon_action icon_amber" alt="Modifica">
                                         </a>
                                         {{ ico.action("javascript:alertDelete('" ~ path('agency_practice_alert_delete', {id: practice.id, aid: a.id}) ~ "')", 'delete', 'Elimina', 'red') }}
@@ -344,7 +351,7 @@
                                 </td>
                             </tr>
                         {% else %}
-                            <tr><td colspan="3" class="op_07 text-center">Nessun avviso inserito.</td></tr>
+                            <tr><td colspan="4" class="op_07 text-center">Nessun avviso inserito.</td></tr>
                         {% endfor %}
                         </tbody>
                     </table>
@@ -588,6 +595,7 @@
         form.action = link.dataset.action;
         document.getElementById('practice_alert_edit_remindAt').value = link.dataset.date || '';
         document.getElementById('practice_alert_edit_message').value = link.dataset.message || '';
+        document.getElementById('practice_alert_edit_visibleToNotary').checked = link.dataset.notary === '1';
         alertEditShow();
     }
 

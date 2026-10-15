@@ -18,8 +18,11 @@
         var parentModalEl = parentModalId ? document.getElementById(parentModalId) : null;
         var parentModalBs = parentModalEl ? bootstrap.Modal.getOrCreateInstance(parentModalEl, {backdrop: 'static', keyboard: false}) : null;
 
+        // All'apertura riparte da zero: ricerca vuota e i primi 5 comuni (geo_cities senza nome).
         window.cityModal{{ number }} = function () {
             if (parentModalBs) parentModalBs.hide();
+            document.getElementById('city_filter_val_{{ number }}').value = '';
+            cityFilter{{ number }}();
             cityModalBs.show();
         };
         window.cityModalClose{{ number }} = function () {

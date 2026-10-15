@@ -6,22 +6,18 @@
 {% block role_page_title_inner %}Pratiche{% endblock %}
 
 {% block sub_menu_left %}
-    <li class="nav-item"><a class="nav-link" href="{{ path('notary_index') }}"><i class="bi-arrow-left"></i> Torna alla scrivania</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ path('notary_desk') }}"><i class="bi-arrow-left"></i> Torna alla scrivania</a></li>
 {% endblock %}
 
 {% block role_page_title_breadcrumb %}
-    <li class="breadcrumb-item"><a href="{{ path('notary_index') }}">Notaio</a></li>
+    <li class="breadcrumb-item"><a href="{{ path('notary_desk') }}">Notaio</a></li>
     <li class="breadcrumb-item active" aria-current="page">Pratiche</li>
 {% endblock %}
 
 {% block role_content %}
     <section class="content-wrap">
         <div class="container">
-            <div class="d-flex align-items-center mb-2">
-                <span class="op_07 me-2">Agenzia:</span>
-                <span class="badge bg-secondary">{{ company.code }}</span>
-                <strong class="ms-2">{{ company.name }}</strong>
-            </div>
+            {% include 'role/notary/_agency_badge.html.twig' with {company: company} only %}
 
             <form id="practicesFilter" method="get" action="{{ path('notary_practices') }}">
                 <input type="hidden" name="filterSet" value="1">

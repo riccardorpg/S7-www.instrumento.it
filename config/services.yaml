@@ -76,9 +76,3 @@ services:
     App\EventListener\TenantCookieLogoutListener:
         tags:
             - { name: kernel.event_listener, event: Symfony\Component\Security\Http\Event\LogoutEvent, method: onLogout }
-
-    # Impersonazione tenant-aware: quando un ROLE_ADMIN impersona un'agenzia, ri-punta
-    # lo slave al DB dell'agenzia impersonata.
-    App\EventListener\SwitchUserSubscriber:
-        tags:
-            - { name: kernel.event_listener, event: security.switch_user, method: onSwitchUser }

@@ -167,11 +167,6 @@
 .internal-area .bg_pr,
 .internal-area #header-wrap { background-color: var(--eb-brand) !important; }
 
-/* Avviso di impersonazione: sotto la barra azioni, non più sopra al pulsante del menu.
-   custom.css dà a ogni .alert z-index 2999 (per i flash fissi): questo resta nel flusso,
-   sotto al pannello laterale. */
-.rpg_impersonation { border-radius: 0; margin: 0; padding: 8px 15px; font-size: 14px; text-align: center; z-index: 1 !important; }
-
 /* ----- Contenuto: margine sopra e sotto di 3rem invece dei 5rem di Canvas ----- */
 .internal-area .content-wrap { --cnvs-content-padding: 3rem; }
 

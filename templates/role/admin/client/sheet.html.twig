@@ -184,14 +184,14 @@
                                 <td class="td_w_70p"></td>
                                 <td><input type="text" id="staffFilterUser" class="form-control form-control-sm" onkeyup="staffFilterFn()" autocomplete="off"></td>
                                 <td><input type="text" id="staffFilterEmail" class="form-control form-control-sm" onkeyup="staffFilterFn()" autocomplete="off"></td>
-                                <td class="td_w_140p"></td>
+                                <td class="td_w_100p"></td>
                             </tr>
                             <tr>
                                 <th class="txt_a_c td_w_70p">Stato</th>
                                 <th class="txt_a_c td_w_70p">Admin</th>
                                 <th>Utente</th>
                                 <th>E-mail</th>
-                                <th class="txt_a_c td_w_140p">Azioni</th>
+                                <th class="txt_a_c td_w_100p">Azioni</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -215,7 +215,6 @@
                                 <td class="staff-email">{{ u.email }}</td>
                                 <td class="txt_a_c text-nowrap">
                                     {{ ico.action("javascript:clientToggleConfirm('" ~ path('admin_client_staff_credentials', {id: company.id, sid: u.id}) ~ "', '" ~ csrf_token('client_staff_' ~ company.id) ~ "', 'invierai le credenziali di accesso all’utente')", 'send', 'Invia credenziali', 'pr') }}
-                                    {{ ico.action(path('agency_index', {'_switch_user': u.email, 'c': company.code}), 'impersonate', 'Impersona', 'pr') }}
                                 </td>
                             </tr>
                         {% else %}

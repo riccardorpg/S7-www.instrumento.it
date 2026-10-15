@@ -36,7 +36,7 @@
 {% endblock %}
 
 {% block role_page_title_breadcrumb %}
-    <li class="breadcrumb-item"><a href="{{ path('notary_index') }}">Notaio</a></li>
+    <li class="breadcrumb-item"><a href="{{ path('notary_desk') }}">Notaio</a></li>
     <li class="breadcrumb-item"><a href="{{ path('notary_practices') }}">Pratiche</a></li>
     <li class="breadcrumb-item active" aria-current="page">{{ practice.number }}</li>
 {% endblock %}
@@ -54,6 +54,9 @@
             <ul class="nav nav-tabs canvas-alt-tabs tabs-tb" role="tablist">
                 <li class="nav-item"><button class="nav-link active tab_session" data-filter-tab="dati" data-bs-toggle="tab" data-bs-target="#tab-dati" type="button">Dati pratica</button></li>
                 <li class="nav-item"><button class="nav-link tab_session" data-filter-tab="documenti" data-bs-toggle="tab" data-bs-target="#tab-documenti" type="button">Documenti ({{ practice.countUploaded }}/{{ practice.countRequested }})</button></li>
+                {# Solo gli avvisi che l'agenzia ha scelto di mostrare al notaio #}
+                {% set notaryAlerts = practice.alerts|filter(a => a.visibleToNotary)|sort((x, y) => x.remindAt <=> y.remindAt) %}
+                <li class="nav-item"><button class="nav-link tab_session" data-filter-tab="avvisi" data-bs-toggle="tab" data-bs-target="#tab-avvisi" type="button">Avvisi ({{ notaryAlerts|length }})</button></li>
             </ul>
 
             <div class="tab-content border border-top-0 p-3 bg-white">
@@ -82,8 +85,10 @@
                 {# ===== 17.1.1.1.5.2 ELENCO DOCUMENTI ===== #}
                 <div class="tab-pane fade" id="tab-documenti">
                     {% if canEditDocuments %}
-                        <div class="d-flex justify-content-end mb-2">
-                            <a href="javascript:docNewShow()" class="button button-3d button-small button-green m_b_none">Nuovo allegato</a>
+                        <div class="d-flex justify-content-end gap-2 mb-2">
+                            <a href="javascript:docNewShow()" class="button button-3d button-mini button-green m_b_none">Nuovo allegato</a>
+                            {# 12.3.2.7 Invia notifica aggiornamento file (come nell'area agenzia) #}
+                            <a href="javascript:practiceNotifyShow()" class="button button-3d button-mini button-green m_b_none">Invia notifica</a>
                         </div>
                     {% else %}
                         <div class="alert alert-warning">
@@ -212,6 +217,31 @@
                         </tbody>
                     </table>
                 </div>
+
+                {# ===== Avvisi che l'agenzia ha scelto di mostrare al notaio (sola lettura) ===== #}
+                <div class="tab-pane fade" id="tab-avvisi">
+                    <table class="table table-bordered align-middle m_b_none v_a_m">
+                        <thead>
+                            <tr>
+                                <th class="td_w_150p">Ricorda in data</th>
+                                <th>Messaggio</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for a in notaryAlerts %}
+                            <tr>
+                                <td>
+                                    {{ a.remindAt|date('d/m/Y') }}
+                                    {% if a.due %}<span class="badge bg-danger">scaduto</span>{% endif %}
+                                </td>
+                                <td>{{ a.message|nl2br }}</td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="2" class="op_07 text-center">Nessun avviso dall'agenzia su questa pratica.</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </section>
@@ -242,6 +272,32 @@
             {{ include('role/agency/practice/_document_upload_fields.html.twig', {form: formDocumentNew, noteLabel: 'Note'}, with_context = false) }}
         {% endblock %}
         {% block modalSubmit %}Carica{% endblock %}
+    {% endembed %}
+
+    {# 12.3.2.7 Notifica aggiornamento file (stesso modale dell'area agenzia) #}
+    {% embed 'components/modals/form.html.twig' with {
+        type: 'practiceNotify', title: 'Invia notifica aggiornamento file', form: formNotify, action: path('notary_practice_sheet', {id: practice.id})
+    } %}
+        {% block modalBody %}
+            <div class="row g-3">
+                <div class="col-12">
+                    <div {{ form_errors(formNotify.recipient) }}>
+                        <label class="form-label" for="{{ formNotify.recipient.vars.id }}">Destinatario *</label>
+                        {{ form_widget(formNotify.recipient) }}
+                    </div>
+                    {% if recipients is empty %}
+                        <small class="op_07">Nessun destinatario disponibile: servono e-mail sui clienti o sullo staff abilitato.</small>
+                    {% endif %}
+                </div>
+                <div class="col-12">
+                    <div {{ form_errors(formNotify.message) }}>
+                        <label class="form-label" for="{{ formNotify.message.vars.id }}">Messaggio *</label>
+                        {{ form_widget(formNotify.message) }}
+                    </div>
+                </div>
+            </div>
+        {% endblock %}
+        {% block modalSubmit %}Invia{% endblock %}
     {% endembed %}
 
     {# 17.1.1.3 Conferma avviso note all'agente #}

@@ -177,9 +177,6 @@ class ScriptMigrationController extends AbstractController
             return new JsonResponse(['errore' => 'Migration non trovata: ' . $version], 404);
         }
 
-        $application = new Application($kernel);
-        $application->setAutoExit(false);
-
         // MASTER: un database solo, nessun ciclo.
         if (str_starts_with($fqcn, self::NAMESPACE_MASTER . '\\')) {
             $conn = $this->registry->getConnection('master');
@@ -189,10 +186,13 @@ class ScriptMigrationController extends AbstractController
                 return new JsonResponse(['migration' => $fqcn, 'target' => 'master', 'esito' => 'già eseguita, saltata']);
             }
 
+            [$ok, $output] = $this->command($kernel, $fqcn, $action, 'master');
+
             return new JsonResponse([
                 'migration' => $fqcn,
                 'target' => 'master',
-                'output' => $this->command($application, $fqcn, $action, 'master'),
+                'esito' => $ok ? 'ok' : 'errore',
+                'output' => $output,
             ]);
         }
 
@@ -209,10 +209,11 @@ class ScriptMigrationController extends AbstractController
                     continue;
                 }
 
+                [$ok, $output] = $this->command($kernel, $fqcn, $action, 'slave');
                 $entries[] = [
                     'database' => $dbName,
-                    'esito' => 'ok',
-                    'output' => $this->command($application, $fqcn, $action, 'slave'),
+                    'esito' => $ok ? 'ok' : 'errore',
+                    'output' => $output,
                 ];
             } catch (\Throwable $e) {
                 // Un database irraggiungibile o uno statement fallito non deve fermare le altre agenzie.
@@ -224,8 +225,17 @@ class ScriptMigrationController extends AbstractController
         return new JsonResponse(['migration' => $fqcn, 'target' => 'agenzie', 'database' => $entries]);
     }
 
-    private function command(Application $application, string $fqcn, string $action, string $em): string
+    /**
+     * Esegue (o marca) la migration e ritorna [riuscita, output]. Un Application nuovo a ogni
+     * esecuzione: riusarlo fra un'agenzia e l'altra fa rifiutare l'input al comando dalla seconda
+     * in poi, che stampa solo l'uso e non esegue nulla.
+     *
+     * @return array{0: bool, 1: string}
+     */
+    private function command(KernelInterface $kernel, string $fqcn, string $action, string $em): array
     {
+        $application = new Application($kernel);
+        $application->setAutoExit(false);
         $output = new BufferedOutput();
 
         $input = $action === 'mark'
@@ -244,9 +254,9 @@ class ScriptMigrationController extends AbstractController
                 '--no-interaction' => true,
             ]);
 
-        $application->run($input, $output);
+        $code = $application->run($input, $output);
 
-        return trim($output->fetch());
+        return [$code === 0, trim($output->fetch())];
     }
 
     // ------------------------------------------------------------------ stato
