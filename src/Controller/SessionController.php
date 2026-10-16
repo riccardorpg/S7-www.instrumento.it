@@ -57,7 +57,7 @@ class SessionController extends AbstractController
     private const FILTERED_LISTS = [
         'admin_clients', 'admin_licenses', 'admin_notaries', 'admin_external_accounts',
         'agency_customers', 'agency_practices', 'agency_staff',
-        'agency_configuration_document_types', 'agency_configuration_marks', 'agency_configuration_tags',
+        'agency_document_types', 'agency_practice_marks', 'agency_practice_tags',
         'notary_practices',
     ];
 }

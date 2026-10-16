@@ -1,12 +1,12 @@
 {% extends 'role/agency/layout.html.twig' %}
 
 {% block title %} - Tag pratiche{% endblock %}
-{% block role_page_title_inner %}Tag pratiche{% endblock %}
+{% block role_page_title_inner %}Tag{% endblock %}
 
 {% block role_page_title_breadcrumb %}
     <li class="breadcrumb-item"><a href="{{ path('agency_index') }}">Agenzia</a></li>
-    <li class="breadcrumb-item">Configurazioni</li>
-    <li class="breadcrumb-item active" aria-current="page">Tag pratiche</li>
+    <li class="breadcrumb-item">{% if is_granted('view', 'practices') %}<a href="{{ path('agency_practices') }}">Pratiche</a>{% else %}Pratiche{% endif %}</li>
+    <li class="breadcrumb-item active" aria-current="page">Tag</li>
 {% endblock %}
 
 {% block sub_menu_left %}
@@ -22,14 +22,14 @@
 {% block role_content %}
     <section class="content-wrap">
         <div class="container">
-            {% include 'role/agency/configuration/_color_value_list.html.twig' with {
+            {% include 'role/agency/practice/_color_value_list.html.twig' with {
                 prefix: 'tag',
                 alias: 't',
                 records: records,
                 filters: filters,
                 label: 'tag',
-                indexRoute: 'agency_configuration_tags',
-                deleteRoute: 'agency_configuration_tag_delete'
+                indexRoute: 'agency_practice_tags',
+                deleteRoute: 'agency_practice_tag_delete'
             } only %}
         </div>
     </section>
@@ -37,19 +37,19 @@
 
 {% block modals %}
     {% embed 'components/modals/form.html.twig' with {type: 'tagNew', title: 'Nuovo tag', form: formNew} %}
-        {% block modalBody %}{{ include('role/agency/configuration/_color_value_fields.html.twig', {form: formNew, placeholder: 'Es. Prima casa'}) }}{% endblock %}
+        {% block modalBody %}{{ include('role/agency/practice/_color_value_fields.html.twig', {form: formNew, placeholder: 'Es. Prima casa'}) }}{% endblock %}
         {% block modalSubmit %}Crea{% endblock %}
     {% endembed %}
 
     {% embed 'components/modals/form.html.twig' with {type: 'tagEdit', title: 'Modifica tag', form: formEdit} %}
-        {% block modalBody %}{{ include('role/agency/configuration/_color_value_fields.html.twig', {form: formEdit, placeholder: 'Es. Prima casa'}) }}{% endblock %}
+        {% block modalBody %}{{ include('role/agency/practice/_color_value_fields.html.twig', {form: formEdit, placeholder: 'Es. Prima casa'}) }}{% endblock %}
     {% endembed %}
 
     {% include 'components/modals/delete.html.twig' with {type: 'tag', title: 'Tag', text: 'eliminerai il tag selezionato'} only %}
 {% endblock %}
 
 {% block page_javascripts %}
-    {% include 'role/agency/configuration/_color_value_js.html.twig' with {prefix: 'tag', formName: 'practice_tag'} only %}
+    {% include 'role/agency/practice/_color_value_js.html.twig' with {prefix: 'tag', formName: 'practice_tag'} only %}
     {% include 'components/table/sort_js.html.twig' with {
         formName: 'tagFilter', sortId: 'tagFilter_sort', directionId: 'tagFilter_direction',
         actualSort: filters.sortField, actualDirection: filters.sortOrder

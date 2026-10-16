@@ -17,8 +17,9 @@
 
 {# Intestazione ordinabile: label (bianca, ereditata dal th) + freccia che cambia via JS.
    Richiede l'inclusione di components/table/sort_js.html.twig (definisce setSort1). #}
-{% macro sort(label, field) %}
-    {{ label }}<button type="button" class="f_right filter_arrow" data-orderfield="{{ field }}" onclick="setSort1('{{ field }}')"><img alt="ordina"></button>
+{# title (opz.): tooltip sull'etichetta, es. il nome per esteso di un'intestazione abbreviata. #}
+{% macro sort(label, field, title = null) %}
+    {% if title %}<span data-bs-toggle="tooltip" data-bs-title="{{ title }}">{{ label }}</span>{% else %}{{ label }}{% endif %}<button type="button" class="f_right filter_arrow" data-orderfield="{{ field }}" onclick="setSort1('{{ field }}')"><img alt="ordina"></button>
 {% endmacro %}
 
 {# Icona disabilitata (grigia, non cliccabile). #}

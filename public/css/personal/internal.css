@@ -73,6 +73,8 @@
 .side-header #header,
 .is-expanded-menu.side-header #header { border-color: var(--rpg-gold) !important; border-width: 2px !important; border-right-style: solid !important; }
 .side-header #header-wrap { border-bottom: 1px solid var(--rpg-gold); }
+/* Divider fra i gruppi del menu laterale (anche nei sottomenu): stesso margine ovunque. */
+.side-header #header .menu-item > hr { margin: .5rem 0 !important; }
 .side-header #header-trigger {
     background: var(--eb-brand) !important;
     color: #fff;
@@ -180,10 +182,6 @@
 }
 .internal-area .content-wrap h6:not(.modal-title):not(.rpg_keep) { font-size: 1.05rem; }
 .internal-area .content-wrap h5:not(.modal-title):not(.rpg_keep) { font-size: 1.25rem; }
-/* Le card della scrivania restano col titolo blu: sono collegamenti, non sezioni. */
-.internal-area .rpg_page_link h5 { color: var(--eb-brand) !important; text-transform: none !important; }
-.internal-area .rpg_page_link i { color: var(--rpg-gold) !important; }
-.internal-area .rpg_page_link:hover { border-color: var(--rpg-gold) !important; }
 
 /* ----- Tabelle ----- */
 .internal-area table.table thead th { background-color: var(--eb-brand) !important; color: #fff !important; box-shadow: none !important; vertical-align: middle; }
@@ -202,7 +200,7 @@
 [data-theme-resolved="dark"] .internal-area .form-label { color: #e8e8e8; }
 
 /* ----- Link e dettagli ----- */
-.internal-area .content-wrap a:not(.button):not(.btn):not(.nav-link):not(.rpg_page_link):hover { color: var(--rpg-gold); }
+.internal-area .content-wrap a:not(.button):not(.btn):not(.nav-link):hover { color: var(--rpg-gold); }
 .internal-area .icon_pr { border-color: var(--eb-brand) !important; }
 .internal-area #gotoTop { background-color: var(--rpg-gold); }
 .internal-area #gotoTop:hover { background-color: var(--eb-brand) !important; }

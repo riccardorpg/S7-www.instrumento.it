@@ -51,6 +51,9 @@ di Instrumento e le eccezioni motivate.
   elencate in `SessionController::FILTERED_LISTS`.
 - **Ordinamento delle liste**: lo applicano i repository dai filtri (`sortField` / `sortOrder`); KnpPaginator è
   configurato per ignorare i suoi parametri di ordinamento (`config/packages/knp_paginator.yaml`).
+- **Scrivanie senza `page_link`** (CONVENZIONI 8): le scrivanie di agenzia e notaio non ripetono le sezioni del
+  menu come card, mostrano solo i riquadri di lavoro (pratiche contrassegnate, spazio, avvisi); alle sezioni si
+  arriva dal menu laterale. Il componente `page_link` è stato tolto.
 - **Form nei modali**: schema di tillomeditalia, la pagina che mostra il modale gestisce il form (`createNamed`),
   la modifica porta l'id in query (`?edit=ID`). Il picker città/CAP condiviso invia `city_id` / `zip_id` fuori
   dal form Symfony e li risolve il controller dopo `isValid()`.

@@ -3,24 +3,20 @@
 {% block home_path %}{{ path('agency_index') }}{% endblock %}
 
 {% block role_menu %}
+    {# Gruppi separati da divider (come in tillomeditalia); dentro ogni gruppo, e nei sottomenu, le voci
+       sono in ordine alfabetico. 10.1.5 Le voci compaiono solo a chi ha almeno la lettura sulla sezione. #}
     {% set r = app.request.attributes.get('_route') %}
+    {% set canPractices = is_granted('view', 'practices') %}
+    {% set canConfigurations = is_granted('view', 'configurations') %}
+
     <li class="menu-item{{ r == 'agency_index' ? ' current' : '' }}">
         <a class="menu-link" href="{{ path('agency_index') }}"><div>Scrivania</div></a>
     </li>
-    {# 10.1.5 Le voci compaiono solo a chi ha almeno la lettura sulla sezione. #}
+    <li class="menu-item"><hr class="d-none d-lg-block color_w"></li>
+
     {% if is_granted('view', 'company') %}
         <li class="menu-item{{ r starts with 'agency_company' ? ' current' : '' }}">
-            <a class="menu-link" href="{{ path('agency_company_sheet') }}"><div>Anagrafica agenzia</div></a>
-        </li>
-    {% endif %}
-    {% if is_granted('view', 'practices') %}
-        <li class="menu-item{{ r starts with 'agency_practice' ? ' current' : '' }}">
-            <a class="menu-link" href="{{ path('agency_practices') }}"><div>Pratiche</div></a>
-        </li>
-    {% endif %}
-    {% if is_granted('view', 'staff') %}
-        <li class="menu-item{{ r starts with 'agency_staff' ? ' current' : '' }}">
-            <a class="menu-link" href="{{ path('agency_staff') }}"><div>Staff</div></a>
+            <a class="menu-link" href="{{ path('agency_company_sheet') }}"><div>Agenzia</div></a>
         </li>
     {% endif %}
     {% if is_granted('view', 'customers') %}
@@ -28,23 +24,43 @@
             <a class="menu-link" href="{{ path('agency_customers') }}"><div>Clienti</div></a>
         </li>
     {% endif %}
-    {# 13. Configurazioni: una voce di sottomenu per pagina. #}
-    {% if is_granted('view', 'configurations') %}
-        <li class="menu-item{{ r starts with 'agency_configuration' ? ' current' : '' }}">
-            <a class="menu-link" href="{{ path('agency_configuration_document_types') }}"><div>Configurazioni</div></a>
-            <ul class="sub-menu-container">
-                <li class="menu-item{{ r starts with 'agency_configuration_document_type' ? ' current' : '' }}">
-                    <a class="menu-link" href="{{ path('agency_configuration_document_types') }}">Tipi di documento</a>
-                </li>
-                <li class="menu-item{{ r starts with 'agency_configuration_mark' ? ' current' : '' }}">
-                    <a class="menu-link" href="{{ path('agency_configuration_marks') }}">Contrassegni pratiche</a>
-                </li>
-                <li class="menu-item{{ r starts with 'agency_configuration_tag' ? ' current' : '' }}">
-                    <a class="menu-link" href="{{ path('agency_configuration_tags') }}">Tag pratiche</a>
-                </li>
-            </ul>
+    {# Pratiche, con nel sottomenu contrassegni e tag (rotte agency_practice_mark* / _tag*): ogni voce col suo permesso. #}
+    {% set isPracticeCatalog = r starts with 'agency_practice_mark' or r starts with 'agency_practice_tag' %}
+    {% if canPractices or canConfigurations %}
+        <li class="menu-item{{ r starts with 'agency_practice' ? ' current' : '' }}">
+            <a class="menu-link" href="{{ path(canPractices ? 'agency_practices' : 'agency_practice_marks') }}"><div>Pratiche</div></a>
+            {% if canConfigurations %}
+                {# La lista in testa, poi (dopo il divider) contrassegni e tag #}
+                <ul class="sub-menu-container">
+                    {% if canPractices %}
+                        <li class="menu-item{{ r starts with 'agency_practice' and not isPracticeCatalog ? ' current' : '' }}">
+                            <a class="menu-link" href="{{ path('agency_practices') }}">Lista</a>
+                        </li>
+                        <li class="menu-item"><hr class="d-none d-lg-block color_w"></li>
+                    {% endif %}
+                    <li class="menu-item{{ r starts with 'agency_practice_mark' ? ' current' : '' }}">
+                        <a class="menu-link" href="{{ path('agency_practice_marks') }}">Contrassegni</a>
+                    </li>
+                    <li class="menu-item{{ r starts with 'agency_practice_tag' ? ' current' : '' }}">
+                        <a class="menu-link" href="{{ path('agency_practice_tags') }}">Tag</a>
+                    </li>
+                </ul>
+            {% endif %}
         </li>
     {% endif %}
+    {% if is_granted('view', 'staff') %}
+        <li class="menu-item{{ r starts with 'agency_staff' ? ' current' : '' }}">
+            <a class="menu-link" href="{{ path('agency_staff') }}"><div>Staff</div></a>
+        </li>
+    {% endif %}
+    {# 13.1 Tipologie documento #}
+    {% if canConfigurations %}
+        <li class="menu-item{{ r starts with 'agency_document_type' ? ' current' : '' }}">
+            <a class="menu-link" href="{{ path('agency_document_types') }}"><div>Tipologie documento</div></a>
+        </li>
+    {% endif %}
+
+    <li class="menu-item"><hr class="d-none d-lg-block color_w"></li>
     <li class="menu-item">
         <a class="menu-link" href="{{ path('logout') }}"><div>Esci</div></a>
     </li>

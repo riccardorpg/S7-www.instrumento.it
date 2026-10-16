@@ -10,6 +10,8 @@ use App\Entity\Slave\Document;
 use App\Entity\Slave\Practice;
 use App\Entity\Slave\PracticeAlert;
 use App\Entity\Slave\PracticeDocument;
+use App\Entity\Slave\PracticeMark;
+use App\Entity\Slave\PracticeTag;
 use App\Entity\Slave\User as StaffUser;
 use App\Form\DocumentEditType;
 use App\Form\Model\PracticeDocumentUpload;
@@ -59,7 +61,7 @@ class AgencyPracticeController extends AbstractController
     ) {
     }
 
-    /** 12.1 Elenco pratiche. */
+    /** 12.1 Elenco pratiche, a schede per stato (la scheda attiva è in sessione, vedi agencyPracticeTab). */
     #[Route('/lista', name: 'agency_practices', methods: ['GET'])]
     public function agencyPractices(Request $request, PaginatorInterface $paginator): Response
     {
@@ -77,7 +79,25 @@ class AgencyPracticeController extends AbstractController
             'records' => $records,
             'filters' => $filters,
             'statuses' => Practice::STATUSES,
+            // Contatori delle schede: con gli stessi filtri, stato escluso
+            'statusCounts' => $practices->countAgencyByStatus($filters, $onlyStaffId),
+            // Opzioni dei filtri contrassegno e tag (cataloghi dell'agenzia)
+            'marks' => $this->slave()->getRepository(PracticeMark::class)->findBy([], ['value' => 'ASC']),
+            'tags' => $this->slave()->getRepository(PracticeTag::class)->findBy([], ['value' => 'ASC']),
         ]);
+    }
+
+    /**
+     * Cambio scheda dell'elenco pratiche: lo stato scelto va in sessione (non nell'URL) e
+     * l'elenco riparte dalla prima pagina, con gli altri filtri invariati.
+     */
+    #[Route('/stato/{status}', name: 'agency_practice_tab', methods: ['GET'], requirements: ['status' => 'open|completed|archivable|archived'])]
+    public function agencyPracticeTab(string $status, Request $request): RedirectResponse
+    {
+        $request->getSession()->set(FilterService::PRACTICE_TAB, $status);
+        $request->getSession()->remove('agency_practices_page');
+
+        return $this->redirectToRoute('agency_practices');
     }
 
     /**
@@ -381,8 +401,8 @@ class AgencyPracticeController extends AbstractController
         $this->addFlash(
             $added > 0 ? 'notice_success' : 'notice_warning',
             $added > 0
-                ? sprintf('Aggiunt%s %d document%s previst%s dalle configurazioni.', $added === 1 ? 'o' : 'i', $added, $added === 1 ? 'o' : 'i', $added === 1 ? 'o' : 'i')
-                : 'I documenti della pratica sono già allineati alle configurazioni.'
+                ? sprintf('Aggiunt%s %d document%s previst%s dalle tipologie documento.', $added === 1 ? 'o' : 'i', $added, $added === 1 ? 'o' : 'i', $added === 1 ? 'o' : 'i')
+                : 'I documenti della pratica sono già allineati alle tipologie documento.'
         );
 
         return $this->backToDocuments($practice);
@@ -521,9 +541,12 @@ class AgencyPracticeController extends AbstractController
         return $this->redirectToRoute('agency_practice_sheet', ['id' => $id], Response::HTTP_SEE_OTHER);
     }
 
-    /** 12.3.6 Scarica l'archivio: tutti gli allegati della pratica in uno ZIP. */
-    #[Route('/{id}/archivio', name: 'agency_practice_archive_download', methods: ['GET'], requirements: ['id' => '\d+'])]
-    public function agencyPracticeArchiveDownload(int $id, DocumentStorageService $storage): Response
+    /**
+     * Scarica documenti: tutti gli allegati della pratica in uno ZIP, una cartella per tipologia.
+     * (L'archivio della pratica archiviata starà sul server Aruba: collegamento ancora da sviluppare.)
+     */
+    #[Route('/{id}/documenti/scarica', name: 'agency_practice_documents_download', methods: ['GET'], requirements: ['id' => '\d+'])]
+    public function agencyPracticeDocumentsDownload(int $id, DocumentStorageService $storage): Response
     {
         $practice = $this->requirePractice($id);
 
@@ -746,13 +769,15 @@ class AgencyPracticeController extends AbstractController
         return $this->backToTab($practice, 'documenti');
     }
 
-    /** Torna alla scheda sulla tab da cui si è partiti (la ripristina l'hash). */
+    /**
+     * Torna alla scheda sulla tab da cui si è partiti: la tab va in sessione (chiave "{rotta}_tab",
+     * la ripristina components/js/tab_session_js), così l'URL resta pulito.
+     */
     private function backToTab(Practice $practice, string $tab): RedirectResponse
     {
-        return $this->redirect(
-            $this->generateUrl('agency_practice_sheet', ['id' => $practice->getId()]) . '#tab-' . $tab,
-            Response::HTTP_SEE_OTHER
-        );
+        $this->container->get('request_stack')->getSession()->set('agency_practice_sheet_tab', $tab);
+
+        return $this->redirectToRoute('agency_practice_sheet', ['id' => $practice->getId()], Response::HTTP_SEE_OTHER);
     }
 
     private function backToAlerts(Practice $practice): RedirectResponse

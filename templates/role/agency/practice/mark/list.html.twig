@@ -1,12 +1,12 @@
 {% extends 'role/agency/layout.html.twig' %}
 
 {% block title %} - Contrassegni pratiche{% endblock %}
-{% block role_page_title_inner %}Contrassegni pratiche{% endblock %}
+{% block role_page_title_inner %}Contrassegni{% endblock %}
 
 {% block role_page_title_breadcrumb %}
     <li class="breadcrumb-item"><a href="{{ path('agency_index') }}">Agenzia</a></li>
-    <li class="breadcrumb-item">Configurazioni</li>
-    <li class="breadcrumb-item active" aria-current="page">Contrassegni pratiche</li>
+    <li class="breadcrumb-item">{% if is_granted('view', 'practices') %}<a href="{{ path('agency_practices') }}">Pratiche</a>{% else %}Pratiche{% endif %}</li>
+    <li class="breadcrumb-item active" aria-current="page">Contrassegni</li>
 {% endblock %}
 
 {% block sub_menu_left %}
@@ -22,14 +22,14 @@
 {% block role_content %}
     <section class="content-wrap">
         <div class="container">
-            {% include 'role/agency/configuration/_color_value_list.html.twig' with {
+            {% include 'role/agency/practice/_color_value_list.html.twig' with {
                 prefix: 'mark',
                 alias: 'm',
                 records: records,
                 filters: filters,
                 label: 'contrassegno',
-                indexRoute: 'agency_configuration_marks',
-                deleteRoute: 'agency_configuration_mark_delete'
+                indexRoute: 'agency_practice_marks',
+                deleteRoute: 'agency_practice_mark_delete'
             } only %}
         </div>
     </section>
@@ -37,19 +37,19 @@
 
 {% block modals %}
     {% embed 'components/modals/form.html.twig' with {type: 'markNew', title: 'Nuovo contrassegno', form: formNew} %}
-        {% block modalBody %}{{ include('role/agency/configuration/_color_value_fields.html.twig', {form: formNew, placeholder: 'Es. Urgente'}) }}{% endblock %}
+        {% block modalBody %}{{ include('role/agency/practice/_color_value_fields.html.twig', {form: formNew, placeholder: 'Es. Urgente'}) }}{% endblock %}
         {% block modalSubmit %}Crea{% endblock %}
     {% endembed %}
 
     {% embed 'components/modals/form.html.twig' with {type: 'markEdit', title: 'Modifica contrassegno', form: formEdit} %}
-        {% block modalBody %}{{ include('role/agency/configuration/_color_value_fields.html.twig', {form: formEdit, placeholder: 'Es. Urgente'}) }}{% endblock %}
+        {% block modalBody %}{{ include('role/agency/practice/_color_value_fields.html.twig', {form: formEdit, placeholder: 'Es. Urgente'}) }}{% endblock %}
     {% endembed %}
 
     {% include 'components/modals/delete.html.twig' with {type: 'mark', title: 'Contrassegno', text: 'eliminerai il contrassegno selezionato'} only %}
 {% endblock %}
 
 {% block page_javascripts %}
-    {% include 'role/agency/configuration/_color_value_js.html.twig' with {prefix: 'mark', formName: 'practice_mark'} only %}
+    {% include 'role/agency/practice/_color_value_js.html.twig' with {prefix: 'mark', formName: 'practice_mark'} only %}
     {% include 'components/table/sort_js.html.twig' with {
         formName: 'markFilter', sortId: 'markFilter_sort', directionId: 'markFilter_direction',
         actualSort: filters.sortField, actualDirection: filters.sortOrder

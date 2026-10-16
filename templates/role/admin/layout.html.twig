@@ -9,6 +9,7 @@
     <li class="menu-item{{ r == 'admin_index' ? ' current' : '' }}">
         <a class="menu-link" href="{{ path('admin_index') }}"><div>Scrivania{% if pendingRequests %} <span class="badge bg-danger">{{ pendingRequests }}</span>{% endif %}</div></a>
     </li>
+    <li class="menu-item"><hr class="d-none d-lg-block color_w"></li>
     <li class="menu-item{{ r starts with 'admin_client' ? ' current' : '' }}">
         <a class="menu-link" href="{{ path('admin_clients') }}"><div>Clienti</div></a>
     </li>
@@ -21,6 +22,7 @@
     <li class="menu-item{{ r starts with 'admin_external' ? ' current' : '' }}">
         <a class="menu-link" href="{{ path('admin_external_accounts') }}"><div>Account esterni</div></a>
     </li>
+    <li class="menu-item"><hr class="d-none d-lg-block color_w"></li>
     <li class="menu-item">
         <a class="menu-link" href="{{ path('logout') }}"><div>Esci</div></a>
     </li>

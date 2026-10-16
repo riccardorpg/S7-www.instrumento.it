@@ -4,19 +4,15 @@
 
 {% block role_menu %}
     {% set activeCompany = current_company() %}
-    {# Con un'agenzia scelta la scrivania è la sua (avvisi); senza, la scelta dell'agenzia #}
-    <li class="menu-item{{ app.request.attributes.get('_route') in ['notary_index', 'notary_desk'] ? ' current' : '' }}">
-        <a class="menu-link" href="{{ path(activeCompany ? 'notary_desk' : 'notary_index') }}"><div>Scrivania</div></a>
-    </li>
+    {% set r = app.request.attributes.get('_route') %}
 
     {% if activeCompany %}
-        {# Cambia agenzia subito sotto la scrivania #}
         <li class="menu-item">
             <a class="menu-link" href="{{ path('notary_deselect_agency') }}"><div>Cambia agenzia</div></a>
         </li>
+        <li class="menu-item"><hr class="d-none d-lg-block color_w"></li>
 
-        {# Agenzia selezionata: label non cliccabile (stile "azienda attiva" di venanzieffe) #}
-        <li class="menu-item"><hr class="d-none d-lg-block"></li>
+        {# Agenzia selezionata: label non cliccabile (stile "azienda attiva" di venanzieffe), con sotto le sue voci #}
         <li class="menu-item menu-agency-label">
             <span class="menu-link" style="cursor:default;">
                 <div style="font-size:11px; letter-spacing:.6px; text-transform:uppercase; opacity:.6;">Agenzia attiva</div>
@@ -26,13 +22,20 @@
                 </div>
             </span>
         </li>
-
-        <li class="menu-item{{ app.request.attributes.get('_route') starts with 'notary_practice' ? ' current' : '' }}">
+        <li class="menu-item{{ r == 'notary_desk' ? ' current' : '' }}">
+            <a class="menu-link" href="{{ path('notary_desk') }}"><div>Scrivania</div></a>
+        </li>
+        <li class="menu-item{{ r starts with 'notary_practice' ? ' current' : '' }}">
             <a class="menu-link" href="{{ path('notary_practices') }}"><div>Pratiche</div></a>
         </li>
-        <li class="menu-item"><hr class="d-none d-lg-block"></li>
+    {% else %}
+        {# Senza agenzia la scrivania è la scelta dell'agenzia #}
+        <li class="menu-item{{ r == 'notary_index' ? ' current' : '' }}">
+            <a class="menu-link" href="{{ path('notary_index') }}"><div>Scrivania</div></a>
+        </li>
     {% endif %}
 
+    <li class="menu-item"><hr class="d-none d-lg-block color_w"></li>
     <li class="menu-item">
         <a class="menu-link" href="{{ path('logout') }}"><div>Esci</div></a>
     </li>

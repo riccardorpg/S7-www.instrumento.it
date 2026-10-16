@@ -22,8 +22,6 @@
 {% endblock %}
 
 {% block sub_menu_right %}
-    {# 12.3.6 Scarica archivio #}
-    <li class="nav-item"><a class="nav-link" href="{{ path('agency_practice_archive_download', {id: practice.id}) }}"><i class="bi-download"></i> Scarica archivio</a></li>
     {% if canEdit %}
         <li class="nav-item"><a class="nav-link" href="javascript:practiceEditShow()"><i class="bi-pencil-square"></i> Modifica</a></li>
         {# 12.3.5 / 12.3.5.2 Archivia: solo col via libera del notaio (stato "archiviabile"). #}
@@ -44,20 +42,20 @@
 
             <ul class="nav nav-tabs canvas-alt-tabs tabs-tb" role="tablist">
                 <li class="nav-item">
-                    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-dati" type="button">Dati principali</button>
+                    <button class="nav-link active tab_session" data-filter-tab="dati" data-bs-toggle="tab" data-bs-target="#tab-dati" type="button">Dati principali</button>
                 </li>
                 <li class="nav-item">
-                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-documenti" type="button">
+                    <button class="nav-link tab_session" data-filter-tab="documenti" data-bs-toggle="tab" data-bs-target="#tab-documenti" type="button">
                         Documenti <span class="badge bg-secondary">{{ practice.countUploaded }}/{{ practice.countRequested }}</span>
                     </button>
                 </li>
                 <li class="nav-item">
-                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-staff" type="button">
+                    <button class="nav-link tab_session" data-filter-tab="staff" data-bs-toggle="tab" data-bs-target="#tab-staff" type="button">
                         Staff <span class="badge bg-secondary">{{ practice.staff|length }}</span>
                     </button>
                 </li>
                 <li class="nav-item">
-                    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-avvisi" type="button">
+                    <button class="nav-link tab_session" data-filter-tab="avvisi" data-bs-toggle="tab" data-bs-target="#tab-avvisi" type="button">
                         Avvisi <span class="badge bg-secondary">{{ practice.alerts|length }}</span>
                     </button>
                 </li>
@@ -143,7 +141,7 @@
                             <div class="alert alert-warning d-flex justify-content-between align-items-center gap-3 flex-wrap">
                                 <span>
                                     {{ missingDocuments }} document{{ missingDocuments == 1 ? 'o' : 'i' }}
-                                    previst{{ missingDocuments == 1 ? 'o' : 'i' }} dalle configurazioni
+                                    previst{{ missingDocuments == 1 ? 'o' : 'i' }} dalle tipologie documento
                                     {{ missingDocuments == 1 ? 'non è' : 'non sono' }} ancora in questa pratica.
                                 </span>
                                 <form method="post" action="{{ path('agency_practice_documents_sync', {id: practice.id}) }}" class="m-0">
@@ -152,12 +150,6 @@
                                 </form>
                             </div>
                         {% endif %}
-                        <div class="d-flex justify-content-end gap-2 m_b_10p">
-                            {# 12.3.2.6 Nuovo allegato: la riga documentale si sceglie nel modale. #}
-                            <a href="javascript:documentNewOpen()" class="button button-3d button-mini button-green m-0">Nuovo allegato</a>
-                            {# 12.3.2.7 Invia notifica aggiornamento file #}
-                            <a href="javascript:practiceNotifyShow()" class="button button-3d button-mini button-green m-0">Invia notifica</a>
-                        </div>
                     {% elseif not practice.archived %}
                         {# 12.3.2 Da "completata" in poi i documenti sono in sola lettura;
                            per l'archiviata l'avviso sta già in testa alla pagina. #}
@@ -166,6 +158,28 @@
                             i documenti sono in sola lettura. Puoi ancora consultarli e scaricarli.
                         </div>
                     {% endif %}
+
+                    {# A sinistra lo scarico (documenti in ZIP; per l'archiviata l'archivio, sul server Aruba),
+                       a destra le azioni sui documenti quando sono modificabili. #}
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 m_b_10p">
+                        <div>
+                            {% if practice.archived %}
+                                {# 12.3.6 Archivio sul server Aruba: collegamento ancora da sviluppare #}
+                                <span class="button button-3d button-mini m-0 bg-secondary text-white" style="cursor:default;"
+                                      data-bs-toggle="tooltip" data-bs-title="Collegamento a server Aruba ancora da sviluppare">Scarica archivio</span>
+                            {% else %}
+                                <a href="{{ path('agency_practice_documents_download', {id: practice.id}) }}" class="button button-3d button-mini button-pr m-0">Scarica documenti</a>
+                            {% endif %}
+                        </div>
+                        {% if canEditDocuments %}
+                            <div class="d-flex gap-2">
+                                {# 12.3.2.6 Nuovo allegato: la riga documentale si sceglie nel modale. #}
+                                <a href="javascript:documentNewOpen()" class="button button-3d button-mini button-green m-0">Nuovo allegato</a>
+                                {# 12.3.2.7 Invia notifica aggiornamento file #}
+                                <a href="javascript:practiceNotifyShow()" class="button button-3d button-mini button-green m-0">Invia notifica</a>
+                            </div>
+                        {% endif %}
+                    </div>
 
                     <table class="table table-bordered align-middle m_b_none v_a_m">
                         <thead>
@@ -529,6 +543,8 @@
 {% endblock %}
 
 {% block page_javascripts %}
+{# La tab attiva resta in sessione (anche dopo un salvataggio: la imposta il controller), non nell'URL. #}
+{% include 'components/js/tab_session_js.html.twig' %}
 {# Allegati: pannello a tendina e anteprima. Servono anche in sola lettura. #}
 <script>
     document.addEventListener('DOMContentLoaded', function () {
@@ -599,12 +615,12 @@
         alertEditShow();
     }
 
-    /* Riapre la tab indicata nell'ancora dopo un salvataggio (#tab-documenti, #tab-avvisi),
-       oppure quella del form tornato indietro con errori (il suo modale si riapre da solo). */
+    /* Form tornato indietro con errori: riapre la sua tab (il modale si riapre da solo). Dopo un
+       salvataggio invece la tab la ripristina tab_session, dalla sessione. */
     document.addEventListener('DOMContentLoaded', function () {
-        var hash = window.location.hash || {{ (openTab ? '#tab-' ~ openTab : '')|json_encode|raw }};
-        if (!hash) return;
-        var trigger = document.querySelector('[data-bs-target="' + hash + '"]');
+        var tab = {{ (openTab ?? '')|json_encode|raw }};
+        if (!tab) return;
+        var trigger = document.querySelector('[data-bs-target="#tab-' + tab + '"]');
         if (trigger && window.bootstrap) { bootstrap.Tab.getOrCreateInstance(trigger).show(); }
     });
 </script>

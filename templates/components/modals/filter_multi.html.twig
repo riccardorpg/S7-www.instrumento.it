@@ -3,7 +3,8 @@
    Variabili (include ... only):
      number  : id univoco del filtro nella pagina (1, 2, ...)
      title   : titolo della modale
-     options : lista di {id, label} (id = valore inviato al backend; label = testo)
+     options : lista di {id, label[, color]} (id = valore inviato al backend; label = testo;
+               color opzionale: pallino di quel colore prima del testo, es. contrassegni e tag)
    Da abbinare a:
      - input visibile  #filter_multi_value_{{ number }} (readonly, onclick filterMulti{{ number }}())
      - input hidden     #filter_multi_id_{{ number }}    (name = chiave del filtro)
@@ -33,7 +34,7 @@
                                     <td class="td_w_40p txt_a_c">
                                         <input type="checkbox" class="form-check-input switch_multi_{{ number }}" id="multi_{{ number }}_{{ loop.index }}" data-id="{{ o.id }}" data-val="{{ o.label }}">
                                     </td>
-                                    <td class="txt_a_l"><label class="m_b_none" for="multi_{{ number }}_{{ loop.index }}">{{ o.label }}</label></td>
+                                    <td class="txt_a_l"><label class="m_b_none" for="multi_{{ number }}_{{ loop.index }}">{% if o.color is defined and o.color %}<span class="rpg_color_dot m_r_5p" style="background:{{ o.color }};"></span>{% endif %}{{ o.label }}</label></td>
                                 </tr>
                             {% else %}
                                 <tr><td class="text-muted txt_a_c">Nessun valore disponibile.</td></tr>

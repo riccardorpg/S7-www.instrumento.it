@@ -6,6 +6,7 @@ use App\Entity\Slave\Practice;
 use App\Repository\Trait\RepositoryTrait;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\Query;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -21,26 +22,61 @@ class PracticeRepository extends ServiceEntityRepository
     }
 
     /**
-     * 12.1 Elenco pratiche dell'agenzia filtrato (filtri da FilterService::practiceFilter).
+     * 12.1 Elenco pratiche dell'agenzia filtrato (filtri da FilterService::practiceFilter): lo stato
+     * è la scheda attiva dell'elenco ($filters['status']).
      * 12.3.3 Con $onlyStaffId si vedono solo le pratiche in cui quell'utente è abilitato.
      */
     public function queryAgencyFiltered(array $filters, ?int $onlyStaffId = null): Query
     {
+        $qb = $this->agencyFilteredQb($filters, $onlyStaffId)
+            ->addSelect('s', 'b', 'm');
+        if (isset(Practice::STATUSES[$filters['status']])) {
+            $qb->andWhere('p.status = :status')->setParameter('status', $filters['status']);
+        }
+
+        // Ordinamento per tag: una pratica può averne più d'uno, conta il primo in ordine alfabetico.
+        $qb->addSelect('(SELECT MIN(st.value) FROM ' . Practice::class . ' sp JOIN sp.tags st WHERE sp.id = p.id) AS HIDDEN tagSort');
+        $this->applySort($qb, $filters, ['p.createdAt', 'p.mortgage', 'p.number', 'p.address', 'm.value', 'tagSort'], 'p.number', 'asc');
+
+        return $qb->getQuery();
+    }
+
+    /**
+     * Quante pratiche per stato con gli stessi filtri dell'elenco (stato escluso): i contatori
+     * delle schede.
+     *
+     * @return array<string, int> stato => pratiche (tutti gli stati, anche a zero)
+     */
+    public function countAgencyByStatus(array $filters, ?int $onlyStaffId = null): array
+    {
+        $rows = $this->agencyFilteredQb($filters, $onlyStaffId)
+            ->select('p.status AS status, COUNT(DISTINCT p.id) AS qty')
+            ->groupBy('p.status')
+            ->getQuery()->getArrayResult();
+
+        $counts = array_fill_keys(array_keys(Practice::STATUSES), 0);
+        foreach ($rows as $r) {
+            if (isset($counts[$r['status']])) {
+                $counts[$r['status']] = (int) $r['qty'];
+            }
+        }
+
+        return $counts;
+    }
+
+    /** Le condizioni comuni a elenco e contatori: tutti i filtri tranne lo stato. */
+    private function agencyFilteredQb(array $filters, ?int $onlyStaffId): QueryBuilder
+    {
         $qb = $this->createQueryBuilder('p')
-            ->leftJoin('p.seller', 's')->addSelect('s')
-            ->leftJoin('p.buyer', 'b')->addSelect('b')
-            ->leftJoin('p.mark', 'm')->addSelect('m')
+            ->leftJoin('p.seller', 's')
+            ->leftJoin('p.buyer', 'b')
+            ->leftJoin('p.mark', 'm')
             ->where('1=1');
         $params = [];
 
         if ($onlyStaffId !== null) {
             $qb->leftJoin('p.staff', 'ps')->andWhere('ps.id = :me');
             $params['me'] = $onlyStaffId;
-        }
-        $statuses = array_values(array_intersect(array_filter(explode(',', $filters['status'])), array_keys(Practice::STATUSES)));
-        if ($statuses !== []) {
-            $qb->andWhere('p.status IN (:statuses)');
-            $params['statuses'] = $statuses;
         }
         if ($filters['createdStart'] !== null) {
             $qb->andWhere('p.createdAt >= :createdStart');
@@ -70,15 +106,33 @@ class PracticeRepository extends ServiceEntityRepository
             $qb->andWhere('p.address LIKE :address');
             $params['address'] = '%' . $filters['address'] . '%';
         }
+        // Contrassegno: uno fra quelli scelti, oppure nessuno ("none").
+        $marks = array_values(array_filter(explode(',', $filters['mark'])));
+        if ($marks !== []) {
+            $orX = [];
+            $markIds = array_map('intval', array_diff($marks, ['none']));
+            if ($markIds !== []) {
+                $orX[] = 'm.id IN (:marks)';
+                $params['marks'] = $markIds;
+            }
+            if (in_array('none', $marks, true)) {
+                $orX[] = 'm.id IS NULL';
+            }
+            $qb->andWhere(implode(' OR ', $orX));
+        }
+        // Tag: le pratiche con almeno uno dei tag scelti (sottoquery, così la riga resta una per pratica).
+        $tagIds = array_map('intval', array_values(array_filter(explode(',', $filters['tag']))));
+        if ($tagIds !== []) {
+            $qb->andWhere('p.id IN (SELECT pt.id FROM ' . Practice::class . ' pt JOIN pt.tags tt WHERE tt.id IN (:tags))');
+            $params['tags'] = $tagIds;
+        }
 
         foreach ($params as $key => $value) {
             $qb->setParameter($key, $value);
         }
-        $this->applySort($qb, $filters, ['p.status', 'p.createdAt', 'p.mortgage', 'p.number', 'p.address'], 'p.createdAt', 'desc');
 
-        return $qb->getQuery();
+        return $qb;
     }
-
     /**
      * 17.1 Elenco pratiche dell'agenzia visto dal notaio (filtri da
      * FilterService::notaryPracticeFilter): l'accesso all'agenzia è già verificato.

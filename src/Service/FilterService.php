@@ -2,6 +2,7 @@
 
 namespace App\Service;
 
+use App\Entity\Slave\Practice;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -21,6 +22,9 @@ use Symfony\Component\HttpFoundation\Request;
 class FilterService
 {
     public const MARKER = 'filterSet';
+
+    /** Chiave di sessione della scheda (stato) attiva nell'elenco pratiche dell'agenzia. */
+    public const PRACTICE_TAB = 'agency_practices_tab';
 
     // ================= liste dell'amministratore =================
 
@@ -89,15 +93,19 @@ class FilterService
     public static function practiceFilter(Request $request): array
     {
         $filters = self::read($request, 'agency_practices', [
-            'status' => 'f_status',   // stati multipli, separati da virgola
             'mortgage' => 'f_mortgage',
             'seller' => 'f_seller',
             'buyer' => 'f_buyer',
             'number' => 'f_number',
             'address' => 'f_address',
             'created' => 'f_created', // "gg/mm/AAAA - gg/mm/AAAA"
+            'mark' => 'f_mark',       // id dei contrassegni separati da virgola, "none" = senza contrassegno
+            'tag' => 'f_tag',         // id dei tag separati da virgola: pratiche con almeno uno
         ]);
         [$filters['createdStart'], $filters['createdEnd']] = self::dateRange($filters['created']);
+        // Lo stato è la scheda dell'elenco, in sessione (AgencyPracticeController::agencyPracticeTab), non un filtro.
+        $tab = (string) $request->getSession()->get(self::PRACTICE_TAB, Practice::STATUS_OPEN);
+        $filters['status'] = isset(Practice::STATUSES[$tab]) ? $tab : Practice::STATUS_OPEN;
 
         return $filters;
     }
@@ -115,7 +123,7 @@ class FilterService
 
     public static function documentTypeFilter(Request $request): array
     {
-        return self::read($request, 'agency_configuration_document_types', ['value' => 'f_value']);
+        return self::read($request, 'agency_document_types', ['value' => 'f_value']);
     }
 
     /** Contrassegni e tag hanno lo stesso filtro: cambia solo la lista. */

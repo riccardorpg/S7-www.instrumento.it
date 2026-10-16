@@ -19,3 +19,15 @@
     } -%}
     <span class="badge {{ class }} {{ colors[status]|default('bg-secondary') }}">{{ label }}</span>
 {% endmacro %}
+
+{# Lo stesso stato come pallino (nelle liste), il nome nel tooltip. Stessi colori del badge.
+   Uso: {{ practiceStatus.dot(p.status, p.statusLabel) }} #}
+{% macro dot(status, label) %}
+    {%- set colors = {
+        'open':       'bg-warning',
+        'completed':  'bg-success',
+        'archivable': 'bg-info',
+        'archived':   'bg-secondary',
+    } -%}
+    <span class="rpg_color_dot {{ colors[status]|default('bg-secondary') }}" data-bs-toggle="tooltip" data-bs-title="{{ label }}"></span>
+{% endmacro %}

@@ -3,25 +3,57 @@
 {% import 'components/practice_status.html.twig' as practiceStatus %}
 
 {% block title %} - Scrivania{% endblock %}
-{% block role_page_title_inner %}Scrivania{% endblock %}
+{% block role_page_title_inner %}Benvenuto {{ app.user.fullName }}{% endblock %}
 
 {% block role_content %}
     <section class="content-wrap">
-        <div class="container">
-            {# Le stesse sezioni del menu, nello stesso ordine e con gli stessi permessi;
-               le configurazioni in fondo (CONVENZIONI 8). #}
-            <div class="row g-3 m_b_30p">
-                {% include 'components/page_link.html.twig' with {route: 'agency_company_sheet', icon: 'building', title: 'Anagrafica agenzia', text: 'Dati anagrafici e fiscali, logo e abbonamento.', visible: is_granted('view', 'company')} only %}
-                {% include 'components/page_link.html.twig' with {route: 'agency_practices', icon: 'folder2-open', title: 'Pratiche', text: 'Pratiche, documenti, avvisi e notaio.', visible: is_granted('view', 'practices')} only %}
-                {% include 'components/page_link.html.twig' with {route: 'agency_staff', icon: 'people', title: 'Staff', text: 'Utenti dell\'agenzia, ruoli e permessi.', visible: is_granted('view', 'staff')} only %}
-                {% include 'components/page_link.html.twig' with {route: 'agency_customers', icon: 'person-vcard', title: 'Clienti', text: 'Anagrafica di venditori e acquirenti.', visible: is_granted('view', 'customers')} only %}
-                {% include 'components/page_link.html.twig' with {route: 'agency_configuration_document_types', icon: 'gear', title: 'Configurazioni', text: 'Tipi di documento, contrassegni e tag delle pratiche.', visible: is_granted('view', 'configurations')} only %}
-            </div>
-
+        {# A tutta larghezza: a sinistra le pratiche contrassegnate, a destra spazio e avvisi. #}
+        <div class="container-fluid">
             <div class="row g-3">
-                {# ===== 9.1 Spazio disponibile / spazio totale licenza ===== #}
-                <div class="col-lg-5">
+                {# ===== 9.3 Pratiche contrassegnate ===== #}
+                <div class="col-lg-8">
                     <div class="card h-100">
+                        <div class="card-body">
+                            <h6 class="m_b_10p">Pratiche contrassegnate <span class="badge bg-secondary">{{ markedPractices|length }}</span></h6>
+
+                            {% if markedPractices is empty %}
+                                <p class="op_07 m_b_none">Nessuna pratica contrassegnata.</p>
+                            {% else %}
+                                <table class="table table-hover table-bordered align-middle m_b_none v_a_m">
+                                    <thead>
+                                        <tr>
+                                            <th class="td_w_150p">Contrassegno</th>
+                                            <th class="td_w_120p">Stato</th>
+                                            <th class="td_w_150p">Codice</th>
+                                            <th>Venditore</th>
+                                            <th>Acquirente</th>
+                                            <th>Indirizzo</th>
+                                            <th class="td_w_100p txt_a_c">Scheda</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    {% for p in markedPractices %}
+                                        <tr>
+                                            <td><span class="badge" style="background:{{ p.mark.color }}; color:{{ p.mark.contrastColor }};">{{ p.mark.value }}</span></td>
+                                            <td>{{ practiceStatus.badge(p.status, p.statusLabel) }}</td>
+                                            <td><a href="{{ path('agency_practice_sheet', {id: p.id}) }}"><strong>{{ p.number }}</strong></a></td>
+                                            <td>{{ p.seller ? p.seller.fullName : '-' }}</td>
+                                            <td>{{ p.buyer ? p.buyer.fullName : '-' }}</td>
+                                            <td>{{ p.address ?: '-' }}</td>
+                                            <td class="txt_a_c">{{ ico.action(path('agency_practice_sheet', {id: p.id}), 'sheet', 'Apri la scheda', 'green') }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                    </tbody>
+                                </table>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                {# Spazio e avvisi, uno sotto l'altro #}
+                <div class="col-lg-4 d-flex flex-column gap-3">
+                    {# ===== 9.1 Spazio disponibile / spazio totale licenza ===== #}
+                    <div class="card">
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 m_b_10p">
                                 <h6 class="m_b_none">Spazio della licenza</h6>
@@ -66,11 +98,9 @@
                             {% endif %}
                         </div>
                     </div>
-                </div>
 
-                {# ===== 9.2 Avvisi ===== #}
-                <div class="col-lg-7">
-                    <div class="card h-100">
+                    {# ===== 9.2 Avvisi ===== #}
+                    <div class="card flex-grow-1">
                         <div class="card-body">
                             <h6 class="m_b_10p">Avvisi <span class="badge bg-secondary">{{ alerts|length }}</span></h6>
 
@@ -81,7 +111,7 @@
                                     <thead>
                                         <tr>
                                             <th class="td_w_120p">Data</th>
-                                            <th class="td_w_150p">Pratica</th>
+                                            <th class="td_w_120p">Pratica</th>
                                             <th>Messaggio</th>
                                         </tr>
                                     </thead>
@@ -103,45 +133,6 @@
                     </div>
                 </div>
             </div>
-
-            {# ===== 9.3 Pratiche contrassegnate ===== #}
-            <div class="card m_t_20p">
-                <div class="card-body">
-                    <h6 class="m_b_10p">Pratiche contrassegnate <span class="badge bg-secondary">{{ markedPractices|length }}</span></h6>
-
-                    {% if markedPractices is empty %}
-                        <p class="op_07 m_b_none">Nessuna pratica contrassegnata.</p>
-                    {% else %}
-                        <table class="table table-hover table-bordered align-middle m_b_none v_a_m">
-                            <thead>
-                                <tr>
-                                    <th class="td_w_150p">Contrassegno</th>
-                                    <th class="td_w_120p">Stato</th>
-                                    <th class="td_w_150p">Codice</th>
-                                    <th>Venditore</th>
-                                    <th>Acquirente</th>
-                                    <th>Indirizzo</th>
-                                    <th class="td_w_100p txt_a_c">Scheda</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                            {% for p in markedPractices %}
-                                <tr>
-                                    <td><span class="badge" style="background:{{ p.mark.color }}; color:{{ p.mark.contrastColor }};">{{ p.mark.value }}</span></td>
-                                    <td>{{ practiceStatus.badge(p.status, p.statusLabel) }}</td>
-                                    <td><a href="{{ path('agency_practice_sheet', {id: p.id}) }}"><strong>{{ p.number }}</strong></a></td>
-                                    <td>{{ p.seller ? p.seller.fullName : '-' }}</td>
-                                    <td>{{ p.buyer ? p.buyer.fullName : '-' }}</td>
-                                    <td>{{ p.address ?: '-' }}</td>
-                                    <td class="txt_a_c">{{ ico.action(path('agency_practice_sheet', {id: p.id}), 'sheet', 'Apri la scheda', 'green') }}</td>
-                                </tr>
-                            {% endfor %}
-                            </tbody>
-                        </table>
-                    {% endif %}
-                </div>
-            </div>
-
         </div>
     </section>
 {% endblock %}

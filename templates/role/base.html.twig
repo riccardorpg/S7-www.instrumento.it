@@ -89,9 +89,8 @@
                         {% block sub_menu_center %}{% endblock %}
                     </ul>
                     <ul class="navbar-nav">
-                        {% block sub_menu_right %}
-                            <li class="nav-item"><a class="nav-link" href="{{ path('logout') }}"><i class="bi-box-arrow-right"></i> Esci</a></li>
-                        {% endblock %}
+                        {# Niente "Esci" di default: si esce dal menu laterale. #}
+                        {% block sub_menu_right %}{% endblock %}
                     </ul>
                 </div>
             </div>

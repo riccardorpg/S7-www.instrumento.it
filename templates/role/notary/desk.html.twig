@@ -9,12 +9,6 @@
         <div class="container">
             {% include 'role/notary/_agency_badge.html.twig' with {company: company} only %}
 
-            {# Le stesse sezioni del menu, nello stesso ordine (CONVENZIONI 8). #}
-            <div class="row g-3 m_b_30p">
-                {% include 'components/page_link.html.twig' with {route: 'notary_practices', icon: 'folder2-open', title: 'Pratiche', text: 'Pratiche di ' ~ company.name ~ ', documenti e note.'} only %}
-                {% include 'components/page_link.html.twig' with {route: 'notary_deselect_agency', icon: 'arrow-left-right', title: 'Cambia agenzia', text: 'Torna alla scelta dell\'agenzia su cui operare.'} only %}
-            </div>
-
             {# ===== Avvisi sulle pratiche assegnate al notaio, in due schede (la scheda attiva resta in
                sessione, tab_session): gli avvisi che l'agenzia cliente ha scelto di mostrargli e i
                documenti caricati in attesa del suo controllo ===== #}

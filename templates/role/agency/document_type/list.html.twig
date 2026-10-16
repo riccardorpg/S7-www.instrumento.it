@@ -1,13 +1,12 @@
 {% extends 'role/agency/layout.html.twig' %}
 {% import 'components/action_icons.html.twig' as ico %}
 
-{% block title %} - Tipi di documento{% endblock %}
-{% block role_page_title_inner %}Tipi di documento{% endblock %}
+{% block title %} - Tipologie documento{% endblock %}
+{% block role_page_title_inner %}Tipologie documento{% endblock %}
 
 {% block role_page_title_breadcrumb %}
     <li class="breadcrumb-item"><a href="{{ path('agency_index') }}">Agenzia</a></li>
-    <li class="breadcrumb-item">Configurazioni</li>
-    <li class="breadcrumb-item active" aria-current="page">Tipi di documento</li>
+    <li class="breadcrumb-item active" aria-current="page">Tipologie documento</li>
 {% endblock %}
 
 {% block sub_menu_left %}
@@ -33,7 +32,7 @@
                 {% endif %}
             </p>
 
-            <form id="docTypeFilter" method="get" action="{{ path('agency_configuration_document_types') }}">
+            <form id="docTypeFilter" method="get" action="{{ path('agency_document_types') }}">
                 <input type="hidden" name="filterSet" value="1">
                 <input type="hidden" id="docTypeFilter_sort" name="sortField" value="{{ filters.sortField }}">
                 <input type="hidden" id="docTypeFilter_direction" name="sortOrder" value="{{ filters.sortOrder }}">
@@ -46,7 +45,7 @@
                         <td></td>
                         <td>
                             <div class="d-flex align-items-center gap-1">
-                                {{ ico.action(path('remove_filter', {route: 'agency_configuration_document_types'}), 'close', 'Escludi filtro', 'red') }}
+                                {{ ico.action(path('remove_filter', {route: 'agency_document_types'}), 'close', 'Escludi filtro', 'red') }}
                                 <input form="docTypeFilter" name="f_value" value="{{ filters.value }}" class="form-control form-control-sm">
                             </div>
                         </td>
@@ -68,7 +67,7 @@
                 <tbody id="docTypeRows"
                        data-sortable="{{ sortable ? 1 : 0 }}"
                        data-offset="{{ priorityOffset }}"
-                       data-reorder-url="{{ path('agency_configuration_document_type_reorder') }}"
+                       data-reorder-url="{{ path('agency_document_type_reorder') }}"
                        data-reorder-token="{{ csrf_token('docTypeReorder') }}">
                 {% for t in records %}
                     {% set used = t.id in usedTypeIds %}
@@ -92,7 +91,7 @@
                           {% if is_granted('edit', 'configurations') %}
                             {# 13.1.2 Attiva/disattiva #}
                             {{ ico.action(
-                                "javascript:docTypeToggleAsk('" ~ path('agency_configuration_document_type_toggle', {id: t.id}) ~ "', '" ~ (t.active ? 'disattiverai' : 'attiverai') ~ " il tipo di documento " ~ t.value|e('js') ~ "')",
+                                "javascript:docTypeToggleAsk('" ~ path('agency_document_type_toggle', {id: t.id}) ~ "', '" ~ (t.active ? 'disattiverai' : 'attiverai') ~ " il tipo di documento " ~ t.value|e('js') ~ "')",
                                 'exchange',
                                 t.active ? 'Disattiva' : 'Attiva',
                                 t.active ? 'amber' : 'green'
@@ -100,7 +99,7 @@
                             {# 13.1.4 Modifica #}
                             <a href="javascript:void(0)" class="d-inline-block m_r_5p" data-bs-toggle="tooltip" data-bs-title="Modifica"
                                onclick="docTypeEditOpen(this)"
-                               data-id="{{ t.id }}" data-action="{{ path('agency_configuration_document_types', {edit: t.id}) }}" data-value="{{ t.value }}"
+                               data-id="{{ t.id }}" data-action="{{ path('agency_document_types', {edit: t.id}) }}" data-value="{{ t.value }}"
                                data-mortgage="{{ t.mortgage ? 1 : 0 }}">
                                 <img src="{{ asset(PATH_GRAPHICS ~ 'icons/edit.png') }}" class="icon_action icon_amber" alt="Modifica">
                             </a>
@@ -108,7 +107,7 @@
                             {% if used %}
                                 {{ ico.disabled('delete-grey', 'Già utilizzato in una pratica: puoi solo disattivarlo') }}
                             {% else %}
-                                {{ ico.action("javascript:docTypeDelete('" ~ path('agency_configuration_document_type_delete', {id: t.id}) ~ "')", 'delete', 'Elimina', 'red') }}
+                                {{ ico.action("javascript:docTypeDelete('" ~ path('agency_document_type_delete', {id: t.id}) ~ "')", 'delete', 'Elimina', 'red') }}
                             {% endif %}
                           {% else %}
                             <span class="op_07">-</span>
@@ -127,12 +126,12 @@
 
 {% block modals %}
     {% embed 'components/modals/form.html.twig' with {type: 'docTypeNew', title: 'Nuovo tipo di documento', form: formNew} %}
-        {% block modalBody %}{{ include('role/agency/configuration/document_type/_form_fields.html.twig', {form: formNew}) }}{% endblock %}
+        {% block modalBody %}{{ include('role/agency/document_type/_form_fields.html.twig', {form: formNew}) }}{% endblock %}
         {% block modalSubmit %}Crea{% endblock %}
     {% endembed %}
 
     {% embed 'components/modals/form.html.twig' with {type: 'docTypeEdit', title: 'Modifica tipo di documento', form: formEdit} %}
-        {% block modalBody %}{{ include('role/agency/configuration/document_type/_form_fields.html.twig', {form: formEdit}) }}{% endblock %}
+        {% block modalBody %}{{ include('role/agency/document_type/_form_fields.html.twig', {form: formEdit}) }}{% endblock %}
     {% endembed %}
 
     {% include 'components/modals/confirm.html.twig' with {type: 'docTypeToggle', title: 'Tipo di documento'} only %}
