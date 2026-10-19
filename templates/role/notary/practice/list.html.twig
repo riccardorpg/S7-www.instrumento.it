@@ -1,6 +1,5 @@
 {% extends 'role/notary/layout.html.twig' %}
 {% import 'components/action_icons.html.twig' as ico %}
-{% import 'components/practice_status.html.twig' as practiceStatus %}
 
 {% block title %} - Pratiche{% endblock %}
 {% block role_page_title_inner %}Pratiche{% endblock %}
@@ -25,74 +24,71 @@
                 <input type="hidden" id="practicesFilter_direction" name="sortOrder" value="{{ filters.sortOrder }}">
             </form>
 
+            {# Una scheda per stato, col numero di pratiche (stessi filtri), come nell'area agenzia. La
+               scheda attiva sta in sessione: il clic passa da notary_practice_tab, che la salva e torna all'elenco. #}
+            {% set tabPlurals = {open: 'Aperte', completed: 'Completate', archived: 'Archiviate'} %}
+            <ul class="nav nav-tabs canvas-alt-tabs tabs-tb m_b_20p" role="tablist">
+                {% for value, label in statuses %}
+                    <li class="nav-item">
+                        <a class="nav-link{{ filters.status == value ? ' active' : '' }}" href="{{ path('notary_practice_tab', {status: value}) }}">
+                            {{ tabPlurals[value]|default(label) }} <span class="badge bg-secondary">{{ statusCounts[value] }}</span>
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+
             <div>
                 <table class="table table-hover table-bordered align-middle m_b_none v_a_m">
                     <thead>
                         <tr class="tr_filter">
-                            {# 1 Scheda: Escludi filtro (a sx) #}
-                            <td class="txt_a_c">{{ ico.action(path('remove_filter', {route: 'notary_practices'}), 'close', 'Escludi filtro', 'red') }}</td>
-                            {# 2 Stato #}
+                            {# Codice, con "Escludi filtro" a sinistra #}
                             <td>
-                                <select form="practicesFilter" name="f_status" class="form-select form-select-sm">
-                                    <option value="">Tutti</option>
-                                    <option value="open" {{ filters.status == 'open' ? 'selected' : '' }}>Aperta</option>
-                                    <option value="completed" {{ filters.status == 'completed' ? 'selected' : '' }}>Completata</option>
-                                    <option value="archivable" {{ filters.status == 'archivable' ? 'selected' : '' }}>Archiviabile</option>
-                                </select>
+                                <div class="d-flex align-items-center gap-1">
+                                    {{ ico.action(path('remove_filter', {route: 'notary_practices'}), 'close', 'Escludi filtro', 'red') }}
+                                    <input form="practicesFilter" name="f_q" value="{{ filters.q }}" class="form-control form-control-sm">
+                                </div>
                             </td>
-                            {# 3 Dati pratica #}
-                            <td><input form="practicesFilter" name="f_q" value="{{ filters.q }}" class="form-control form-control-sm"></td>
-                            {# 4 Acquirente #}
                             <td><input form="practicesFilter" name="f_buyer" value="{{ filters.buyer }}" class="form-control form-control-sm"></td>
-                            {# 5 Venditore #}
                             <td><input form="practicesFilter" name="f_seller" value="{{ filters.seller }}" class="form-control form-control-sm"></td>
-                            {# 6 Documenti (nessun filtro) #}
-                            {# 7 Azioni: Filtra (a dx) #}
-                            <td colspan="2" class="text-nowrap">
+                            <td><input form="practicesFilter" name="f_address" value="{{ filters.address }}" class="form-control form-control-sm"></td>
+                            {# Filtra: sopra la colonna mutuo, la cella copre anche documenti e azioni (senza filtro) #}
+                            <td colspan="3" class="text-nowrap">
                                 <button form="practicesFilter" type="submit" class="btn p-0 border-0 bg-transparent" data-bs-toggle="tooltip" data-bs-title="Filtra">
                                     <img src="{{ asset(PATH_GRAPHICS ~ 'icons/search.png') }}" class="icon_action icon_green" alt="Filtra">
                                 </button>
                             </td>
                         </tr>
                         <tr>
-                            <th class="td_w_40p txt_a_c"></th>
-                            <th class="td_w_100p">{{ ico.sort('Stato', 'p.status') }}</th>
-                            <th class="td_w_250p">{{ ico.sort('Dati pratica', 'p.number') }}</th>
-                            <th class="td_w_120p">Acquirente</th>
-                            <th class="td_w_120p">Venditore</th>
-                            <th class="td_w_100p txt_a_c">Documenti</th>
-                            <th class="td_w_40p txt_a_c">Azioni</th>
+                            <th class="td_w_120p">{{ ico.sort('Codice', 'p.number') }}</th>
+                            <th class="td_w_200p">Acquirente</th>
+                            <th class="td_w_200p">Venditore</th>
+                            <th class="td_w_300p">{{ ico.sort('Indirizzo', 'p.address') }}</th>
+                            <th class="td_w_70p">{{ ico.sort('Mutuo', 'p.mortgage') }}</th>
+                            <th class="td_w_70p txt_a_c">Documenti</th>
+                            <th class="td_w_50p txt_a_c">Azioni</th>
                         </tr>
                     </thead>
                     <tbody>
                     {% for p in records %}
                         <tr>
-                            <td class="txt_a_c">{{ ico.action(path('notary_practice_sheet', {id: p.id}), 'sheet', 'Scheda pratica', 'pr') }}</td>
-                            <td>
-                                {{ practiceStatus.badge(p.status, p.statusLabel) }}
-                            </td>
-                            <td>
-                                <a href="{{ path('notary_practice_sheet', {id: p.id}) }}"><strong>{{ p.number }}</strong></a>
-                                <span class="badge bg-light text-dark">{{ p.typeLabel }}</span>
-                                {% if p.subject %}<div class="op_07 small">{{ p.subject|length > 70 ? p.subject|slice(0, 70) ~ '…' : p.subject }}</div>{% endif %}
-                            </td>
-                            <td>
-                                {{ p.buyer ? p.buyer.fullName : '-' }}
-                                {% if p.buyer and p.buyer.fiscalCode %}<div class="op_07 small">{{ p.buyer.fiscalCode }}</div>{% endif %}
-                            </td>
-                            <td>
-                                {{ p.seller ? p.seller.fullName : '-' }}
-                                {% if p.seller and p.seller.fiscalCode %}<div class="op_07 small">{{ p.seller.fiscalCode }}</div>{% endif %}
+                            <td><a href="{{ path('notary_practice_sheet', {id: p.id}) }}"><strong>{{ p.number }}</strong></a></td>
+                            <td>{{ p.buyer ? p.buyer.fullName : '-' }}</td>
+                            <td>{{ p.seller ? p.seller.fullName : '-' }}</td>
+                            <td>{{ p.address ?: '-' }}</td>
+                            {# Mutuo: pallino verde (con) / rosso (senza), la label nel tooltip #}
+                            <td class="txt_a_c">
+                                <img src="{{ asset(PATH_GRAPHICS ~ 'icons/' ~ (p.mortgage ? 'circle_green' : 'circle_red') ~ '.png') }}" class="icon_status"
+                                     alt="{{ p.typeLabel }}" data-bs-toggle="tooltip" data-bs-title="{{ p.typeLabel }}">
                             </td>
                             <td class="txt_a_c">
                                 <span data-bs-toggle="tooltip" data-bs-title="Caricati / Richiesti">
                                     {{ p.countUploaded }} / {{ p.countRequested }}
                                 </span>
                             </td>
-                            <td class="txt_a_c">-</td>
+                            <td class="txt_a_c">{{ ico.action(path('notary_practice_sheet', {id: p.id}), 'sheet', 'Scheda pratica', 'pr') }}</td>
                         </tr>
                     {% else %}
-                        <tr><td colspan="7" class="op_07 text-center">Nessuna pratica trovata.</td></tr>
+                        <tr><td colspan="7" class="op_07 text-center">Nessuna pratica {{ statuses[filters.status]|lower }} trovata.</td></tr>
                     {% endfor %}
                     </tbody>
                 </table>

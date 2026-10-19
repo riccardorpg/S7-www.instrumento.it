@@ -120,17 +120,6 @@ class MailerService
         );
     }
 
-    /** 17.1.1.3 Il notaio ha inserito delle note su una pratica: avviso all'agente. */
-    public function notaryNotes(Practice $practice, string $to, string $notaryName): bool
-    {
-        return $this->send(
-            $to,
-            sprintf($this->param('object_notary_notes'), $practice->getNumber()),
-            'email/practice/notary_notes.html.twig',
-            ['practice' => $practice, 'notaryName' => $notaryName],
-        );
-    }
-
     /** 14.8 Invito ad utilizzare la piattaforma: primo accesso di un nuovo utente. */
     public function invite(string $to, string $name, Company $company, string $code, ?string $companyCode): bool
     {

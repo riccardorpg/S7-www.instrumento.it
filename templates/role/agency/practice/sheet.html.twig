@@ -24,7 +24,7 @@
 {% block sub_menu_right %}
     {% if canEdit %}
         <li class="nav-item"><a class="nav-link" href="javascript:practiceEditShow()"><i class="bi-pencil-square"></i> Modifica</a></li>
-        {# 12.3.5 / 12.3.5.2 Archivia: solo col via libera del notaio (stato "archiviabile"). #}
+        {# 12.3.5 / 12.3.5.2 Archivia: solo col via libera del notaio, cioè a pratica completata. #}
         {% if practice.canArchive %}
             <li class="nav-item"><a class="nav-link" href="javascript:practiceArchiveShow()"><i class="bi-archive"></i> Archivia</a></li>
         {% endif %}
@@ -56,7 +56,7 @@
                 </li>
                 <li class="nav-item">
                     <button class="nav-link tab_session" data-filter-tab="avvisi" data-bs-toggle="tab" data-bs-target="#tab-avvisi" type="button">
-                        Avvisi <span class="badge bg-secondary">{{ practice.alerts|length }}</span>
+                        Avvisi <span class="badge bg-secondary">{{ practice.agencyAlerts|length }}</span>
                     </button>
                 </li>
             </ul>
@@ -69,9 +69,9 @@
                         <tr>
                             <th style="width:25%">Stato</th>
                             <td>
-                                {{ practiceStatus.badge(practice.status, practice.statusLabel) }}
-                                {% if practice.status == 'archivable' %}
-                                    <span class="op_07 font_13">(il notaio ha dato il via libera all'archiviazione)</span>
+                                {{ practiceStatus.dot(practice.status, practice.statusLabel) }}
+                                {% if practice.canArchive %}
+                                    <span class="op_07 font_13">(completata dal notaio: puoi archiviarla)</span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -116,7 +116,7 @@
                             <th>Contrassegno</th>
                             <td>
                                 {% if practice.mark %}
-                                    <span class="badge" style="background:{{ practice.mark.color }}; color:{{ practice.mark.contrastColor }};">{{ practice.mark.value }}</span>
+                                    <span class="rpg_color_dot" style="background:{{ practice.mark.color }};" data-bs-toggle="tooltip" data-bs-title="{{ practice.mark.value }}"></span>
                                 {% else %}-{% endif %}
                             </td>
                         </tr>
@@ -124,7 +124,7 @@
                             <th>Tag</th>
                             <td>
                                 {% for t in practice.tags %}
-                                    <span class="badge" style="background:{{ t.color }}; color:{{ t.contrastColor }};">{{ t.value }}</span>
+                                    <span class="rpg_color_dot" style="background:{{ t.color }};" data-bs-toggle="tooltip" data-bs-title="{{ t.value }}"></span>
                                 {% else %}-{% endfor %}
                             </td>
                         </tr>
@@ -196,19 +196,19 @@
                                 <td>
                                     <strong>{{ row.label }}</strong>
                                     {% if row.documentType and row.documentType.mortgage %}
-                                        <div><span class="badge bg-light text-dark">solo con mutuo</span></div>
+                                        <span class="rpg_color_dot bg-info m_l_5p" data-bs-toggle="tooltip" data-bs-title="Solo con mutuo"></span>
                                     {% endif %}
                                 </td>
                                 {# 12.3.2.2 "Richiesto" lo decide il notaio: qui è in sola lettura. #}
                                 <td class="txt_a_c">
-                                    <span class="badge {{ row.visible ? 'bg-danger' : 'bg-secondary' }}" data-bs-toggle="tooltip"
-                                          data-bs-title="Lo decide il notaio">{{ row.visible ? 'Sì' : 'No' }}</span>
+                                    <span class="rpg_color_dot {{ row.visible ? 'bg-danger' : 'bg-secondary' }}" data-bs-toggle="tooltip"
+                                          data-bs-title="{{ row.visible ? 'Richiesto' : 'Non richiesto' }} (lo decide il notaio)"></span>
                                 </td>
                                 {# 12.3.2.4 Anche lo stato del documento è del notaio: l'agenzia carica, lui verifica. #}
                                 <td class="txt_a_c">
-                                    {% set statusBadge = row.status == 'verified' ? 'bg-success' : (row.status == 'to_verify' ? 'bg-warning text-dark' : (row.status == 'to_upload' ? 'bg-danger' : 'bg-secondary')) %}
-                                    <span class="badge {{ statusBadge }}" data-bs-toggle="tooltip"
-                                          data-bs-title="Lo aggiorna il notaio">{{ row.statusLabel }}</span>
+                                    {% set statusDot = {verified: 'bg-success', to_verify: 'bg-warning', to_verify_agency: 'bg-info', to_upload: 'bg-danger'}[row.status]|default('bg-secondary') %}
+                                    <span class="rpg_color_dot {{ statusDot }}" data-bs-toggle="tooltip"
+                                          data-bs-title="{{ row.statusLabel }}: {{ row.status == 'to_verify_agency' ? 'il notaio chiede un nuovo allegato, caricalo e il documento torna a lui da verificare' : 'lo aggiorna il notaio' }}"></span>
                                 </td>
                                 <td class="txt_a_c text-nowrap">
                                     {# 12.3.2.5 Gli allegati stanno nel pannello a tendina sotto la riga. #}
@@ -245,7 +245,7 @@
                                                             {% if d.hasFile %}
                                                                 {% if d.sizeBytes %}<div class="op_07 font_13">{{ (d.sizeBytes / 1024)|round }} KB</div>{% endif %}
                                                             {% else %}
-                                                                <div><span class="badge bg-danger">senza file</span></div>
+                                                                <span class="rpg_color_dot bg-danger m_l_5p" data-bs-toggle="tooltip" data-bs-title="Senza file"></span>
                                                             {% endif %}
                                                         </td>
                                                         <td class="font_13">{{ d.agentNote ?: '-' }}</td>
@@ -307,7 +307,7 @@
                             <tr>
                                 <td>{{ u.surname }} {{ u.name }}</td>
                                 <td>{{ u.email }}</td>
-                                <td><span class="badge bg-secondary">{{ u.staffRoleLabel }}</span></td>
+                                <td class="txt_a_c"><span class="rpg_color_dot {{ u.staffRole == 'admin' ? 'bg-success' : (u.staffRole == 'internal' ? 'bg-primary' : 'bg-info') }}" data-bs-toggle="tooltip" data-bs-title="{{ u.staffRoleLabel }}"></span></td>
                             </tr>
                         {% else %}
                             <tr><td colspan="3" class="op_07 text-center">
@@ -340,21 +340,26 @@
                             </tr>
                         </thead>
                         <tbody>
-                        {% for a in practice.alerts %}
+                        {# I suoi avvisi e quelli del notaio segnati "visibile agenzia" (questi in sola lettura) #}
+                        {% for a in practice.agencyAlerts %}
                             <tr>
                                 <td>
                                     {{ a.remindAt|date('d/m/Y') }}
                                     {% if a.due %}<span class="badge bg-danger">scaduto</span>{% endif %}
                                 </td>
                                 <td>{{ a.message|nl2br }}</td>
-                                {# Mostrato al notaio? (pallino, il significato nel tooltip) #}
+                                {# Avviso del notaio: in sola lettura; dell agenzia: mostrato al notaio? (pallino, il significato nel tooltip) #}
                                 {% set notaryLabel = a.visibleToNotary ? 'Visibile al notaio' : 'Solo per l\'agenzia' %}
                                 <td class="txt_a_c">
+                                    {% if a.byNotary %}
+                                        <span class="rpg_color_dot bg-secondary" data-bs-toggle="tooltip" data-bs-title="Avviso del notaio"></span>
+                                    {% else %}
                                     <img src="{{ asset(PATH_GRAPHICS ~ 'icons/' ~ (a.visibleToNotary ? 'circle_green' : 'circle_grey') ~ '.png') }}" class="icon_status"
                                          alt="{{ notaryLabel }}" data-bs-toggle="tooltip" data-bs-title="{{ notaryLabel }}">
+                                    {% endif %}
                                 </td>
                                 <td class="txt_a_c text-nowrap">
-                                    {% if canEdit %}
+                                    {% if canEdit and not a.byNotary %}
                                         <a href="javascript:void(0)" class="d-inline-block m_r_5p" data-bs-toggle="tooltip" data-bs-title="Modifica"
                                            onclick="alertEditOpen(this)"
                                            data-id="{{ a.id }}" data-action="{{ path('agency_practice_sheet', {id: practice.id, edit_alert: a.id}) }}" data-date="{{ a.remindAt|date('d-m-Y') }}" data-message="{{ a.message }}" data-notary="{{ a.visibleToNotary ? 1 : 0 }}">
@@ -502,7 +507,7 @@
         {% include 'components/modals/delete.html.twig' with {type: 'alert', title: 'Avviso', text: 'eliminerai l\'avviso selezionato'} only %}
 
         {# 12.3.5.1 Alert sul processo di archiviazione: il pulsante che lo apre c'è
-           solo a pratica archiviabile, quindi qui non serve il caso contrario. #}
+           solo a pratica completata (archiviabile), quindi qui non serve il caso contrario. #}
         {% if practice.canArchive %}
         <div id="practiceArchiveModal" class="modal fade" tabindex="-1" role="dialog">
             <div class="modal-dialog" role="document">

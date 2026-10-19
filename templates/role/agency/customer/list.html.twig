@@ -63,7 +63,7 @@
                         <td>{{ c.fullAddress ?: '-' }}</td>
                         {# 11.1.5 Link alla scheda #}
                         <td class="txt_a_c">
-                            {{ ico.action(path('agency_customer_sheet', {id: c.id}), 'sheet', 'Apri la scheda', 'green') }}
+                            {{ ico.action(path('agency_customer_sheet', {id: c.id}), 'sheet', 'Apri la scheda', 'pr') }}
                         </td>
                     </tr>
                 {% else %}

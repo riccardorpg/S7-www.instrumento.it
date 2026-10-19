@@ -78,10 +78,10 @@
                         <td>{{ u.surname ?: '-' }}</td>
                         <td>{{ u.name ?: '-' }}</td>
                         <td>{{ u.email }}</td>
-                        <td>
-                            <span class="badge text-white {{ u.staffRole == 'admin' ? 'bg-success' : (u.staffRole == 'internal' ? 'bg-primary' : 'bg-info') }}">
-                                {{ u.staffRoleLabel }}
-                            </span>
+                        {# Ruolo: pallino colorato, il nome nel tooltip #}
+                        <td class="txt_a_c">
+                            <span class="rpg_color_dot {{ u.staffRole == 'admin' ? 'bg-success' : (u.staffRole == 'internal' ? 'bg-primary' : 'bg-info') }}"
+                                  data-bs-toggle="tooltip" data-bs-title="{{ u.staffRoleLabel }}"></span>
                         </td>
                         <td class="txt_a_c text-nowrap">
                             {% if is_granted('edit', 'staff') %}

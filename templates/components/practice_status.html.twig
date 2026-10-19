@@ -1,33 +1,23 @@
 {# ===========================================================================
-   BADGE DELLO STATO PRATICA — un solo posto per i colori, usato da tutte le
-   liste e schede (agenzia e notaio).
+   STATO PRATICA — un solo posto per i colori, usato da tutte le liste e schede
+   (agenzia e notaio), come badge o come pallino.
 
    Uso:  {% import 'components/practice_status.html.twig' as practiceStatus %}
          {{ practiceStatus.badge(p.status, p.statusLabel) }}
          {{ practiceStatus.badge(p.status, p.statusLabel, 'ms-auto') }}
+         {{ practiceStatus.dot(p.status, p.statusLabel) }}
 
-   Colori (12.3.5): Aperta = arancione, Completata = verde,
-   Archiviabile = azzurro, Archiviata = grigio.
+   Colori (12.3.5): Aperta = giallo, Completata = verde, Archiviata = grigio
+   (non c'è uno stato archiviabile: completata = archiviabile). Sono quelli delle icone
+   circle_yellow / circle_green / circle_grey, così i pallini sono uguali ovunque: le classi
+   rpg_status_* stanno in custom.css.
    =========================================================================== #}
 
 {% macro badge(status, label, class = '') %}
-    {%- set colors = {
-        'open':       'bg-warning text-dark',
-        'completed':  'bg-success',
-        'archivable': 'bg-info text-dark',
-        'archived':   'bg-secondary',
-    } -%}
-    <span class="badge {{ class }} {{ colors[status]|default('bg-secondary') }}">{{ label }}</span>
+    <span class="badge {{ class }} rpg_status_{{ status in ['open', 'completed', 'archived'] ? status : 'archived' }}">{{ label }}</span>
 {% endmacro %}
 
-{# Lo stesso stato come pallino (nelle liste), il nome nel tooltip. Stessi colori del badge.
-   Uso: {{ practiceStatus.dot(p.status, p.statusLabel) }} #}
+{# Lo stesso stato come pallino (nelle liste), il nome nel tooltip. #}
 {% macro dot(status, label) %}
-    {%- set colors = {
-        'open':       'bg-warning',
-        'completed':  'bg-success',
-        'archivable': 'bg-info',
-        'archived':   'bg-secondary',
-    } -%}
-    <span class="rpg_color_dot {{ colors[status]|default('bg-secondary') }}" data-bs-toggle="tooltip" data-bs-title="{{ label }}"></span>
+    <span class="rpg_color_dot rpg_status_{{ status in ['open', 'completed', 'archived'] ? status : 'archived' }}" data-bs-toggle="tooltip" data-bs-title="{{ label }}"></span>
 {% endmacro %}

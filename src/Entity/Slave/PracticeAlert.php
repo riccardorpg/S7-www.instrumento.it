@@ -30,9 +30,17 @@ class PracticeAlert
     #[ORM\Column(name: 'message', type: 'text')]
     private string $message = '';
 
-    /** Mostra al notaio: l'avviso compare nella sua scheda pratica (tab "Avvisi") e sulla sua scrivania. */
+    /** Mostra al notaio (avviso dell'agenzia): compare nella sua scheda pratica (tab "Avvisi") e sulla sua scrivania. */
     #[ORM\Column(name: 'visible_to_notary', type: 'boolean', options: ['default' => false])]
     private bool $visibleToNotary = false;
+
+    /** Scritto dal notaio, dalla sua scheda pratica: lo modifica ed elimina solo lui. */
+    #[ORM\Column(name: 'by_notary', type: 'boolean', options: ['default' => false])]
+    private bool $byNotary = false;
+
+    /** Visibile all'agenzia (avviso del notaio): compare, in sola lettura, nella scheda e sulla scrivania dell'agenzia. */
+    #[ORM\Column(name: 'visible_to_agency', type: 'boolean', options: ['default' => false])]
+    private bool $visibleToAgency = false;
 
     public function getPractice(): ?Practice
     {
@@ -80,6 +88,42 @@ class PracticeAlert
         $this->visibleToNotary = $visibleToNotary;
 
         return $this;
+    }
+
+    public function isByNotary(): bool
+    {
+        return $this->byNotary;
+    }
+
+    public function setByNotary(bool $byNotary): static
+    {
+        $this->byNotary = $byNotary;
+
+        return $this;
+    }
+
+    public function isVisibleToAgency(): bool
+    {
+        return $this->visibleToAgency;
+    }
+
+    public function setVisibleToAgency(bool $visibleToAgency): static
+    {
+        $this->visibleToAgency = $visibleToAgency;
+
+        return $this;
+    }
+
+    /** Lo vede l'agenzia: i suoi avvisi, più quelli del notaio segnati "visibile agenzia". */
+    public function isShownToAgency(): bool
+    {
+        return !$this->byNotary || $this->visibleToAgency;
+    }
+
+    /** Lo vede il notaio: i suoi avvisi, più quelli dell'agenzia segnati "mostra al notaio". */
+    public function isShownToNotary(): bool
+    {
+        return $this->byNotary || $this->visibleToNotary;
     }
 
     /** Avviso la cui data è arrivata (o passata): da evidenziare nell'elenco. */

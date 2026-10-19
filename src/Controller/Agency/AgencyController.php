@@ -4,6 +4,7 @@ namespace App\Controller\Agency;
 
 use App\Entity\Slave\Practice;
 use App\Entity\Slave\PracticeAlert;
+use App\Entity\Slave\PracticeDocument;
 use App\Entity\Slave\User as StaffUser;
 use App\Service\CompanyService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -17,7 +18,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[IsGranted('ROLE_AGENCY')]
 class AgencyController extends AbstractController
 {
-    /** 9. Scrivania: spazio licenza (9.1), avvisi (9.2) e pratiche contrassegnate (9.3). */
+    /** 9. Scrivania: spazio licenza (9.1), avvisi e documenti da verificare (9.2), pratiche contrassegnate (9.3). */
     #[Route('', name: 'agency_index', methods: ['GET'])]
     public function agencyIndex(CompanyService $companyService, ManagerRegistry $registry): Response
     {
@@ -38,6 +39,8 @@ class AgencyController extends AbstractController
             'quotaMb' => $quotaMb,
             'usedPercent' => $quotaMb > 0 ? min(100, round($usedMb / $quotaMb * 100, 1)) : 0,
             'alerts' => $this->alerts($em, $onlyMine),
+            // Documenti che il notaio ha rimandato all'agenzia ("da verificare agenzia")
+            'toVerify' => $em->getRepository(PracticeDocument::class)->findToVerifyForAgency($onlyMine?->getId()),
             'markedPractices' => $this->markedPractices($em, $onlyMine),
         ]);
     }
@@ -52,6 +55,8 @@ class AgencyController extends AbstractController
         $qb = $em->getRepository(PracticeAlert::class)->createQueryBuilder('a')
             ->join('a.practice', 'p')->addSelect('p')
             ->andWhere('p.status <> :archived')->setParameter('archived', Practice::STATUS_ARCHIVED)
+            // I suoi avvisi e quelli del notaio segnati "visibile agenzia".
+            ->andWhere('a.byNotary = false OR a.visibleToAgency = true')
             ->orderBy('a.remindAt', 'ASC')
             ->setMaxResults(50);
 

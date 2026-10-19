@@ -91,7 +91,7 @@ class AgencyPracticeController extends AbstractController
      * Cambio scheda dell'elenco pratiche: lo stato scelto va in sessione (non nell'URL) e
      * l'elenco riparte dalla prima pagina, con gli altri filtri invariati.
      */
-    #[Route('/stato/{status}', name: 'agency_practice_tab', methods: ['GET'], requirements: ['status' => 'open|completed|archivable|archived'])]
+    #[Route('/stato/{status}', name: 'agency_practice_tab', methods: ['GET'], requirements: ['status' => 'open|completed|archived'])]
     public function agencyPracticeTab(string $status, Request $request): RedirectResponse
     {
         $request->getSession()->set(FilterService::PRACTICE_TAB, $status);
@@ -529,7 +529,7 @@ class AgencyPracticeController extends AbstractController
         if (!$practice->getCanArchive()) {
             $this->addFlash('notice_danger', $practice->isArchived()
                 ? 'La pratica è già archiviata.'
-                : 'Il notaio non ha ancora messo la pratica in "archiviabile": non puoi archiviarla.');
+                : 'Il notaio non ha ancora completato la pratica: non puoi archiviarla.');
 
             return $this->redirectToRoute('agency_practice_sheet', ['id' => $id], Response::HTTP_SEE_OTHER);
         }
@@ -638,8 +638,9 @@ class AgencyPracticeController extends AbstractController
                 ->setMimeType($meta['mime'])
                 ->setSizeBytes($meta['size']);
 
-            // Caricare il primo file porta la riga da "da caricare" a "da verificare".
-            if ($row->getStatus() === PracticeDocument::STATUS_TO_UPLOAD) {
+            // Caricare il primo file porta la riga da "da caricare" a "da verificare notaio"; un nuovo
+            // file su una riga che il notaio aveva rimandato all'agenzia la riporta a lui.
+            if (in_array($row->getStatus(), [PracticeDocument::STATUS_TO_UPLOAD, PracticeDocument::STATUS_TO_VERIFY_AGENCY], true)) {
                 $row->setStatus(PracticeDocument::STATUS_TO_VERIFY);
             }
             $em->flush();
@@ -721,14 +722,14 @@ class AgencyPracticeController extends AbstractController
         return null;
     }
 
-    /** Avviso della pratica, per id; null se non le appartiene. */
+    /** Avviso dell'agenzia sulla pratica, per id; null se non le appartiene o è del notaio (lo gestisce lui). */
     private function findAlert(Practice $practice, int $aid): ?PracticeAlert
     {
         if ($aid <= 0) {
             return null;
         }
         foreach ($practice->getAlerts() as $alert) {
-            if ((int) $alert->getId() === $aid) {
+            if ((int) $alert->getId() === $aid && !$alert->isByNotary()) {
                 return $alert;
             }
         }

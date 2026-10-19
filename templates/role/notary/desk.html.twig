@@ -80,7 +80,7 @@
                                             <td><a href="{{ path('notary_practice_sheet', {id: r.practice.id}) }}">{{ r.practice.number }}</a></td>
                                             <td>{{ r.label }}</td>
                                             <td class="txt_a_c">{{ r.documents|length }}</td>
-                                            <td class="txt_a_c">{{ ico.action(path('notary_practice_sheet', {id: r.practice.id}), 'sheet', 'Apri la pratica', 'green') }}</td>
+                                            <td class="txt_a_c">{{ ico.action(path('notary_practice_sheet', {id: r.practice.id}), 'sheet', 'Apri la pratica', 'pr') }}</td>
                                         </tr>
                                     {% endfor %}
                                     </tbody>

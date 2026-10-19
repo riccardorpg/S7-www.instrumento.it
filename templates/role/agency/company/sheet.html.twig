@@ -101,18 +101,18 @@
                     {% set license = company.license %}
                     <h5 class="m_b_10p">Licenza</h5>
                     <table class="table align-middle m_b_10p v_a_m">
-                        <tr><th style="width:30%">Codice cliente</th><td><span class="badge bg-secondary">{{ company.code }}</span></td></tr>
+                        <tr><th style="width:30%">Codice cliente</th><td><strong>{{ company.code }}</strong></td></tr>
                         {% if license %}
                             {% set days = license.daysToExpiry %}
                             <tr>
                                 <th>Stato licenza</th>
                                 <td>
                                     {% if not license.isAdminActive %}
-                                        <span class="badge bg-danger">Disattivata</span>
+                                        <span class="rpg_color_dot bg-danger" data-bs-toggle="tooltip" data-bs-title="Disattivata"></span>
                                     {% elseif days < 0 %}
-                                        <span class="badge bg-danger">Scaduta</span>
+                                        <span class="rpg_color_dot bg-danger" data-bs-toggle="tooltip" data-bs-title="Scaduta"></span>
                                     {% else %}
-                                        <span class="badge bg-success">Attiva</span>
+                                        <span class="rpg_color_dot bg-success" data-bs-toggle="tooltip" data-bs-title="Attiva"></span>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -128,7 +128,7 @@
                                 </td>
                             </tr>
                         {% else %}
-                            <tr><th>Licenza</th><td><span class="badge bg-danger">Nessuna licenza assegnata</span></td></tr>
+                            <tr><th>Licenza</th><td><span class="rpg_color_dot bg-danger" data-bs-toggle="tooltip" data-bs-title="Nessuna licenza assegnata"></span></td></tr>
                         {% endif %}
                         <tr>
                             <th>Spazio</th>
@@ -218,7 +218,11 @@
                     <label class="form-label" for="{{ formLogo.file.vars.id }}">Immagine *</label>
                     {{ form_widget(formLogo.file) }}
                 </div>
-                <div class="form-text">JPG, PNG o WEBP, fino a 2 MB. Sostituisce il logo attuale.</div>
+                <div class="form-text">JPG, PNG o WEBP, fino a 2 MB. Scelta l'immagine si apre il ritaglio; sostituisce il logo attuale.</div>
+                {# Anteprima del logo ritagliato, prima del caricamento (la riempie image_crop_js) #}
+                <div class="txt_a_c m_t_10p">
+                    <img id="companyLogoPreview" alt="Anteprima del logo" style="display:none; max-height:120px; max-width:100%;" class="border rounded p-2">
+                </div>
             {% endblock %}
             {% block modalSubmit %}Carica{% endblock %}
         {% endembed %}
@@ -228,6 +232,10 @@
 {% block page_javascripts %}
     {% include 'components/js/tab_session_js.html.twig' %}
     {% if canEdit %}
+        {# Ritaglio del logo prima del caricamento: forma libera, parte con tutta l'immagine dentro #}
+        {% include 'components/js/image_crop_js.html.twig' with {
+            input: formLogo.file.vars.id, preview: '#companyLogoPreview', ratio: 'libera', intera: true
+        } only %}
         {# Il picker città sta dentro il modale anagrafico: al ritorno lo si riapre. #}
         {% include 'components/js/city_js.html.twig' with {
             number: 1, formName: 'companyProfile', modalToClose: 'companyProfileModal'

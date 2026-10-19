@@ -1,0 +1,226 @@
+{#
+    Ritaglio dell'immagine scelta, prima dell'invio del form (da tillomeditalia, che l'ha preso da eaml
+    e venanzieffe), con Cropper.js.
+
+    Quando si sceglie un file nell'input indicato si apre una finestra: l'immagine si sposta, si
+    ingrandisce, si riduce e si ruota sotto al riquadro, che può anche uscire dai bordi (viewMode 0),
+    e le parti vuote diventano bianche (trasparenti per i PNG). "Intera" mette tutta l'immagine nel riquadro.
+
+    Alla conferma il ritaglio lo fa il browser: il file ritagliato prende il posto di quello scelto
+    nell'input (DataTransfer) e il form si invia come sempre, quindi il server non deve fare nulla.
+    Se il browser non permette di sostituire il file parte l'originale; se c'è il campo "crop", ci
+    finiscono le coordinate per chi volesse ritagliare sul server.
+
+    I modali di Instrumento si rendono dopo i javascript della pagina: lo script parte al DOMContentLoaded.
+
+    Parametri:
+      number    suffisso per usarlo più volte nella stessa pagina (default 1)
+      input     id dell'input file
+      crop      id del campo nascosto per le coordinate (facoltativo, solo ripiego)
+      preview   selettore CSS dell'immagine di anteprima da aggiornare (facoltativo)
+      ratio     proporzione larghezza/altezza del riquadro: 1 quadrato (default), 2 per 2:1,
+                'libera' per lasciare scegliere la forma (es. loghi)
+      intera    true per aprire il riquadro con tutta l'immagine dentro (loghi, oggetti),
+                altrimenti parte dentro all'immagine (foto). Default false
+      maxSide   lato massimo del file inviato, per non spedire immagini enormi (default 2400)
+
+    Esempio:
+      {% include 'components/js/image_crop_js.html.twig' with {input: 'company_logo_file', ratio: 'libera', intera: true} only %}
+#}
+{% set n = number|default(1) %}
+{% set libera = (ratio is defined and ratio == 'libera') %}
+{% set proporzione = libera ? 'NaN' : ratio|default(1) %}
+{% set lato = maxSide|default(2400) %}
+
+<link rel="stylesheet" href="{{ asset('css/components/cropper/cropper.min.css') }}">
+
+{# rpg_crop_modal: sta sopra alle altre finestre, perché spesso il caricamento è già dentro un modale #}
+<div id="imageCropModal{{ n }}" class="modal fade rpg_crop_modal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header"><h3 class="modal-title">Ritaglia l'immagine</h3></div>
+            <div class="modal-stripe"></div>
+            <div class="modal-body">
+                <p class="font_14 m_b_10p">Trascina l'immagine e usa i pulsanti per ingrandirla, ridurla o ruotarla.{% if libera %} Trascina i bordi del riquadro per sceglierne la forma.{% else %} La forma del riquadro è fissa: riducendo l'immagine entra tutta, e le parti vuote diventano bianche.{% endif %}</p>
+                <div class="rpg_crop_area"><img id="imageCropImage{{ n }}" alt=""></div>
+                <div class="txt_a_c m_t_10p">
+                    <button type="button" class="button button-3d button-mini m-1" data-crop-action="zoom-in" data-bs-toggle="tooltip" title="Ingrandisci"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+                    <button type="button" class="button button-3d button-mini m-1" data-crop-action="zoom-out" data-bs-toggle="tooltip" title="Riduci"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+                    <button type="button" class="button button-3d button-mini m-1" data-crop-action="rotate-left" data-bs-toggle="tooltip" title="Ruota a sinistra"><i class="fa-solid fa-rotate-left"></i></button>
+                    <button type="button" class="button button-3d button-mini m-1" data-crop-action="rotate-right" data-bs-toggle="tooltip" title="Ruota a destra"><i class="fa-solid fa-rotate-right"></i></button>
+                    <button type="button" class="button button-3d button-mini m-1" data-crop-action="whole" data-bs-toggle="tooltip" title="Tutta l'immagine dentro al riquadro"><i class="fa-solid fa-expand m_r_5p"></i>Intera</button>
+                    <button type="button" class="button button-3d button-mini m-1" data-crop-action="reset" data-bs-toggle="tooltip" title="Reimposta">Reset</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="button button-3d button-small button-red f_left" id="imageCropCancel{{ n }}">Annulla</button>
+                <button type="button" class="button button-3d button-small button-green f_right" id="imageCropConfirm{{ n }}">Conferma</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="{{ asset('js/components/cropper/cropper.min.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var input = document.getElementById('{{ input }}');
+        var campoRitaglio = {% if crop is defined %}document.getElementById('{{ crop }}'){% else %}null{% endif %};
+        var immagine = document.getElementById('imageCropImage{{ n }}');
+        var finestra = document.getElementById('imageCropModal{{ n }}');
+        var anteprima = {% if preview is defined %}document.querySelector('{{ preview }}'){% else %}null{% endif %};
+        var proporzione = {{ proporzione }};
+        var partiIntera = {{ (intera is defined and intera) ? 'true' : 'false' }};
+
+        if (!input || !finestra || typeof Cropper === 'undefined') return;
+
+        var modale = bootstrap.Modal.getOrCreateInstance(finestra, {backdrop: 'static', keyboard: false});
+        var anteprimaIniziale = anteprima ? anteprima.getAttribute('src') : '';
+        var cropper = null;
+        var indirizzo = null;
+        var confermato = false;
+        var nomeBase = 'immagine';
+        var tipoOriginale = 'image/jpeg';
+        // il cambio di file fatto da qui (file ritagliato) non deve riaprire la finestra
+        var sostituendo = false;
+
+        input.addEventListener('change', function () {
+            if (sostituendo) return;
+            if (campoRitaglio) campoRitaglio.value = '';
+            var file = input.files && input.files[0];
+            if (!file) return;
+
+            // si ritagliano solo jpg, png e webp: un altro formato passa così com'è e, se non è
+            // ammesso, lo dice il controllo del server
+            if (!/^image\/(jpeg|png|webp)$/.test(file.type)) return;
+
+            nomeBase = file.name.replace(/\.[^.]+$/, '') || 'immagine';
+            tipoOriginale = file.type;
+            if (indirizzo) URL.revokeObjectURL(indirizzo);
+            indirizzo = URL.createObjectURL(file);
+            immagine.src = indirizzo;
+            confermato = false;
+            modale.show();
+        });
+
+        function costruisci() {
+            if (cropper) cropper.destroy();
+            cropper = new Cropper(immagine, {
+                aspectRatio: proporzione,
+                viewMode: 0,            // il riquadro può uscire dall'immagine
+                dragMode: 'move',       // si trascina l'immagine sotto al riquadro
+                autoCropArea: 1,
+                background: true,       // la scacchiera mostra dove l'immagine non c'è
+                responsive: true,
+                rotatable: true,
+                scalable: false,
+                checkOrientation: false, // l'orientamento delle foto lo applica già il browser
+                ready: function () { if (partiIntera) intera(this.cropper); }
+            });
+        }
+
+        // tutta l'immagine dentro al riquadro, centrata: se non entra nel contenitore la rimpicciolisco
+        function intera(cr) {
+            cr = cr || cropper;
+            if (!cr) return;
+            var riquadro = function (cv) {
+                if (isNaN(proporzione)) return {width: cv.width, height: cv.height};
+                var w = Math.max(cv.width, cv.height * proporzione);
+                return {width: w, height: w / proporzione};
+            };
+            var cont = cr.getContainerData();
+            var r = riquadro(cr.getCanvasData());
+            var scala = Math.min(1, cont.width / r.width, cont.height / r.height);
+            if (scala < 1) {
+                var img = cr.getImageData();
+                cr.zoomTo(img.width / img.naturalWidth * scala * 0.95);
+            }
+            var cv = cr.getCanvasData();
+            r = riquadro(cv);
+            cr.setCropBoxData({left: cv.left + (cv.width - r.width) / 2, top: cv.top + (cv.height - r.height) / 2, width: r.width, height: r.height});
+        }
+
+        // Cropper ha bisogno dell'immagine visibile e caricata per misurarla: parte a finestra aperta
+        finestra.addEventListener('shown.bs.modal', function () {
+            if (immagine.complete && immagine.naturalWidth) costruisci();
+            else immagine.addEventListener('load', costruisci, {once: true});
+        });
+
+        finestra.addEventListener('hidden.bs.modal', function () {
+            if (cropper) { cropper.destroy(); cropper = null; }
+            immagine.removeEventListener('load', costruisci);
+            // se sotto c'era un'altra finestra aperta, Bootstrap le toglierebbe lo scorrimento
+            if (document.querySelector('.modal.show')) document.body.classList.add('modal-open');
+            // chiusa senza conferma: vale come annulla
+            if (!confermato) annulla();
+        });
+
+        finestra.querySelectorAll('[data-crop-action]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                if (!cropper) return;
+                switch (btn.getAttribute('data-crop-action')) {
+                    case 'zoom-in':      cropper.zoom(0.1); break;
+                    case 'zoom-out':     cropper.zoom(-0.1); break;
+                    case 'rotate-left':  cropper.rotate(-90); break;
+                    case 'rotate-right': cropper.rotate(90); break;
+                    case 'whole':        intera(); break;
+                    case 'reset':        cropper.reset(); if (partiIntera) intera(); break;
+                }
+            });
+        });
+
+        document.getElementById('imageCropConfirm{{ n }}').addEventListener('click', function () {
+            if (!cropper) return;
+
+            var dati = cropper.getData(true);
+            // un png resta png (loghi con trasparenza: niente sfondo), il resto diventa jpeg su bianco
+            var tipo = tipoOriginale === 'image/png' ? 'image/png' : 'image/jpeg';
+            var estensione = tipo === 'image/png' ? '.png' : '.jpg';
+            var opzioni = {imageSmoothingQuality: 'high'};
+            if (tipo !== 'image/png') opzioni.fillColor = '#fff';
+            if (isNaN(proporzione)) {
+                opzioni.maxWidth = {{ lato }};
+                opzioni.maxHeight = {{ lato }};
+            } else {
+                var larghezza = Math.max(1, Math.min(dati.width, {{ lato }}, Math.round({{ lato }} * proporzione)));
+                opzioni.width = larghezza;
+                opzioni.height = Math.max(1, Math.round(larghezza / proporzione));
+            }
+            var tela = cropper.getCroppedCanvas(opzioni);
+            if (!tela) return;
+
+            tela.toBlob(function (blob) {
+                if (!blob) return;
+                var sostituito = false;
+                try {
+                    var dt = new DataTransfer();
+                    dt.items.add(new File([blob], nomeBase + estensione, {type: tipo}));
+                    sostituendo = true;
+                    input.files = dt.files;
+                    sostituendo = false;
+                    sostituito = input.files.length === 1 && input.files[0].size === blob.size;
+                } catch (e) { sostituendo = false; }
+
+                // file già ritagliato: nessuna coordinata. Se non si è potuto sostituire parte l'originale
+                if (campoRitaglio) campoRitaglio.value = sostituito ? '' : JSON.stringify({x: dati.x, y: dati.y, width: dati.width, height: dati.height});
+                if (anteprima) { anteprima.setAttribute('src', tela.toDataURL(tipo)); anteprima.style.display = ''; }
+
+                confermato = true;
+                modale.hide();
+            }, tipo, 0.92);
+        });
+
+        document.getElementById('imageCropCancel{{ n }}').addEventListener('click', function () {
+            modale.hide();
+        });
+
+        function annulla() {
+            input.value = '';
+            if (campoRitaglio) campoRitaglio.value = '';
+            if (anteprima && anteprimaIniziale) anteprima.setAttribute('src', anteprimaIniziale);
+            else if (anteprima) { anteprima.removeAttribute('src'); anteprima.style.display = 'none'; }
+            if (indirizzo) { URL.revokeObjectURL(indirizzo); indirizzo = null; }
+            // src vuoto in Firefox ricarica la pagina come immagine
+            immagine.removeAttribute('src');
+        }
+    });
+</script>

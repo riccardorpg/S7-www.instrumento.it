@@ -135,15 +135,52 @@ class PracticeRepository extends ServiceEntityRepository
     }
     /**
      * 17.1 Elenco pratiche dell'agenzia visto dal notaio (filtri da
-     * FilterService::notaryPracticeFilter): l'accesso all'agenzia è già verificato.
+     * FilterService::notaryPracticeFilter): l'accesso all'agenzia è già verificato. Lo stato è la
+     * scheda attiva dell'elenco ($filters['status']).
      */
     public function queryNotaryFiltered(array $filters): Query
+    {
+        $qb = $this->notaryFilteredQb($filters);
+        if (isset(Practice::STATUSES[$filters['status']])) {
+            $qb->andWhere('p.status = :status')->setParameter('status', $filters['status']);
+        }
+        $this->applySort($qb, $filters, ['p.number', 'p.mortgage', 'p.address', 'p.createdAt'], 'p.createdAt', 'desc');
+
+        return $qb->getQuery();
+    }
+
+    /**
+     * Quante pratiche per stato con gli stessi filtri dell'elenco del notaio (stato escluso):
+     * i contatori delle schede.
+     *
+     * @return array<string, int> stato => pratiche (tutti gli stati, anche a zero)
+     */
+    public function countNotaryByStatus(array $filters): array
+    {
+        $rows = $this->notaryFilteredQb($filters)
+            ->select('p.status AS status, COUNT(DISTINCT p.id) AS qty')
+            ->groupBy('p.status')
+            ->getQuery()->getArrayResult();
+
+        $counts = array_fill_keys(array_keys(Practice::STATUSES), 0);
+        foreach ($rows as $r) {
+            if (isset($counts[$r['status']])) {
+                $counts[$r['status']] = (int) $r['qty'];
+            }
+        }
+
+        return $counts;
+    }
+
+    /** Le condizioni comuni a elenco e contatori del notaio: tutti i filtri tranne lo stato. */
+    private function notaryFilteredQb(array $filters): QueryBuilder
     {
         $qb = $this->createQueryBuilder('p')->where('1=1');
         $params = [];
 
+        // Ricerca sul codice della pratica.
         if ($filters['q'] !== '') {
-            $qb->andWhere('p.number LIKE :q OR p.subject LIKE :q');
+            $qb->andWhere('p.number LIKE :q');
             $params['q'] = '%' . $filters['q'] . '%';
         }
         // Le parti sono clienti dell'agenzia (11): il filtro cerca su nome e cognome.
@@ -155,17 +192,15 @@ class PracticeRepository extends ServiceEntityRepository
             $qb->leftJoin('p.seller', 'sc')->andWhere("CONCAT(COALESCE(sc.name, ''), ' ', COALESCE(sc.surname, '')) LIKE :seller");
             $params['seller'] = '%' . $filters['seller'] . '%';
         }
-        if ($filters['status'] !== '') {
-            $qb->andWhere('p.status = :status');
-            $params['status'] = $filters['status'];
+        if ($filters['address'] !== '') {
+            $qb->andWhere('p.address LIKE :address');
+            $params['address'] = '%' . $filters['address'] . '%';
         }
 
         foreach ($params as $key => $value) {
             $qb->setParameter($key, $value);
         }
-        $this->applySort($qb, $filters, ['p.number', 'p.mortgage', 'p.status', 'p.createdAt'], 'p.createdAt', 'desc');
 
-        return $qb->getQuery();
+        return $qb;
     }
-
 }

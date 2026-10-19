@@ -653,7 +653,20 @@ ul.navbar-nav li.nav-item a.nav-link:hover { background-color: rgba(0, 0, 0, 0.1
 /* Il brand è definito una volta sola nel blocco [4]: qui niente ridefinizioni. */
 
 
-/* Pallino di stato (icons/circle_*.png) nelle tabelle: 20px, senza il bordo delle icone azione. */
-.icon_status { width: 20px !important; height: 20px !important; min-width: 0 !important; min-height: 0 !important; padding: 0 !important; border: 0 !important; background-color: transparent !important; vertical-align: middle; }
-/* Pallino del colore di un contrassegno o tag (il colore arriva inline), stessa misura dei pallini di stato. */
-.rpg_color_dot { display: inline-block; width: 20px; height: 20px; border-radius: 50%; vertical-align: middle; margin: 1px 2px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); cursor: default; }
+/* Pallino di stato (icons/circle_*.png) nelle tabelle: 13px, senza il bordo delle icone azione. */
+.icon_status { width: 13px !important; height: 13px !important; min-width: 0 !important; min-height: 0 !important; padding: 0 !important; border: 0 !important; background-color: transparent !important; vertical-align: middle; }
+/* Pallino del colore di un contrassegno o tag (il colore arriva inline), stessa misura dei pallini di stato (13px). */
+.rpg_color_dot { display: inline-block; width: 13px; height: 13px; border-radius: 50%; vertical-align: middle; margin: 1px 2px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15); cursor: default; }
+
+/* Ritaglio immagini (components/js/image_crop_js.html.twig): logo dell'agenzia */
+.rpg_crop_area { height: 60vh; max-height: 500px; }
+.rpg_crop_area img { display: block; max-width: 100%; }
+/* il caricamento è già dentro un modale: il ritaglio e il suo velo vanno sopra (Bootstrap usa 1050/1055) */
+.rpg_crop_modal { z-index: 1065; }
+.modal-backdrop ~ .modal-backdrop { z-index: 1060; }
+
+/* Stato pratica (components/practice_status.html.twig), badge e pallini: gli stessi colori delle
+   icone circle_yellow / circle_green / circle_grey. */
+.rpg_status_open { background-color: #ffd000 !important; color: #1f1f1f !important; }
+.rpg_status_completed { background-color: #59ba41 !important; color: #ffffff !important; }
+.rpg_status_archived { background-color: #cfcfcf !important; color: #1f1f1f !important; }

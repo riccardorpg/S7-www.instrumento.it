@@ -15,8 +15,6 @@
 {% block sub_menu_right %}
     {% set statusToken = csrf_token('practice_status_' ~ practice.id) %}
     {% set statusUrl = path('notary_practice_status', {id: practice.id})|json_encode %}
-    {# 17.1.1.3 Avvisa l'agente che ci sono note da leggere. #}
-    <li class="nav-item"><a class="nav-link" href="javascript:notaryNotesConfirm({{ path('notary_practice_notes_alert', {id: practice.id})|json_encode }}, {{ csrf_token('notaryNotes')|json_encode }}, 'avviserai per e-mail l\'agente che hai inserito delle note')"><i class="bi-chat-left-text"></i> Ho messo delle note</a></li>
     {% if practice.status == 'open' %}
         {# 17.1.1 "Completata" si sblocca solo quando ogni documento richiesto è verificato. #}
         {% if practice.canComplete %}
@@ -28,7 +26,7 @@
             </li>
         {% endif %}
     {% elseif practice.status == 'completed' %}
-        <li class="nav-item"><a class="nav-link" href="javascript:practiceStatusConfirm({{ statusUrl }}, {{ statusToken|json_encode }}, 'archivable', 'segnerai la pratica come archiviabile')"><i class="bi-check2-square"></i> Segna come archiviabile</a></li>
+        {# Completata = già archiviabile dall'agenzia: non c'è un passaggio "archiviabile" a parte. #}
         <li class="nav-item"><a class="nav-link" href="javascript:practiceStatusConfirm({{ statusUrl }}, {{ statusToken|json_encode }}, 'open', 'riaprirai la pratica')"><i class="bi-arrow-counterclockwise"></i> Riapri</a></li>
     {% else %}
         <li class="nav-item"><a class="nav-link" href="javascript:practiceStatusConfirm({{ statusUrl }}, {{ statusToken|json_encode }}, 'open', 'riaprirai la pratica')"><i class="bi-arrow-counterclockwise"></i> Riapri</a></li>
@@ -54,8 +52,8 @@
             <ul class="nav nav-tabs canvas-alt-tabs tabs-tb" role="tablist">
                 <li class="nav-item"><button class="nav-link active tab_session" data-filter-tab="dati" data-bs-toggle="tab" data-bs-target="#tab-dati" type="button">Dati pratica</button></li>
                 <li class="nav-item"><button class="nav-link tab_session" data-filter-tab="documenti" data-bs-toggle="tab" data-bs-target="#tab-documenti" type="button">Documenti ({{ practice.countUploaded }}/{{ practice.countRequested }})</button></li>
-                {# Solo gli avvisi che l'agenzia ha scelto di mostrare al notaio #}
-                {% set notaryAlerts = practice.alerts|filter(a => a.visibleToNotary)|sort((x, y) => x.remindAt <=> y.remindAt) %}
+                {# Avvisi del notaio e quelli dell'agenzia segnati "mostra al notaio" (già per data) #}
+                {% set notaryAlerts = practice.notaryAlerts %}
                 <li class="nav-item"><button class="nav-link tab_session" data-filter-tab="avvisi" data-bs-toggle="tab" data-bs-target="#tab-avvisi" type="button">Avvisi ({{ notaryAlerts|length }})</button></li>
             </ul>
 
@@ -132,7 +130,7 @@
                                 <td class="txt_a_c">
                                     {# Senza allegato non c'è nulla da verificare: lo stato resta bloccato.
                                        Una riga già verificata resta modificabile, per poterla riaprire. #}
-                                    {% set statusBadge = row.status == 'verified' ? 'bg-success' : (row.status == 'to_verify' ? 'bg-warning text-dark' : (row.status == 'to_upload' ? 'bg-danger' : 'bg-secondary')) %}
+                                    {% set statusBadge = {verified: 'bg-success', to_verify: 'bg-warning text-dark', to_verify_agency: 'bg-info text-dark', to_upload: 'bg-danger'}[row.status]|default('bg-secondary') %}
                                     {% if canEditDocuments and (row.hasFiles or row.status == 'verified') %}
                                         <form method="post" action="{{ path('notary_practice_row_status', {id: practice.id, rid: row.id}) }}" class="d-inline">
                                             <input type="hidden" name="_csrf_token" value="{{ token }}">
@@ -199,7 +197,7 @@
                                                             {% endif %}
                                                             {% if canEditDocuments %}
                                                                 {# 17.1.1.1.5.2.6 Note del notaio #}
-                                                                {{ ico.action("javascript:docNoteOpen(" ~ path('notary_practice_sheet', {id: practice.id, edit_document: d.id})|json_encode ~ ", " ~ (d.notaryNote|default('')|json_encode) ~ ")", 'notes', 'Modifica note notaio', 'pr') }}
+                                                                {{ ico.action("javascript:docNoteOpen(" ~ path('notary_practice_sheet', {id: practice.id, edit_document: d.id})|json_encode ~ ", " ~ (d.notaryNote|default('')|json_encode) ~ ", " ~ (row.status == 'to_verify_agency' ? 'true' : 'false') ~ ")", 'notes', 'Modifica note notaio', 'pr') }}
                                                                 {{ ico.action("javascript:docDeleteConfirm(" ~ path('notary_practice_document_delete', {id: practice.id, did: d.id})|json_encode ~ ", " ~ token|json_encode ~ ", " ~ ('eliminerai l’allegato «' ~ (d.originalFilename ?: d.name) ~ '»')|json_encode ~ ")", 'delete', 'Elimina', 'red') }}
                                                             {% endif %}
                                                         </td>
@@ -218,16 +216,25 @@
                     </table>
                 </div>
 
-                {# ===== Avvisi che l'agenzia ha scelto di mostrare al notaio (sola lettura) ===== #}
+                {# ===== Avvisi: quelli del notaio (li gestisce lui) e quelli che l'agenzia gli mostra (sola lettura) ===== #}
                 <div class="tab-pane fade" id="tab-avvisi">
+                    {% set canEditAlerts = not practice.archived %}
+                    {% if canEditAlerts %}
+                        <div class="d-flex justify-content-end m_b_10p">
+                            <a href="javascript:notaryAlertNewOpen()" class="button button-3d button-mini button-green m-0">Nuovo avviso</a>
+                        </div>
+                    {% endif %}
                     <table class="table table-bordered align-middle m_b_none v_a_m">
                         <thead>
                             <tr>
                                 <th class="td_w_150p">Ricorda in data</th>
                                 <th>Messaggio</th>
+                                <th class="td_w_100p txt_a_c">Da</th>
+                                <th class="td_w_100p txt_a_c">Azioni</th>
                             </tr>
                         </thead>
                         <tbody>
+                        {% set alertToken = csrf_token('notaryAlertDelete') %}
                         {% for a in notaryAlerts %}
                             <tr>
                                 <td>
@@ -235,9 +242,31 @@
                                     {% if a.due %}<span class="badge bg-danger">scaduto</span>{% endif %}
                                 </td>
                                 <td>{{ a.message|nl2br }}</td>
+                                {# Chi l'ha scritto; per quelli del notaio, se l'agenzia lo vede #}
+                                <td class="txt_a_c">
+                                    {% if a.byNotary %}
+                                        {% set agencyLabel = a.visibleToAgency ? 'Tuo: visibile all\'agenzia' : 'Tuo: solo per te' %}
+                                        <span class="badge bg-secondary">Notaio</span>
+                                        <img src="{{ asset(PATH_GRAPHICS ~ 'icons/' ~ (a.visibleToAgency ? 'circle_green' : 'circle_grey') ~ '.png') }}" class="icon_status"
+                                             alt="{{ agencyLabel }}" data-bs-toggle="tooltip" data-bs-title="{{ agencyLabel }}">
+                                    {% else %}
+                                        <span class="badge bg-light text-dark" data-bs-toggle="tooltip" data-bs-title="Avviso dell'agenzia">Agenzia</span>
+                                    {% endif %}
+                                </td>
+                                <td class="txt_a_c text-nowrap">
+                                    {% if a.byNotary and canEditAlerts %}
+                                        <a href="javascript:void(0)" class="d-inline-block m_r_5p" data-bs-toggle="tooltip" data-bs-title="Modifica"
+                                           onclick="notaryAlertEditOpen(this)"
+                                           data-action="{{ path('notary_practice_sheet', {id: practice.id, edit_alert: a.id}) }}" data-date="{{ a.remindAt|date('d-m-Y') }}"
+                                           data-message="{{ a.message }}" data-agency="{{ a.visibleToAgency ? 1 : 0 }}">
+                                            <img src="{{ asset(PATH_GRAPHICS ~ 'icons/edit.png') }}" class="icon_action icon_amber" alt="Modifica">
+                                        </a>
+                                        {{ ico.action("javascript:alertDeleteConfirm(" ~ path('notary_practice_alert_delete', {id: practice.id, aid: a.id})|json_encode ~ ", " ~ alertToken|json_encode ~ ", " ~ 'eliminerai l’avviso'|json_encode ~ ")", 'delete', 'Elimina', 'red') }}
+                                    {% else %}-{% endif %}
+                                </td>
                             </tr>
                         {% else %}
-                            <tr><td colspan="2" class="op_07 text-center">Nessun avviso dall'agenzia su questa pratica.</td></tr>
+                            <tr><td colspan="4" class="op_07 text-center">Nessun avviso su questa pratica.</td></tr>
                         {% endfor %}
                         </tbody>
                     </table>
@@ -300,8 +329,6 @@
         {% block modalSubmit %}Invia{% endblock %}
     {% endembed %}
 
-    {# 17.1.1.3 Conferma avviso note all'agente #}
-    {% include 'components/modals/confirm.html.twig' with {type: 'notaryNotes', title: 'Avvisa l\'agente'} only %}
 
     {# 17.1.1.2 Conferma cambio stato pratica #}
     <div id="praticaStatusModal" class="modal fade" tabindex="-1" role="dialog">
@@ -348,10 +375,49 @@
         </div>
     </div>
 
+    {# Avvisi del notaio: nuovo e modifica (l'action ?edit_alert=ID la imposta notaryAlertEditOpen()), conferma eliminazione #}
+    {% include 'components/modals/confirm.html.twig' with {type: 'alertDelete', title: 'Elimina avviso'} only %}
+    {% for alertForm in [{type: 'notaryAlertNew', title: 'Nuovo avviso', form: formAlertNew, action: path('notary_practice_sheet', {id: practice.id}), submit: 'Crea'},
+                         {type: 'notaryAlertEdit', title: 'Modifica avviso', form: formAlertEdit, action: null, submit: 'Salva'}] %}
+        {% embed 'components/modals/form.html.twig' with {type: alertForm.type, title: alertForm.title, form: alertForm.form, action: alertForm.action} %}
+            {% block modalBody %}
+                {% set f = alertForm.form %}
+                <div class="row g-3">
+                    <div class="col-12">
+                        <div {{ form_errors(f.remindAt) }}>
+                            <label class="form-label" for="{{ f.remindAt.vars.id }}">Ricorda in data *</label>
+                            {{ form_widget(f.remindAt) }}
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div {{ form_errors(f.message) }}>
+                            <label class="form-label" for="{{ f.message.vars.id }}">Messaggio *</label>
+                            {{ form_widget(f.message) }}
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            {{ form_widget(f.visibleToAgency) }}
+                            <label class="form-check-label" for="{{ f.visibleToAgency.vars.id }}">Visibile agenzia</label>
+                        </div>
+                        <small class="op_07">L'agenzia lo vede nella sua scheda della pratica e sulla sua scrivania, senza poterlo modificare.</small>
+                    </div>
+                </div>
+            {% endblock %}
+            {% block modalSubmit %}{{ alertForm.submit }}{% endblock %}
+        {% endembed %}
+    {% endfor %}
+
     {# 17.1.1.1.5.2.6 Inserisci note del notaio: l'action (?edit_document=ID) la imposta docNoteOpen() #}
     {% embed 'components/modals/form.html.twig' with {type: 'docNote', title: 'Note notaio', form: formDocumentNote} %}
         {% block modalBody %}
             <div {{ form_errors(formDocumentNote.notaryNote) }}>{{ form_widget(formDocumentNote.notaryNote) }}</div>
+            {# Rimanda il documento all'agenzia: torna al notaio quando l'agenzia carica un nuovo allegato #}
+            <div class="form-check form-switch m_t_10p">
+                {{ form_widget(formDocumentNote.toVerifyAgency) }}
+                <label class="form-check-label" for="{{ formDocumentNote.toVerifyAgency.vars.id }}">Da verificare agenzia</label>
+            </div>
+            <small class="op_07">Il documento passa all'agenzia, che dovrà caricarne uno nuovo: a quel punto torna da verificare per il notaio.</small>
         {% endblock %}
     {% endembed %}
 {% endblock %}
@@ -370,9 +436,23 @@
             };
 
             // Note del notaio: action (?edit_document=ID) e testo arrivano dall'icona della riga.
-            window.docNoteOpen = function (url, note) {
+            // Avvisi del notaio: il nuovo parte vuoto, la modifica dai dati della riga.
+            window.notaryAlertNewOpen = function () {
+                document.getElementById('notaryAlertNewForm').reset();
+                notaryAlertNewShow();
+            };
+            window.notaryAlertEditOpen = function (link) {
+                document.getElementById('notaryAlertEditForm').action = link.dataset.action;
+                document.getElementById('notary_alert_edit_remindAt').value = link.dataset.date || '';
+                document.getElementById('notary_alert_edit_message').value = link.dataset.message || '';
+                document.getElementById('notary_alert_edit_visibleToAgency').checked = link.dataset.agency === '1';
+                notaryAlertEditShow();
+            };
+
+            window.docNoteOpen = function (url, note, toAgency) {
                 document.getElementById('docNoteForm').action = url;
                 document.getElementById('practice_document_note_notaryNote').value = note || '';
+                document.getElementById('practice_document_note_toVerifyAgency').checked = !!toAgency;
                 docNoteShow();
             };
 

@@ -23,10 +23,10 @@ class Practice
     use ActiveTrait;
     use TimestampsTrait;
 
-    // 17.1.1.2 Stati del ciclo di vita.
+    // 17.1.1.2 Stati del ciclo di vita. Una pratica completata è già archiviabile: non c'è uno
+    // stato "archiviabile" a parte (le vecchie le ha portate a "completata" la migration slave 20261019).
     public const STATUS_OPEN = 'open';
     public const STATUS_COMPLETED = 'completed';
-    public const STATUS_ARCHIVABLE = 'archivable';
 
     // 12.3.5 Archiviata: stato finale, oltre a quelli del ciclo notaio.
     public const STATUS_ARCHIVED = 'archived';
@@ -35,7 +35,6 @@ class Practice
     public const STATUSES = [
         self::STATUS_OPEN => 'Aperta',
         self::STATUS_COMPLETED => 'Completata',
-        self::STATUS_ARCHIVABLE => 'Archiviabile',
         self::STATUS_ARCHIVED => 'Archiviata',
     ];
 
@@ -453,6 +452,26 @@ class Practice
         return $this->alerts;
     }
 
+    /**
+     * Avvisi che vede l'agenzia: i suoi e quelli del notaio "visibile agenzia" (per data).
+     *
+     * @return Collection<int, PracticeAlert>
+     */
+    public function getAgencyAlerts(): Collection
+    {
+        return $this->alerts->filter(static fn (PracticeAlert $a) => $a->isShownToAgency());
+    }
+
+    /**
+     * Avvisi che vede il notaio: i suoi e quelli dell'agenzia "mostra al notaio" (per data).
+     *
+     * @return Collection<int, PracticeAlert>
+     */
+    public function getNotaryAlerts(): Collection
+    {
+        return $this->alerts->filter(static fn (PracticeAlert $a) => $a->isShownToNotary());
+    }
+
     public function addAlert(PracticeAlert $alert): static
     {
         if (!$this->alerts->contains($alert)) {
@@ -469,18 +488,18 @@ class Practice
     }
 
     /**
-     * 12.3.5.2 L'archiviazione è possibile solo dopo il via libera del notaio, che
-     * mette la pratica in "archiviabile".
+     * 12.3.5.2 L'archiviazione è possibile solo dopo il via libera del notaio, che è il
+     * "completata": una pratica completata è archiviabile.
      */
     public function getCanArchive(): bool
     {
-        return $this->status === self::STATUS_ARCHIVABLE;
+        return $this->status === self::STATUS_COMPLETED;
     }
 
     /**
      * 12.3.2 I documenti si toccano solo a pratica aperta: da "completata" in poi
-     * (quindi anche "archiviabile" e "archiviata") sono in sola lettura, perché il
-     * fascicolo è già passato al notaio.
+     * (quindi anche "archiviata") sono in sola lettura, perché il fascicolo è già
+     * passato al notaio.
      */
     public function areDocumentsEditable(): bool
     {

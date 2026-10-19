@@ -21,7 +21,7 @@ class PracticeAlertRepository extends ServiceEntityRepository
     }
 
     /**
-     * Scrivania del notaio: avvisi che l'agenzia ha scelto di mostrargli, sulle pratiche assegnate
+     * Scrivania del notaio: i suoi avvisi e quelli che l'agenzia ha scelto di mostrargli, sulle pratiche assegnate
      * a lui (e-mail del notaio sulla pratica), escluse le archiviate, i più imminenti per primi.
      *
      * @return PracticeAlert[]
@@ -30,7 +30,7 @@ class PracticeAlertRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('a')
             ->join('a.practice', 'p')->addSelect('p')
-            ->andWhere('a.visibleToNotary = true')
+            ->andWhere('a.visibleToNotary = true OR a.byNotary = true')
             ->andWhere('LOWER(p.notaryEmail) = :email')->setParameter('email', mb_strtolower(trim($email)))
             ->andWhere('p.status <> :archived')->setParameter('archived', Practice::STATUS_ARCHIVED)
             ->orderBy('a.remindAt', 'ASC')

@@ -30,7 +30,7 @@
 
             {# 12.1.1 Una scheda per stato, col numero di pratiche (stessi filtri). La scheda attiva sta in
                sessione: il clic passa da agency_practice_tab, che la salva e torna all'elenco. #}
-            {% set tabPlurals = {open: 'Aperte', completed: 'Completate', archivable: 'Archiviabili', archived: 'Archiviate'} %}
+            {% set tabPlurals = {open: 'Aperte', completed: 'Completate', archived: 'Archiviate'} %}
             <ul class="nav nav-tabs canvas-alt-tabs tabs-tb m_b_20p" role="tablist">
                 {% for value, label in statuses %}
                     <li class="nav-item">
@@ -82,7 +82,7 @@
                         </td>
                     </tr>
                     <tr>
-                        <th class="td_w_150p">{{ ico.sort('Contrassegno', 'm.value') }}</th>
+                        <th class="td_w_100p">{{ ico.sort('Contr.', 'm.value', 'Contrassegno') }}</th>
                         <th class="td_w_100p">{{ ico.sort('Tag', 'tagSort') }}</th>
                         <th class="td_w_150p">{{ ico.sort('Codice', 'p.number') }}</th>
                         <th>{{ ico.sort('Indirizzo', 'p.address') }}</th>
@@ -118,7 +118,7 @@
                         {# 12.1.8 Spazio occupato dagli allegati #}
                         <td class="txt_a_c">{{ p.sizeMb > 0 ? p.sizeMb|number_format(2, ',', '.') ~ ' MB' : '-' }}</td>
                         {# 12.1.9 Link alla scheda #}
-                        <td class="txt_a_c">{{ ico.action(path('agency_practice_sheet', {id: p.id}), 'sheet', 'Apri la scheda', 'green') }}</td>
+                        <td class="txt_a_c">{{ ico.action(path('agency_practice_sheet', {id: p.id}), 'sheet', 'Apri la scheda', 'pr') }}</td>
                     </tr>
                 {% else %}
                     <tr><td colspan="10" class="op_07 text-center">Nessuna pratica {{ statuses[filters.status]|lower }} trovata.</td></tr>

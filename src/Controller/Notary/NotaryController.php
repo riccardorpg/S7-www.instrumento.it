@@ -10,6 +10,7 @@ use App\Entity\Slave\PracticeDocument;
 use App\Form\DocumentNotaryNoteType;
 use App\Form\Model\PracticeDocumentUpload;
 use App\Form\Model\PracticeNotify;
+use App\Form\PracticeAlertType;
 use App\Form\PracticeDocumentUploadType;
 use App\Form\PracticeNotifyType;
 use App\Repository\Slave\PracticeAlertRepository;
@@ -117,7 +118,7 @@ class NotaryController extends AbstractController
         return $this->redirectToRoute('notary_index');
     }
 
-    /** 17.1.1 Gestione pratiche: 17.1.1.1 elenco pratiche accessibili. */
+    /** 17.1.1 Gestione pratiche: 17.1.1.1 elenco pratiche accessibili, a schede per stato (vedi notaryPracticeTab). */
     #[Route('/pratiche/lista', name: 'notary_practices', methods: ['GET'])]
     public function notaryPractices(Request $request, PaginatorInterface $paginator): Response
     {
@@ -139,7 +140,23 @@ class NotaryController extends AbstractController
             'company' => $company,
             'records' => $records,
             'filters' => $filters,
+            'statuses' => Practice::STATUSES,
+            // Contatori delle schede: con gli stessi filtri, stato escluso
+            'statusCounts' => $practices->countNotaryByStatus($filters),
         ]);
+    }
+
+    /**
+     * Cambio scheda dell'elenco pratiche: lo stato scelto va in sessione (non nell'URL) e
+     * l'elenco riparte dalla prima pagina, con gli altri filtri invariati.
+     */
+    #[Route('/pratiche/stato/{status}', name: 'notary_practice_tab', methods: ['GET'], requirements: ['status' => 'open|completed|archived'])]
+    public function notaryPracticeTab(string $status, Request $request): RedirectResponse
+    {
+        $request->getSession()->set(FilterService::NOTARY_PRACTICE_TAB, $status);
+        $request->getSession()->remove('notary_practices_page');
+
+        return $this->redirectToRoute('notary_practices');
     }
 
     /**
@@ -159,11 +176,43 @@ class NotaryController extends AbstractController
         if ($practice === null) {
             throw $this->createNotFoundException('Pratica non trovata.');
         }
-        // 12.3.2 A documenti in sola lettura i form non si gestiscono: la POST si ferma qui.
-        if ($request->isMethod('POST') && $this->documentsLocked($practice)) {
+        // 12.3.2 A documenti in sola lettura i form dei documenti non si gestiscono: la POST si ferma
+        // qui. Gli avvisi del notaio no (sono promemoria): si fermano solo a pratica archiviata.
+        $isAlertPost = $request->request->has('notary_alert_new') || $request->request->has('notary_alert_edit');
+        if ($request->isMethod('POST') && ($isAlertPost ? $practice->isArchived() : $this->documentsLocked($practice))) {
             return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
         }
         $em = $this->registry->getManager('slave');
+
+        // ===== Avvisi del notaio: nuovo e modifica (?edit_alert=ID, solo i suoi) =====
+        $alertNew = (new PracticeAlert())->setByNotary(true);
+        $formAlertNew = $formFactory->createNamed('notary_alert_new', PracticeAlertType::class, $alertNew, ['for_notary' => true]);
+        $formAlertNew->handleRequest($request);
+        if ($formAlertNew->isSubmitted() && $formAlertNew->isValid()) {
+            $alertNew->setMessage(trim($alertNew->getMessage()));
+            $practice->addAlert($alertNew);
+            $em->persist($alertNew);
+            $em->flush();
+            $this->addFlash('notice_success', 'Avviso creato.');
+
+            return $this->backToAlerts($request, $id);
+        }
+
+        $editedAlert = $this->findNotaryAlert($practice, $request->query->getInt('edit_alert'));
+        $formAlertEdit = $formFactory->createNamed('notary_alert_edit', PracticeAlertType::class, $editedAlert ?? (new PracticeAlert())->setByNotary(true), ['for_notary' => true]);
+        if ($editedAlert !== null) {
+            $formAlertEdit->handleRequest($request);
+            if ($formAlertEdit->isSubmitted() && $formAlertEdit->isValid()) {
+                $editedAlert->setMessage(trim($editedAlert->getMessage()));
+                $em->flush();
+                $this->addFlash('notice_success', 'Avviso aggiornato.');
+
+                return $this->backToAlerts($request, $id);
+            }
+            if ($formAlertEdit->isSubmitted()) {
+                $em->refresh($editedAlert);
+            }
+        }
 
         // ===== 17.1.1.1.5.3 Nuovo allegato =====
         $upload = new PracticeDocumentUpload();
@@ -209,8 +258,20 @@ class NotaryController extends AbstractController
             if ($formDocumentNote->isSubmitted() && $formDocumentNote->isValid()) {
                 $note = trim((string) $editedDocument->getNotaryNote());
                 $editedDocument->setNotaryNote($note !== '' ? $note : null);
+
+                // "Da verificare agenzia" vale per la riga documentale: acceso la rimanda all'agenzia
+                // (che, caricando un nuovo allegato, la riporta al notaio); spento torna al notaio.
+                $row = $editedDocument->getPracticeDocument();
+                $toAgency = (bool) $formDocumentNote->get('toVerifyAgency')->getData();
+                if ($row !== null && $toAgency) {
+                    $row->setStatus(PracticeDocument::STATUS_TO_VERIFY_AGENCY);
+                } elseif ($row !== null && $row->getStatus() === PracticeDocument::STATUS_TO_VERIFY_AGENCY) {
+                    $row->setStatus(PracticeDocument::STATUS_TO_VERIFY);
+                }
                 $em->flush();
-                $this->addFlash('notice_success', 'Note aggiornate.');
+                $this->addFlash('notice_success', $toAgency
+                    ? 'Note aggiornate: «' . $row?->getLabel() . '» è da verificare per l\'agenzia.'
+                    : 'Note aggiornate.');
 
                 return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
             }
@@ -246,10 +307,58 @@ class NotaryController extends AbstractController
             'formDocumentNote' => $formDocumentNote->createView(),
             'formNotify' => $formNotify->createView(),
             'recipients' => $recipients,
+            'formAlertNew' => $formAlertNew->createView(),
+            'formAlertEdit' => $formAlertEdit->createView(),
         ]);
     }
 
-    /** 17.1.1.2 Cambio stato pratica: completata / archiviabile / riapri (aperta). */
+    /** Elimina un avviso del notaio (quelli dell'agenzia non li tocca). */
+    #[Route('/pratiche/{id}/avvisi/{aid}/elimina', name: 'notary_practice_alert_delete', requirements: ['id' => '\d+', 'aid' => '\d+'], methods: ['POST'])]
+    public function notaryPracticeAlertDelete(int $id, int $aid, Request $request): RedirectResponse
+    {
+        [$company, $practice] = $this->requirePractice($id);
+        if ($practice === null) {
+            return $this->redirectToRoute($company ? 'notary_practice_sheet' : 'notary_index', $company ? ['id' => $id] : []);
+        }
+        $alert = $this->findNotaryAlert($practice, $aid);
+        if ($alert === null) {
+            throw $this->createNotFoundException('Avviso non trovato fra i tuoi avvisi di questa pratica.');
+        }
+        if (!$practice->isArchived() && $this->isCsrfTokenValid('notaryAlertDelete', (string) $request->request->get('_csrf_token'))) {
+            $em = $this->registry->getManager('slave');
+            $practice->getAlerts()->removeElement($alert);
+            $em->remove($alert);
+            $em->flush();
+            $this->addFlash('notice_success', 'Avviso eliminato.');
+        }
+
+        return $this->backToAlerts($request, $id);
+    }
+
+    /** Torna alla scheda sulla tab "Avvisi": la tab va in sessione (tab_session), non nell'URL. */
+    private function backToAlerts(Request $request, int $id): RedirectResponse
+    {
+        $request->getSession()->set('notary_practice_sheet_tab', 'avvisi');
+
+        return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
+    }
+
+    /** Avviso del notaio sulla pratica, per id; null se non c'è o è dell'agenzia. */
+    private function findNotaryAlert(Practice $practice, int $aid): ?PracticeAlert
+    {
+        if ($aid <= 0) {
+            return null;
+        }
+        foreach ($practice->getAlerts() as $alert) {
+            if ((int) $alert->getId() === $aid && $alert->isByNotary()) {
+                return $alert;
+            }
+        }
+
+        return null;
+    }
+
+    /** 17.1.1.2 Cambio stato pratica: completata (che vale anche come via libera all'archiviazione) / riapri (aperta). */
     #[Route('/pratiche/{id}/stato', name: 'notary_practice_status', requirements: ['id' => '\d+'], methods: ['POST'])]
     public function notaryPracticeStatus(int $id, Request $request): RedirectResponse
     {
@@ -262,7 +371,7 @@ class NotaryController extends AbstractController
         }
 
         $target = (string) $request->request->get('status', '');
-        $allowed = [Practice::STATUS_OPEN, Practice::STATUS_COMPLETED, Practice::STATUS_ARCHIVABLE];
+        $allowed = [Practice::STATUS_OPEN, Practice::STATUS_COMPLETED];
         if (!in_array($target, $allowed, true)) {
             $this->addFlash('notice_danger', 'Stato non valido.');
 
@@ -286,40 +395,6 @@ class NotaryController extends AbstractController
         $practice->setStatus($target);
         $this->registry->getManager('slave')->flush();
         $this->addFlash('notice_success', 'Stato pratica aggiornato: ' . $practice->getStatusLabel() . '.');
-
-        return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
-    }
-
-    /**
-     * 17.1.1.3 "Ho messo delle note": avvisa via e-mail l'agente che segue la pratica.
-     * Le note stanno già sugli allegati, questo è solo il campanello.
-     */
-    #[Route('/pratiche/{id}/note-inserite', name: 'notary_practice_notes_alert', requirements: ['id' => '\d+'], methods: ['POST'])]
-    public function notaryPracticeNotesAlert(int $id, Request $request, PracticeNotifierService $notifier): RedirectResponse
-    {
-        [$company, $practice] = $this->requirePractice($id);
-        if ($practice === null) {
-            return $this->redirectToRoute($company ? 'notary_practice_sheet' : 'notary_index', $company ? ['id' => $id] : []);
-        }
-        if (!$this->isCsrfTokenValid('notaryNotes', (string) $request->request->get('_csrf_token'))) {
-            return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
-        }
-
-        $recipients = $notifier->agentEmailsFor($practice, $company);
-        if ($recipients === []) {
-            $this->addFlash('notice_danger', 'Nessun indirizzo a cui scrivere: l\'agenzia non ha un contatto per questa pratica.');
-
-            return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
-        }
-
-        $sent = $notifier->notifyNotaryNotes($practice, $recipients, $this->getUser()->getFullName());
-        if ($sent === 0) {
-            $this->addFlash('notice_danger', 'Invio dell\'avviso non riuscito: riprova più tardi.');
-        } elseif ($sent === count($recipients)) {
-            $this->addFlash('notice_success', sprintf('Avviso inviato a %s.', implode(', ', $recipients)));
-        } else {
-            $this->addFlash('notice_warning', sprintf('Avviso inviato a %d destinatari su %d.', $sent, count($recipients)));
-        }
 
         return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
     }

@@ -31,12 +31,14 @@ class PracticeAlertType extends AbstractType
                 },
             ])
             // Il messaggio è obbligatorio e il setter vuole una stringa: vuoto = ''.
-            ->add('message', CustomTextareaType::class, ['empty_data' => ''])
-            // Mostra al notaio: l'avviso compare nella sua scheda pratica e sulla sua scrivania.
-            ->add('visibleToNotary', CheckboxType::class, [
-                'required' => false,
-                'attr' => ['class' => 'form-check-input', 'role' => 'switch'],
-            ]);
+            ->add('message', CustomTextareaType::class, ['empty_data' => '']);
+
+        // Visibilità verso la controparte: l'agenzia sceglie se mostrarlo al notaio, il notaio
+        // (for_notary) se mostrarlo all'agenzia.
+        $builder->add($options['for_notary'] ? 'visibleToAgency' : 'visibleToNotary', CheckboxType::class, [
+            'required' => false,
+            'attr' => ['class' => 'form-check-input', 'role' => 'switch'],
+        ]);
     }
 
     public function configureOptions(OptionsResolver $resolver): void
@@ -44,6 +46,8 @@ class PracticeAlertType extends AbstractType
         $resolver->setDefaults([
             'data_class' => PracticeAlert::class,
             'validation_groups' => ['practice_alert'],
+            'for_notary' => false,
         ]);
+        $resolver->setAllowedTypes('for_notary', 'bool');
     }
 }

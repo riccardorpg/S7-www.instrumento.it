@@ -21,6 +21,30 @@ class PracticeDocumentRepository extends ServiceEntityRepository
     }
 
     /**
+     * Scrivania dell'agenzia: documenti che il notaio ha rimandato all'agenzia ("da verificare
+     * agenzia"), escluse le pratiche archiviate e le righe non richieste, per pratica. Con
+     * $onlyStaffId solo le pratiche in cui quell'utente è abilitato (chi non è amministratore).
+     *
+     * @return PracticeDocument[]
+     */
+    public function findToVerifyForAgency(?int $onlyStaffId = null): array
+    {
+        $qb = $this->createQueryBuilder('r')
+            ->join('r.practice', 'p')->addSelect('p')
+            ->andWhere('r.status = :toVerify')->setParameter('toVerify', PracticeDocument::STATUS_TO_VERIFY_AGENCY)
+            ->andWhere('r.visible = true')
+            ->andWhere('p.status <> :archived')->setParameter('archived', Practice::STATUS_ARCHIVED)
+            ->orderBy('p.number', 'ASC')
+            ->addOrderBy('r.priority', 'ASC')
+            ->addOrderBy('r.label', 'ASC');
+        if ($onlyStaffId !== null) {
+            $qb->join('p.staff', 'ps')->andWhere('ps.id = :me')->setParameter('me', $onlyStaffId);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
+    /**
      * Scrivania del notaio: documenti "da verificare" (caricati, in attesa del suo controllo) delle
      * pratiche assegnate a lui, escluse le archiviate e le righe non richieste, per pratica.
      *

@@ -37,7 +37,7 @@
             </td>
         </tr>
         <tr>
-            <th class="td_w_150p">Anteprima</th>
+            <th class="td_w_100p txt_a_c">Anteprima</th>
             <th>{{ ico.sort('Valore', alias ~ '.value') }}</th>
             <th class="td_w_100p txt_a_c">Colore</th>
             <th class="td_w_100p txt_a_c">Azioni</th>
@@ -46,7 +46,7 @@
     <tbody>
     {% for r in records %}
         <tr>
-            <td><span class="badge" style="background:{{ r.color }}; color:{{ r.contrastColor }};">{{ r.value }}</span></td>
+            <td class="txt_a_c"><span class="rpg_color_dot" style="background:{{ r.color }};" data-bs-toggle="tooltip" data-bs-title="{{ r.value }}"></span></td>
             <td>{{ r.value }}</td>
             <td class="txt_a_c font_13 op_07">{{ r.color }}</td>
             <td class="txt_a_c text-nowrap">

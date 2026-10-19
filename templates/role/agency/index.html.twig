@@ -22,8 +22,8 @@
                                 <table class="table table-hover table-bordered align-middle m_b_none v_a_m">
                                     <thead>
                                         <tr>
-                                            <th class="td_w_150p">Contrassegno</th>
-                                            <th class="td_w_120p">Stato</th>
+                                            <th class="td_w_100p txt_a_c">Contr.</th>
+                                            <th class="td_w_70p txt_a_c">Stato</th>
                                             <th class="td_w_150p">Codice</th>
                                             <th>Venditore</th>
                                             <th>Acquirente</th>
@@ -34,13 +34,13 @@
                                     <tbody>
                                     {% for p in markedPractices %}
                                         <tr>
-                                            <td><span class="badge" style="background:{{ p.mark.color }}; color:{{ p.mark.contrastColor }};">{{ p.mark.value }}</span></td>
-                                            <td>{{ practiceStatus.badge(p.status, p.statusLabel) }}</td>
+                                            <td class="txt_a_c"><span class="rpg_color_dot" style="background:{{ p.mark.color }};" data-bs-toggle="tooltip" data-bs-title="{{ p.mark.value }}"></span></td>
+                                            <td class="txt_a_c">{{ practiceStatus.dot(p.status, p.statusLabel) }}</td>
                                             <td><a href="{{ path('agency_practice_sheet', {id: p.id}) }}"><strong>{{ p.number }}</strong></a></td>
                                             <td>{{ p.seller ? p.seller.fullName : '-' }}</td>
                                             <td>{{ p.buyer ? p.buyer.fullName : '-' }}</td>
                                             <td>{{ p.address ?: '-' }}</td>
-                                            <td class="txt_a_c">{{ ico.action(path('agency_practice_sheet', {id: p.id}), 'sheet', 'Apri la scheda', 'green') }}</td>
+                                            <td class="txt_a_c">{{ ico.action(path('agency_practice_sheet', {id: p.id}), 'sheet', 'Apri la scheda', 'pr') }}</td>
                                         </tr>
                                     {% endfor %}
                                     </tbody>
@@ -57,7 +57,7 @@
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 m_b_10p">
                                 <h6 class="m_b_none">Spazio della licenza</h6>
-                                {% if company %}<span class="badge bg-secondary">{{ company.licenseTypeLabel }}</span>{% endif %}
+                                {% if company %}<span class="op_07 font_13">{{ company.licenseTypeLabel }}</span>{% endif %}
                             </div>
 
                             {% if quotaMb > 0 %}
@@ -89,7 +89,7 @@
                                 </table>
                                 {% if usedPercent >= 90 %}
                                     <p class="font_13 p_t_10p m_b_none">
-                                        <span class="badge bg-danger">Attenzione</span>
+                                        <span class="rpg_color_dot bg-danger" data-bs-toggle="tooltip" data-bs-title="Attenzione"></span>
                                         Spazio quasi esaurito: contatta l'amministratore per ampliare la licenza.
                                     </p>
                                 {% endif %}
@@ -99,40 +99,90 @@
                         </div>
                     </div>
 
-                    {# ===== 9.2 Avvisi ===== #}
+                    {# ===== 9.2 Avvisi pratiche, in due schede (la scheda attiva resta in sessione, tab_session):
+                       gli avvisi e i documenti che il notaio ha rimandato all'agenzia ===== #}
+                    {% set activeTab = app.session.get('agency_index_tab') == 'documenti' ? 'documenti' : 'avvisi' %}
                     <div class="card flex-grow-1">
                         <div class="card-body">
-                            <h6 class="m_b_10p">Avvisi <span class="badge bg-secondary">{{ alerts|length }}</span></h6>
+                            <h6 class="m_b_10p">Avvisi pratiche</h6>
 
-                            {% if alerts is empty %}
-                                <p class="op_07 m_b_none">Nessun avviso inserito sulle pratiche.</p>
-                            {% else %}
-                                <table class="table table-hover align-middle m_b_none v_a_m">
-                                    <thead>
-                                        <tr>
-                                            <th class="td_w_120p">Data</th>
-                                            <th class="td_w_120p">Pratica</th>
-                                            <th>Messaggio</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                    {% for a in alerts %}
-                                        <tr>
-                                            <td>
-                                                {{ a.remindAt|date('d/m/Y') }}
-                                                {% if a.due %}<span class="badge bg-danger">scaduto</span>{% endif %}
-                                            </td>
-                                            <td><a href="{{ path('agency_practice_sheet', {id: a.practice.id}) }}">{{ a.practice.number }}</a></td>
-                                            <td>{{ a.message }}</td>
-                                        </tr>
-                                    {% endfor %}
-                                    </tbody>
-                                </table>
-                            {% endif %}
+                            <ul class="nav nav-tabs canvas-alt-tabs tabs-tb m_b_10p" role="tablist">
+                                <li class="nav-item">
+                                    <button type="button" class="nav-link tab_session{{ activeTab == 'avvisi' ? ' active' : '' }}" data-filter-tab="avvisi" data-bs-toggle="tab" data-bs-target="#desk-avvisi">
+                                        Avvisi <span class="badge {{ alerts is empty ? 'bg-secondary' : 'bg-danger' }}">{{ alerts|length }}</span>
+                                    </button>
+                                </li>
+                                <li class="nav-item">
+                                    <button type="button" class="nav-link tab_session{{ activeTab == 'documenti' ? ' active' : '' }}" data-filter-tab="documenti" data-bs-toggle="tab" data-bs-target="#desk-documenti">
+                                        Documenti da verificare <span class="badge {{ toVerify is empty ? 'bg-secondary' : 'bg-info text-dark' }}">{{ toVerify|length }}</span>
+                                    </button>
+                                </li>
+                            </ul>
+
+                            <div class="tab-content">
+                                {# (1) Avvisi, i più imminenti per primi #}
+                                <div class="tab-pane fade{{ activeTab == 'avvisi' ? ' show active' : '' }}" id="desk-avvisi">
+                                    {% if alerts is empty %}
+                                        <p class="op_07 m_b_none">Nessun avviso inserito sulle pratiche.</p>
+                                    {% else %}
+                                        <table class="table table-hover align-middle m_b_none v_a_m">
+                                            <thead>
+                                                <tr>
+                                                    <th class="td_w_120p">Data</th>
+                                                    <th class="td_w_120p">Pratica</th>
+                                                    <th>Messaggio</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                            {% for a in alerts %}
+                                                <tr>
+                                                    <td>
+                                                        {{ a.remindAt|date('d/m/Y') }}
+                                                        {% if a.due %}<span class="badge bg-danger">scaduto</span>{% endif %}
+                                                    </td>
+                                                    <td><a href="{{ path('agency_practice_sheet', {id: a.practice.id}) }}">{{ a.practice.number }}</a></td>
+                                                    <td>{{ a.message }}</td>
+                                                </tr>
+                                            {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    {% endif %}
+                                </div>
+
+                                {# (2) Documenti "da verificare agenzia": il notaio chiede un nuovo allegato #}
+                                <div class="tab-pane fade{{ activeTab == 'documenti' ? ' show active' : '' }}" id="desk-documenti">
+                                    {% if toVerify is empty %}
+                                        <p class="op_07 m_b_none">Nessun documento da verificare per l'agenzia.</p>
+                                    {% else %}
+                                        <table class="table table-hover align-middle m_b_none v_a_m">
+                                            <thead>
+                                                <tr>
+                                                    <th class="td_w_120p">Pratica</th>
+                                                    <th>Documento</th>
+                                                    <th class="td_w_70p txt_a_c">Scheda</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                            {% for r in toVerify %}
+                                                <tr>
+                                                    <td><a href="{{ path('agency_practice_sheet', {id: r.practice.id}) }}">{{ r.practice.number }}</a></td>
+                                                    <td>{{ r.label }}</td>
+                                                    <td class="txt_a_c">{{ ico.action(path('agency_practice_sheet', {id: r.practice.id}), 'sheet', 'Apri la pratica', 'pr') }}</td>
+                                                </tr>
+                                            {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    {% endif %}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </section>
+{% endblock %}
+
+{% block page_javascripts %}
+    {% include 'components/js/tab_session_js.html.twig' %}
 {% endblock %}

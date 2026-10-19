@@ -5,26 +5,26 @@ namespace App\Controller\Script;
 use App\Entity\Master\Company;
 use App\Service\CompanyService;
 use Doctrine\DBAL\Connection;
+use Doctrine\Migrations\AbstractMigration;
+use Doctrine\Migrations\Exception\SkipMigration;
 use Doctrine\Persistence\ManagerRegistry;
-use Symfony\Bundle\FrameworkBundle\Console\Application;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\Console\Input\ArrayInput;
-use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Migration applicate da browser (CONVENZIONI 12), dalla skill symfony-migration-controller di
- * rpg-claude-plugin adattata a Instrumento: le agenzie sono le Company del master e lo slave si
- * ripunta con CompanyService. Sta sotto il firewall ^/script (http basic, ROLE_SCRIPT).
+ * Migration applicate da browser (CONVENZIONI 12), come il MigrationController di tillomeditalia
+ * ma per i database master/slave: le agenzie sono le Company del master e lo slave si ripunta con
+ * CompanyService. Sta sotto il firewall ^/script (http basic, ROLE_SCRIPT).
  *
  * Il master è un database solo; lo slave esiste in una copia per ogni agenzia, quindi una
  * migration dello slave non è "eseguita" o "pendente" in assoluto: lo è agenzia per agenzia.
- * Da qui le due sezioni della pagina e lo stato "eseguita su N di M".
+ * Da qui le due sezioni della pagina e lo stato "eseguita su N di M". Si può eseguire una
+ * migration (su tutte le agenzie a cui manca) o tutte le pendenti in una volta.
  *
- * Due scelte da tenere a mente leggendo il codice:
+ * Tre scelte da tenere a mente leggendo il codice:
  *
  * 1. Non si usa mai l'alias "latest". Con due namespace configurati sarebbe ambiguo e
  *    rischierebbe di applicare al master le migration dello slave: si esegue sempre una
@@ -32,6 +32,9 @@ use Symfony\Component\Routing\Attribute\Route;
  * 2. La tabella di tracking viene creata qui con SQL diretto invece che dal comando
  *    sync-metadata-storage. Doctrine ricorda di averla già inizializzata, e in un ciclo che
  *    cambia database a ogni giro quel ricordo vale per il database sbagliato.
+ * 3. Le migration non passano dai comandi doctrine:migrations:* ma si eseguono qui sulla
+ *    connessione del database di turno (vedi execute()): i servizi di Doctrine Migrations
+ *    restano legati alla prima connessione usata nella richiesta.
  */
 #[Route('/script/migration')]
 class ScriptMigrationController extends AbstractController
@@ -42,6 +45,7 @@ class ScriptMigrationController extends AbstractController
     public function __construct(
         private readonly ManagerRegistry $registry,
         private readonly CompanyService $companyService,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
@@ -57,9 +61,9 @@ class ScriptMigrationController extends AbstractController
      * a metà elenco.
      */
     #[Route('/esegui/{version}', name: 'script_migration_run', methods: ['GET'])]
-    public function scriptMigrationRun(string $version, KernelInterface $kernel): JsonResponse
+    public function scriptMigrationRun(string $version): JsonResponse
     {
-        return $this->apply($version, $kernel, 'run');
+        return $this->apply($version, 'run');
     }
 
     /**
@@ -67,24 +71,34 @@ class ScriptMigrationController extends AbstractController
      * stato allineato a mano e si vuole solo rimettere in pari il tracking.
      */
     #[Route('/marca/{version}', name: 'script_migration_mark', methods: ['GET'])]
-    public function scriptMigrationMark(string $version, KernelInterface $kernel): JsonResponse
+    public function scriptMigrationMark(string $version): JsonResponse
     {
-        return $this->apply($version, $kernel, 'mark');
+        return $this->apply($version, 'mark');
     }
 
     /** Esegue la prima migration pendente del target indicato: utile per capire dove si rompe. */
     #[Route('/prossima/{target}', name: 'script_migration_next', requirements: ['target' => 'master|slave'], methods: ['GET'])]
-    public function scriptMigrationNext(string $target, KernelInterface $kernel): JsonResponse
+    public function scriptMigrationNext(string $target): JsonResponse
     {
         $status = $target === 'master' ? $this->masterStatus() : $this->slaveStatus();
 
         foreach ($status['versions'] as $row) {
             if ($row['pending'] > 0) {
-                return $this->apply($row['version'], $kernel, 'run');
+                return $this->apply($row['version'], 'run');
             }
         }
 
         return new JsonResponse(['messaggio' => 'Nessuna migration pendente su ' . $target]);
+    }
+
+    /**
+     * Esegue tutte le migration pendenti, in ordine: sul master, oppure su tutti i database delle
+     * agenzie (ognuno fino alla prima che fallisce).
+     */
+    #[Route('/tutte/{target}', name: 'script_migration_all', requirements: ['target' => 'master|slave'], methods: ['GET'])]
+    public function scriptMigrationAll(string $target): JsonResponse
+    {
+        return $this->applyAll($target);
     }
 
     /**
@@ -170,7 +184,7 @@ class ScriptMigrationController extends AbstractController
     // ------------------------------------------------------------------ esecuzione
 
     /** @param string $action 'run' oppure 'mark' */
-    private function apply(string $version, KernelInterface $kernel, string $action): JsonResponse
+    private function apply(string $version, string $action): JsonResponse
     {
         $fqcn = $this->fqcn($version);
         if ($fqcn === null) {
@@ -186,14 +200,7 @@ class ScriptMigrationController extends AbstractController
                 return new JsonResponse(['migration' => $fqcn, 'target' => 'master', 'esito' => 'già eseguita, saltata']);
             }
 
-            [$ok, $output] = $this->command($kernel, $fqcn, $action, 'master');
-
-            return new JsonResponse([
-                'migration' => $fqcn,
-                'target' => 'master',
-                'esito' => $ok ? 'ok' : 'errore',
-                'output' => $output,
-            ]);
+            return new JsonResponse(['migration' => $fqcn, 'target' => 'master'] + $this->execute($conn, $fqcn, $action));
         }
 
         // SLAVE: una volta per agenzia, ognuna con il proprio tracking.
@@ -209,14 +216,9 @@ class ScriptMigrationController extends AbstractController
                     continue;
                 }
 
-                [$ok, $output] = $this->command($kernel, $fqcn, $action, 'slave');
-                $entries[] = [
-                    'database' => $dbName,
-                    'esito' => $ok ? 'ok' : 'errore',
-                    'output' => $output,
-                ];
+                $entries[] = ['database' => $dbName] + $this->execute($conn, $fqcn, $action);
             } catch (\Throwable $e) {
-                // Un database irraggiungibile o uno statement fallito non deve fermare le altre agenzie.
+                // Un database irraggiungibile non deve fermare le altre agenzie.
                 $entries[] = ['database' => $dbName, 'esito' => 'errore', 'messaggio' => $e->getMessage()];
             }
         }
@@ -226,37 +228,107 @@ class ScriptMigrationController extends AbstractController
     }
 
     /**
-     * Esegue (o marca) la migration e ritorna [riuscita, output]. Un Application nuovo a ogni
-     * esecuzione: riusarlo fra un'agenzia e l'altra fa rifiutare l'input al comando dalla seconda
-     * in poi, che stampa solo l'uso e non esegue nulla.
-     *
-     * @return array{0: bool, 1: string}
+     * Esegue tutte le migration pendenti del target, in ordine. Sullo slave lo fa agenzia per
+     * agenzia: se una migration fallisce si ferma quell'agenzia (le successive dipendono da lei),
+     * le altre proseguono.
      */
-    private function command(KernelInterface $kernel, string $fqcn, string $action, string $em): array
+    private function applyAll(string $target): JsonResponse
     {
-        $application = new Application($kernel);
-        $application->setAutoExit(false);
-        $output = new BufferedOutput();
+        $versions = $this->migrationFiles($target);
+        $namespace = $target === 'master' ? self::NAMESPACE_MASTER : self::NAMESPACE_SLAVE;
 
-        $input = $action === 'mark'
-            ? new ArrayInput([
-                'command' => 'doctrine:migrations:version',
-                'version' => $fqcn,
-                '--add' => true,
-                '--em' => $em,
-                '--no-interaction' => true,
-            ])
-            : new ArrayInput([
-                'command' => 'doctrine:migrations:execute',
-                'versions' => [$fqcn],
-                '--up' => true,
-                '--em' => $em,
-                '--no-interaction' => true,
-            ]);
+        $databases = $target === 'master'
+            ? ['master' => fn () => $this->registry->getConnection('master')]
+            : array_combine(
+                array_map(static fn (Company $c) => (string) $c->getDbName(), $this->companies()),
+                array_map(fn (Company $c) => fn () => $this->openSlave((string) $c->getDbName()), $this->companies())
+            );
 
-        $code = $application->run($input, $output);
+        $result = [];
+        foreach ($databases as $dbName => $open) {
+            $done = [];
+            try {
+                $conn = $open();
+                self::createTrackingTable($conn);
+                $executed = $this->executed($conn);
+                foreach ($versions as $version) {
+                    if (isset($executed[$version])) {
+                        continue;
+                    }
+                    $outcome = $this->execute($conn, $namespace . '\\' . $version, 'run');
+                    $done[] = ['migration' => $version] + $outcome;
+                    if ($outcome['esito'] !== 'ok') {
+                        break;
+                    }
+                }
+                $result[] = ['database' => $dbName, 'esito' => $done === [] ? 'nessuna pendente' : ($done[array_key_last($done)]['esito'] === 'ok' ? 'ok' : 'errore'), 'migration' => $done];
+            } catch (\Throwable $e) {
+                $result[] = ['database' => $dbName, 'esito' => 'errore', 'messaggio' => $e->getMessage(), 'migration' => $done];
+            }
+        }
+        if ($target === 'slave') {
+            $this->companyService->clearSession();
+        }
 
-        return [$code === 0, trim($output->fetch())];
+        return new JsonResponse(['target' => $target === 'master' ? 'master' : 'agenzie', 'database' => $result]);
+    }
+
+    /**
+     * Esegue (o marca) una migration sul database di questa connessione e la registra nel suo tracking.
+     *
+     * Non passa dal comando doctrine:migrations:execute: il suo DependencyFactory è un servizio
+     * del container che, dopo il primo uso, resta legato alla prima connessione, per cui dalla
+     * seconda agenzia della stessa richiesta il comando falliva. Qui la migration si istanzia
+     * sulla connessione dell'agenzia di turno, come fa Doctrine (preUp, up, SQL raccolto, postUp).
+     *
+     * @return array{esito: string, sql?: int, ms?: int, messaggio?: string}
+     */
+    private function execute(Connection $conn, string $fqcn, string $action): array
+    {
+        if ($action === 'mark') {
+            $this->track($conn, $fqcn, 0);
+
+            return ['esito' => 'ok', 'messaggio' => 'marcata come eseguita, senza SQL'];
+        }
+
+        if (!class_exists($fqcn)) {
+            return ['esito' => 'errore', 'messaggio' => 'Classe non trovata: ' . $fqcn];
+        }
+
+        $start = microtime(true);
+        try {
+            /** @var AbstractMigration $migration */
+            $migration = new $fqcn($conn, $this->logger);
+            $schema = $conn->createSchemaManager()->introspectSchema();
+            $migration->preUp($schema);
+            $migration->up($schema);
+            $statements = $migration->getSql();
+            foreach ($statements as $query) {
+                $conn->executeStatement($query->getStatement(), $query->getParameters(), $query->getTypes());
+            }
+            $migration->postUp($schema);
+        } catch (SkipMigration $e) {
+            // Come in Doctrine: una migration saltata (skipIf) risulta comunque eseguita.
+            $this->track($conn, $fqcn, (int) round((microtime(true) - $start) * 1000));
+
+            return ['esito' => 'ok', 'messaggio' => 'saltata: ' . $e->getMessage()];
+        } catch (\Throwable $e) {
+            return ['esito' => 'errore', 'messaggio' => $e->getMessage()];
+        }
+
+        $ms = (int) round((microtime(true) - $start) * 1000);
+        $this->track($conn, $fqcn, $ms);
+
+        return ['esito' => 'ok', 'sql' => count($statements), 'ms' => $ms];
+    }
+
+    /** Registra la migration come eseguita nel tracking di questo database. */
+    private function track(Connection $conn, string $fqcn, int $ms): void
+    {
+        $conn->executeStatement(
+            'INSERT IGNORE INTO doctrine_migration_versions (version, executed_at, execution_time) VALUES (?, NOW(), ?)',
+            [$fqcn, $ms]
+        );
     }
 
     // ------------------------------------------------------------------ stato
@@ -475,6 +547,7 @@ class ScriptMigrationController extends AbstractController
     a.run.alt { background: #616161; }
     a.run.gray { background: #9e9e9e; }
     a.next { display: inline-block; background: #1d4ed8; color: #fff; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 14px; margin: 8px 8px 8px 0; }
+    a.next.all { background: #2e7d32; }
     a.diff { display: inline-block; background: #ef6c00; color: #fff; padding: 6px 14px; border-radius: 4px; text-decoration: none; font-size: 14px; margin: 8px 0; }
     code { background: #f0f0f0; padding: 1px 5px; border-radius: 3px; }
     .muted { color: #888; font-size: 12px; }
@@ -487,7 +560,7 @@ class ScriptMigrationController extends AbstractController
 </head>
 <body>
     <h1>Migration</h1>
-    <p class="sub">Il master è un database solo, lo slave uno per agenzia: una migration dello slave è eseguita agenzia per agenzia. &quot;Esegui&quot; salta i database che l'hanno già; &quot;Marca&quot; la registra come eseguita senza lanciarne l'SQL.</p>
+    <p class="sub">Il master è un database solo, lo slave uno per agenzia: una migration dello slave è eseguita agenzia per agenzia. &quot;Esegui&quot; salta i database che l'hanno già; &quot;Marca&quot; la registra come eseguita senza lanciarne l'SQL; &quot;Esegui tutte le pendenti&quot; le applica in ordine su ogni database (fermandosi, per quel database, alla prima che fallisce).</p>
     $unreachable
     $masterSection
     $slaveSection
@@ -542,8 +615,12 @@ HTML;
         }
 
         $nextUrl = $this->generateUrl('script_migration_next', ['target' => $target]);
+        $allUrl = $this->generateUrl('script_migration_all', ['target' => $target]);
         $diffUrl = $this->generateUrl('script_migration_diff', ['target' => $target]);
         $confirmNext = htmlspecialchars('Eseguire la prossima migration pendente?', ENT_QUOTES);
+        $confirmAll = htmlspecialchars($target === 'slave'
+            ? 'Eseguire TUTTE le migration pendenti su TUTTI i database delle agenzie?'
+            : 'Eseguire TUTTE le migration pendenti sul master?', ENT_QUOTES);
         $count = count($status['versions']);
         $onHowMany = $target === 'slave' ? $status['companies'] . ' database di agenzia' : '1 database';
 
@@ -551,6 +628,7 @@ HTML;
     <h2>$title</h2>
     <p class="sub">$count migration, <b>$pending</b> con qualcosa da fare, su $onHowMany.</p>
     <a class="next" href="$nextUrl" target="_blank" rel="noopener" onclick="return confirm('$confirmNext')">&#9654; Esegui prossima pendente</a>
+    <a class="next all" href="$allUrl" target="_blank" rel="noopener" onclick="return confirm('$confirmAll')">&#9654;&#9654; Esegui tutte le pendenti</a>
     <a class="diff" href="$diffUrl" target="_blank" rel="noopener">Diff entità &rarr; database</a>
     <table>
         <thead>

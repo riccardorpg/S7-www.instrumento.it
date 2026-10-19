@@ -41,7 +41,7 @@ class MigrateSlugsCommand extends Command
     private const PRACTICE_MAP = [
         'aperta' => Practice::STATUS_OPEN,
         'completata' => Practice::STATUS_COMPLETED,
-        'archiviabile' => Practice::STATUS_ARCHIVABLE,
+        'archiviabile' => Practice::STATUS_COMPLETED, // non c'è più uno stato a parte: completata = archiviabile
         'archiviata' => Practice::STATUS_ARCHIVED,
     ];
 

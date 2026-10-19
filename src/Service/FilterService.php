@@ -26,6 +26,9 @@ class FilterService
     /** Chiave di sessione della scheda (stato) attiva nell'elenco pratiche dell'agenzia. */
     public const PRACTICE_TAB = 'agency_practices_tab';
 
+    /** Chiave di sessione della scheda (stato) attiva nell'elenco pratiche del notaio. */
+    public const NOTARY_PRACTICE_TAB = 'notary_practices_tab';
+
     // ================= liste dell'amministratore =================
 
     public static function clientFilter(Request $request): array
@@ -136,12 +139,17 @@ class FilterService
 
     public static function notaryPracticeFilter(Request $request): array
     {
-        return self::read($request, 'notary_practices', [
-            'q' => 'f_q',
+        $filters = self::read($request, 'notary_practices', [
+            'q' => 'f_q',             // codice della pratica
             'buyer' => 'f_buyer',
             'seller' => 'f_seller',
-            'status' => 'f_status',
+            'address' => 'f_address',
         ]);
+        // Lo stato è la scheda dell'elenco, in sessione (NotaryController::notaryPracticeTab), non un filtro.
+        $tab = (string) $request->getSession()->get(self::NOTARY_PRACTICE_TAB, Practice::STATUS_OPEN);
+        $filters['status'] = isset(Practice::STATUSES[$tab]) ? $tab : Practice::STATUS_OPEN;
+
+        return $filters;
     }
 
     // ================= comuni =================

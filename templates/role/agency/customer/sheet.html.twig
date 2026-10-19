@@ -119,21 +119,21 @@
                                 data-buyer="{{ p.buyer ? p.buyer.fullName : '' }}"
                                 data-number="{{ p.number }}"
                                 data-address="{{ p.address }}">
-                                <td>{{ practiceStatus.badge(p.status, p.statusLabel) }}</td>
+                                <td class="txt_a_c">{{ practiceStatus.dot(p.status, p.statusLabel) }}</td>
                                 <td>{{ p.createdAt ? p.createdAt|date('d/m/Y') : '-' }}</td>
                                 <td>{{ p.typeLabel }}</td>
                                 <td>
                                     {{ p.seller ? p.seller.fullName : '-' }}
-                                    {% if p.seller and p.seller.id == customer.id %}<span class="badge bg-light text-dark">questo cliente</span>{% endif %}
+                                    {% if p.seller and p.seller.id == customer.id %}<span class="rpg_color_dot bg-info" data-bs-toggle="tooltip" data-bs-title="Questo cliente"></span>{% endif %}
                                 </td>
                                 <td>
                                     {{ p.buyer ? p.buyer.fullName : '-' }}
-                                    {% if p.buyer and p.buyer.id == customer.id %}<span class="badge bg-light text-dark">questo cliente</span>{% endif %}
+                                    {% if p.buyer and p.buyer.id == customer.id %}<span class="rpg_color_dot bg-info" data-bs-toggle="tooltip" data-bs-title="Questo cliente"></span>{% endif %}
                                 </td>
                                 <td>{{ p.number }}</td>
                                 <td>{{ p.address ?: '-' }}</td>
                                 {# 11.2.3.8 Link alla scheda pratica (12.3). #}
-                                <td class="txt_a_c">{{ ico.action(path('agency_practice_sheet', {id: p.id}), 'sheet', 'Apri la scheda', 'green') }}</td>
+                                <td class="txt_a_c">{{ ico.action(path('agency_practice_sheet', {id: p.id}), 'sheet', 'Apri la scheda', 'pr') }}</td>
                             </tr>
                         {% else %}
                             <tr><td colspan="8" class="op_07 text-center">Nessuna pratica collegata a questo cliente.</td></tr>

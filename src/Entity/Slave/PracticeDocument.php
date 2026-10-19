@@ -24,16 +24,20 @@ class PracticeDocument
     use IdTrait;
     use TimestampsTrait;
 
-    // 12.3.2.3 Stato del documento.
+    // 12.3.2.3 Stato del documento. "Da verificare notaio": caricato, lo controlla il notaio.
+    // "Da verificare agenzia": il notaio lo rimanda all'agenzia (dalle note di un allegato);
+    // quando l'agenzia carica un nuovo allegato torna "da verificare notaio".
     public const STATUS_TO_UPLOAD = 'to_upload';
     public const STATUS_TO_VERIFY = 'to_verify';
+    public const STATUS_TO_VERIFY_AGENCY = 'to_verify_agency';
     public const STATUS_VERIFIED = 'verified';
     public const STATUS_NOT_REQUIRED = 'not_required';
 
     /** @var array<string, string> */
     public const STATUSES = [
         self::STATUS_TO_UPLOAD => 'Da caricare',
-        self::STATUS_TO_VERIFY => 'Da verificare',
+        self::STATUS_TO_VERIFY => 'Da verificare notaio',
+        self::STATUS_TO_VERIFY_AGENCY => 'Da verificare agenzia',
         self::STATUS_VERIFIED => 'Verificato',
         self::STATUS_NOT_REQUIRED => 'Non necessario',
     ];
@@ -190,7 +194,7 @@ class PracticeDocument
      */
     public function resetStatusIfEmpty(): static
     {
-        if (!$this->hasFiles() && in_array($this->status, [self::STATUS_VERIFIED, self::STATUS_TO_VERIFY], true)) {
+        if (!$this->hasFiles() && in_array($this->status, [self::STATUS_VERIFIED, self::STATUS_TO_VERIFY, self::STATUS_TO_VERIFY_AGENCY], true)) {
             $this->status = self::STATUS_TO_UPLOAD;
         }
 

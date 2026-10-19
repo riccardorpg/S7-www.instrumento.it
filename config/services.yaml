@@ -27,7 +27,6 @@ parameters:
     object_demo_suspended: 'Demo terminata: accesso sospeso'
     object_license_expiring: 'Licenza in scadenza'
     object_file_update: 'Aggiornamento documenti, pratica %s'
-    object_notary_notes: 'Note del notaio, pratica %s'
     object_invite: 'Benvenuto su Instrumento'
     object_terms_accepted: 'Contratto termini e condizioni accettato'
     object_credentials: 'Credenziali di accesso'
