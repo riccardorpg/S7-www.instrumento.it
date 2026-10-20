@@ -1,22 +1,24 @@
 # Utente della piattaforma (un account = un'e-mail). Gruppi:
 # - user_notary: nuovo e modifica del notaio dall'area amministratore;
 # - client_staff: nuovo utente dalla scheda cliente dell'amministratore (nome, cognome, e-mail);
-# - agency_staff: nuovo e modifica dall'area agenzia (anche il ruolo).
+# - agency_staff: nuovo e modifica dall'area agenzia (anche il ruolo);
+# - notary_staff: nuovo collaboratore dallo staff del notaio;
+# - notary_staff_edit: nome e cognome del collaboratore, dalla sua scheda.
 # L'e-mail è unica su tutti gli utenti, di qualsiasi ruolo e agenzia: UniqueEntity esclude da sé il record in modifica.
 App\Entity\User:
   constraints:
-    - Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity: { fields: email, errorPath: email, message: "E-mail già usata da un altro utente", groups: [user_notary, client_staff, agency_staff] }
+    - Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity: { fields: email, errorPath: email, message: "E-mail già usata da un altro utente", groups: [user_notary, client_staff, agency_staff, notary_staff] }
   properties:
     name:
-      - NotBlank: { message: "Campo obbligatorio", groups: [user_notary, client_staff, agency_staff] }
-      - Length: { max: 191, maxMessage: "Massimo 191 caratteri", groups: [user_notary, client_staff, agency_staff] }
+      - NotBlank: { message: "Campo obbligatorio", groups: [user_notary, client_staff, agency_staff, notary_staff, notary_staff_edit] }
+      - Length: { max: 191, maxMessage: "Massimo 191 caratteri", groups: [user_notary, client_staff, agency_staff, notary_staff, notary_staff_edit] }
     surname:
-      - NotBlank: { message: "Campo obbligatorio", groups: [user_notary, client_staff, agency_staff] }
-      - Length: { max: 191, maxMessage: "Massimo 191 caratteri", groups: [user_notary, client_staff, agency_staff] }
+      - NotBlank: { message: "Campo obbligatorio", groups: [user_notary, client_staff, agency_staff, notary_staff, notary_staff_edit] }
+      - Length: { max: 191, maxMessage: "Massimo 191 caratteri", groups: [user_notary, client_staff, agency_staff, notary_staff, notary_staff_edit] }
     email:
-      - NotBlank: { message: "Campo obbligatorio", groups: [user_notary, client_staff, agency_staff] }
-      - Email: { message: "E-mail non valida", groups: [user_notary, client_staff, agency_staff] }
-      - Length: { max: 191, maxMessage: "Massimo 191 caratteri", groups: [user_notary, client_staff, agency_staff] }
+      - NotBlank: { message: "Campo obbligatorio", groups: [user_notary, client_staff, agency_staff, notary_staff] }
+      - Email: { message: "E-mail non valida", groups: [user_notary, client_staff, agency_staff, notary_staff] }
+      - Length: { max: 191, maxMessage: "Massimo 191 caratteri", groups: [user_notary, client_staff, agency_staff, notary_staff] }
     staffRole:
       - NotBlank: { message: "Campo obbligatorio", groups: [agency_staff] }
       - Choice: { choices: [admin, internal, external], message: "Ruolo non valido", groups: [agency_staff] }

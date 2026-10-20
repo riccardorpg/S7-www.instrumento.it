@@ -1,0 +1,197 @@
+{% extends 'role/notary/layout.html.twig' %}
+{% import 'components/action_icons.html.twig' as ico %}
+{% import 'components/practice_status.html.twig' as practiceStatus %}
+
+{% block title %} - {{ member.fullName }}{% endblock %}
+{% block role_page_title_inner %}{{ member.fullName }}{% endblock %}
+
+{% block role_page_title_breadcrumb %}
+    <li class="breadcrumb-item"><a href="{{ path('notary_index') }}">Notaio</a></li>
+    <li class="breadcrumb-item"><a href="{{ path('notary_staff') }}">Staff</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ member.fullName }}</li>
+{% endblock %}
+
+{% block sub_menu_left %}
+    <li class="nav-item"><a class="nav-link" href="{{ path('notary_staff') }}"><i class="bi-arrow-left"></i> Torna all'elenco</a></li>
+{% endblock %}
+
+{% block role_content %}
+    {% set assignedCount = practices|length %}
+    <section class="content-wrap">
+        <div class="container">
+            {# Due schede (la scheda attiva resta in sessione, tab_session): i dati del collaboratore
+               e le pratiche del notaio che gli sono assegnate. #}
+            <ul class="nav nav-tabs canvas-alt-tabs tabs-tb" role="tablist">
+                <li class="nav-item"><button class="nav-link active tab_session" data-filter-tab="collaboratore" data-bs-toggle="tab" data-bs-target="#tab-collaboratore" type="button">Collaboratore</button></li>
+                <li class="nav-item">
+                    <button class="nav-link tab_session" data-filter-tab="pratiche" data-bs-toggle="tab" data-bs-target="#tab-pratiche" type="button">
+                        Pratiche assegnate <span class="badge bg-secondary">{{ assignedCount }}</span>
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content border border-top-0 p-3 bg-white">
+
+                {# ===== TAB 1: COLLABORATORE ===== #}
+                <div class="tab-pane fade show active" id="tab-collaboratore">
+                    <div class="d-flex justify-content-between align-items-center mb-2" style="min-height:46px">
+                        <h5 class="m_b_none">Dati del collaboratore</h5>
+                        <a href="javascript:notaryStaffEditShow()" class="button button-3d button-mini button-amber m_none">Modifica</a>
+                    </div>
+                    <table class="table align-middle m_b_none v_a_m">
+                        <tr><th style="width:25%">Nome</th><td>{{ member.name ?: '-' }}</td></tr>
+                        <tr><th>Cognome</th><td>{{ member.surname ?: '-' }}</td></tr>
+                        <tr><th>E-mail</th><td>{{ member.email }}</td></tr>
+                        <tr>
+                            <th>Stato</th>
+                            <td>
+                                <img src="{{ asset(PATH_GRAPHICS ~ 'icons/' ~ (member.active ? 'circle_green' : 'circle_red') ~ '.png') }}" class="icon_status" alt="">
+                                {{ member.active ? 'Attivo' : 'Sospeso' }}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                {# ===== TAB 2: PRATICHE ASSEGNATE =====
+                   Le pratiche del notaio assegnate al collaboratore: le vede e le lavora nell'area notaio.
+                   Si aggiungono dal modale "Assegna pratica", si tolgono dalla riga. #}
+                <div class="tab-pane fade" id="tab-pratiche">
+                    <div class="d-flex justify-content-between align-items-center mb-2" style="min-height:46px">
+                        <h5 class="m_b_none">Pratiche assegnate</h5>
+                        <a href="javascript:practiceAssignOpen()" class="button button-3d button-mini button-green m_none">Assegna pratica</a>
+                    </div>
+
+                    <table id="assignedTable" class="table table-hover table-bordered align-middle m_b_none v_a_m">
+                        <thead>
+                            {# Filtro lato JS sulle colonne (le pratiche assegnate sono tutte in pagina) #}
+                            <tr class="tr_filter">
+                                <td></td>
+                                {% for col in 1..5 %}
+                                    <td><input type="text" class="form-control form-control-sm" data-col="{{ col }}" onkeyup="assignedFilter()" autocomplete="off"></td>
+                                {% endfor %}
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <th class="td_w_70p txt_a_c">Stato</th>
+                                <th class="td_w_200p">Codice</th>
+                                <th class="td_w_200p">Agenzia</th>
+                                <th>Acquirente</th>
+                                <th>Venditore</th>
+                                <th>Indirizzo</th>
+                                <th class="td_w_70p txt_a_c">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for p in practices %}
+                            <tr>
+                                <td class="txt_a_c">{{ practiceStatus.dot(p.status, p.statusLabel) }}</td>
+                                <td><a href="{{ path('notary_practice_sheet', {id: p.id}) }}"><strong>{{ p.number }}</strong></a></td>
+                                <td>{{ p.company.name }}</td>
+                                <td>{{ p.buyer ? p.buyer.fullName : '-' }}</td>
+                                <td>{{ p.seller ? p.seller.fullName : '-' }}</td>
+                                <td>{{ p.address ?: '-' }}</td>
+                                <td class="txt_a_c">
+                                    {{ ico.action(
+                                        "javascript:practiceUnassignConfirm('" ~ path('notary_staff_practice_unassign', {id: member.id, pid: p.id}) ~ "', '" ~ csrf_token('notaryStaffPracticeUnassign') ~ "', 'toglierai la pratica " ~ p.number|e('js') ~ " a " ~ member.fullName|e('js') ~ "')",
+                                        'delete', 'Togli la pratica', 'red'
+                                    ) }}
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr><td colspan="7" class="op_07 text-center">Nessuna pratica assegnata: usa "Assegna pratica".</td></tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+{% endblock %}
+
+{% block modals %}
+    {% embed 'components/modals/form.html.twig' with {type: 'notaryStaffEdit', title: 'Modifica collaboratore', form: formEdit} %}
+        {% block modalBody %}
+            <div class="row g-3">
+                <div class="col-md-6"><div {{ form_errors(form.name) }}><label class="form-label" for="{{ form.name.vars.id }}">Nome *</label>{{ form_widget(form.name) }}</div></div>
+                <div class="col-md-6"><div {{ form_errors(form.surname) }}><label class="form-label" for="{{ form.surname.vars.id }}">Cognome *</label>{{ form_widget(form.surname) }}</div></div>
+            </div>
+            <small class="op_07">L'e-mail è l'account del collaboratore e non si modifica da qui.</small>
+        {% endblock %}
+    {% endembed %}
+
+    {# Assegna pratica: ricerca fra le pratiche del notaio non ancora assegnate; la riga scelta va in practice_id. #}
+    {% embed 'components/modals/form.html.twig' with {type: 'notaryStaffPracticeAssign', title: 'Assegna pratica', size: 'modal-lg', action: path('notary_staff_practice_assign', {id: member.id})} %}
+        {% block modalBody %}
+            <input type="hidden" id="practiceAssign_id" name="practice_id" value="">
+            <label class="form-label" for="practiceAssign_q">Cerca per codice, agenzia, acquirente o venditore</label>
+            <input type="search" id="practiceAssign_q" class="form-control m_b_10p" autocomplete="off" placeholder="Es. AG001-0010, Rossi…" oninput="practiceAssignSearch()">
+            <table class="table table-hover table-bordered align-middle m_b_none v_a_m font_13">
+                <thead>
+                    <tr><th>Codice</th><th>Agenzia</th><th>Acquirente</th><th>Venditore</th></tr>
+                </thead>
+                <tbody id="practiceAssign_results"></tbody>
+            </table>
+            <small class="op_07">Clicca la pratica da assegnare, poi "Assegna".</small>
+        {% endblock %}
+        {% block modalSubmit %}Assegna{% endblock %}
+    {% endembed %}
+
+    {% include 'components/modals/confirm.html.twig' with {type: 'practiceUnassign', title: 'Togli pratica'} only %}
+{% endblock %}
+
+{% block page_javascripts %}
+    {% include 'components/js/tab_session_js.html.twig' %}
+<script>
+    /* Filtro sulle colonne della tabella delle pratiche assegnate (data-col = indice della colonna). */
+    function assignedFilter() {
+        var filters = Array.from(document.querySelectorAll('#assignedTable [data-col]'))
+            .map(function (input) { return {col: +input.dataset.col, q: input.value.trim().toLowerCase()}; })
+            .filter(function (f) { return f.q !== ''; });
+        document.querySelectorAll('#assignedTable tbody tr').forEach(function (tr) {
+            if (tr.cells.length < 7) return; // riga "nessuna pratica"
+            var ok = filters.every(function (f) { return tr.cells[f.col].textContent.toLowerCase().indexOf(f.q) !== -1; });
+            tr.style.display = ok ? '' : 'none';
+        });
+    }
+
+    var practiceAssignTimer = null;
+
+    function practiceAssignOpen() {
+        document.getElementById('practiceAssign_q').value = '';
+        practiceAssignSearch();
+        notaryStaffPracticeAssignShow();
+    }
+
+    function practiceAssignSearch() {
+        document.getElementById('practiceAssign_id').value = '';
+        var q = document.getElementById('practiceAssign_q').value.trim();
+        clearTimeout(practiceAssignTimer);
+        practiceAssignTimer = setTimeout(function () {
+            fetch("{{ path('notary_staff_practice_search', {id: member.id}) }}?q=" + encodeURIComponent(q))
+                .then(function (r) { return r.json(); })
+                .then(function (items) {
+                    var body = document.getElementById('practiceAssign_results');
+                    body.innerHTML = '';
+                    if (!items.length) {
+                        var empty = body.insertRow();
+                        var cell = empty.insertCell();
+                        cell.colSpan = 4;
+                        cell.className = 'op_07 text-center';
+                        cell.textContent = 'Nessuna pratica da assegnare.';
+                        return;
+                    }
+                    items.forEach(function (it) {
+                        var tr = body.insertRow();
+                        tr.className = 'cursor_p';
+                        [it.number, it.company, it.buyer, it.seller].forEach(function (v) { tr.insertCell().textContent = v; });
+                        tr.addEventListener('click', function () {
+                            body.querySelectorAll('tr').forEach(function (r) { r.classList.remove('table-primary'); });
+                            tr.classList.add('table-primary');
+                            document.getElementById('practiceAssign_id').value = it.id;
+                        });
+                    });
+                });
+        }, 250);
+    }
+</script>
+{% endblock %}

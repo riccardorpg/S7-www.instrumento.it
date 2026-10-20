@@ -77,7 +77,8 @@ class LoginFormAuthenticator extends AbstractLoginFormAuthenticator
 
         $route = match (true) {
             in_array('ROLE_ADMIN', $roles, true)  => 'admin_index',
-            in_array('ROLE_NOTARY', $roles, true) => 'notary_index',
+            in_array('ROLE_NOTARY', $roles, true),
+            in_array('ROLE_NOTARY_STAFF', $roles, true) => 'notary_index',
             in_array('ROLE_USER', $roles, true)   => 'agency_index',
             default                               => self::LOGIN_ROUTE,
         };

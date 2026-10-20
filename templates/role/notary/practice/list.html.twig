@@ -15,7 +15,7 @@
 
 {% block role_content %}
     <section class="content-wrap">
-        <div class="container">
+        <div class="container-fluid">
             <form id="practicesFilter" method="get" action="{{ path('notary_practices') }}">
                 <input type="hidden" name="filterSet" value="1">
                 <input type="hidden" id="practicesFilter_sort" name="sortField" value="{{ filters.sortField }}">

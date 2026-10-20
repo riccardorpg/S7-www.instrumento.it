@@ -17,6 +17,8 @@ use Symfony\Component\Security\Core\User\UserInterface;
  * Utente della piattaforma, uno per e-mail. Il ruolo dice l'area:
  *  - ROLE_ADMIN: amministrazione (creato con app:create-user);
  *  - ROLE_NOTARY: notaio, vede le pratiche che le agenzie gli assegnano;
+ *  - ROLE_NOTARY_STAFF: collaboratore di uno o più notai, vede (e lavora come il notaio) le pratiche
+ *    che i suoi notai gli assegnano;
  *  - ROLE_USER: staff di un'agenzia (10.), legato alla sua Company, con ruolo di staff
  *    e matrice dei permessi di sezione.
  */
@@ -32,6 +34,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public const ROLE_ADMIN = 'ROLE_ADMIN';
     public const ROLE_NOTARY = 'ROLE_NOTARY';
+    public const ROLE_NOTARY_STAFF = 'ROLE_NOTARY_STAFF';
     public const ROLE_USER = 'ROLE_USER';
 
     // 10.2.4 Ruolo del membro dello staff.
@@ -65,9 +68,32 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(mappedBy: 'user', targetEntity: UserPermission::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $userPermissions;
 
+    /**
+     * Staff del notaio: i collaboratori (ROLE_NOTARY_STAFF) a cui può assegnare le sue pratiche.
+     * Solo per ROLE_NOTARY. Un collaboratore può stare nello staff di più notai.
+     *
+     * @var Collection<int, User>
+     */
+    #[ORM\ManyToMany(targetEntity: User::class, inversedBy: 'notaries')]
+    #[ORM\JoinTable(name: 'eb_notary_staff')]
+    #[ORM\JoinColumn(name: 'notary_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
+    #[ORM\InverseJoinColumn(name: 'staff_id', referencedColumnName: 'id', onDelete: 'CASCADE')]
+    #[ORM\OrderBy(['surname' => 'ASC', 'name' => 'ASC'])]
+    private Collection $collaborators;
+
+    /**
+     * Notai di cui il collaboratore fa parte dello staff. Solo per ROLE_NOTARY_STAFF.
+     *
+     * @var Collection<int, User>
+     */
+    #[ORM\ManyToMany(targetEntity: User::class, mappedBy: 'collaborators')]
+    private Collection $notaries;
+
     public function __construct()
     {
         $this->userPermissions = new ArrayCollection();
+        $this->collaborators = new ArrayCollection();
+        $this->notaries = new ArrayCollection();
     }
 
     public function isPlatformAdmin(): bool
@@ -83,6 +109,46 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function isAgencyUser(): bool
     {
         return $this->role === self::ROLE_USER;
+    }
+
+    public function isNotaryStaff(): bool
+    {
+        return $this->role === self::ROLE_NOTARY_STAFF;
+    }
+
+    /** @return Collection<int, User> */
+    public function getCollaborators(): Collection
+    {
+        return $this->collaborators;
+    }
+
+    public function addCollaborator(User $collaborator): static
+    {
+        if (!$this->collaborators->contains($collaborator)) {
+            $this->collaborators->add($collaborator);
+            $collaborator->notaries->add($this);
+        }
+
+        return $this;
+    }
+
+    public function removeCollaborator(User $collaborator): static
+    {
+        $this->collaborators->removeElement($collaborator);
+        $collaborator->notaries->removeElement($this);
+
+        return $this;
+    }
+
+    public function hasCollaborator(User $collaborator): bool
+    {
+        return $this->collaborators->contains($collaborator);
+    }
+
+    /** @return Collection<int, User> */
+    public function getNotaries(): Collection
+    {
+        return $this->notaries;
     }
 
     public function getCompany(): ?Company

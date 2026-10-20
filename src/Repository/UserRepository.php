@@ -103,6 +103,30 @@ class UserRepository extends ServiceEntityRepository
         return $this->findBy($criteria, ['surname' => 'ASC', 'name' => 'ASC']);
     }
 
+    /**
+     * Ricerca per e-mail dei collaboratori già registrati (ROLE_NOTARY_STAFF, attivi) da aggiungere
+     * allo staff del notaio, esclusi quelli che ne fanno già parte. Serve almeno un pezzo di e-mail
+     * di 3 caratteri: l'elenco dei collaboratori non si sfoglia.
+     *
+     * @return User[]
+     */
+    public function searchNotaryStaff(User $notary, string $q, int $limit = 10): array
+    {
+        $q = mb_strtolower(trim($q));
+        if (mb_strlen($q) < 3) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('u')
+            ->where('u.role = :role')->setParameter('role', User::ROLE_NOTARY_STAFF)
+            ->andWhere('u.active = true')
+            ->andWhere('LOWER(u.email) LIKE :q')->setParameter('q', '%' . addcslashes($q, '%_') . '%')
+            ->andWhere(':notary NOT MEMBER OF u.notaries')->setParameter('notary', $notary)
+            ->orderBy('u.email', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()->getResult();
+    }
+
     public function findOneByEmail(string $email): ?User
     {
         return $this->findOneBy(['email' => mb_strtolower(trim($email))]);

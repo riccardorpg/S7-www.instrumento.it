@@ -29,10 +29,11 @@ class PracticeAlertRepository extends ServiceEntityRepository
      */
     public function findForNotary(User $notary, int $limit = 50): array
     {
-        return $this->createQueryBuilder('a')
+        $qb = $this->createQueryBuilder('a')
             ->join('a.practice', 'p')->addSelect('p')
-            ->andWhere('a.visibleToNotary = true OR a.byNotary = true')
-            ->andWhere('p.notary = :notary')->setParameter('notary', $notary)
+            ->andWhere('a.visibleToNotary = true OR a.byNotary = true');
+
+        return PracticeRepository::notaryScope($qb, 'p', $notary)
             ->andWhere('p.status <> :archived')->setParameter('archived', Practice::STATUS_ARCHIVED)
             ->orderBy('a.remindAt', 'ASC')
             ->setMaxResults($limit)

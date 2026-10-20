@@ -123,7 +123,9 @@ class AgencyPracticeController extends AbstractController
         }
         if ($form->isSubmitted() && $form->isValid()) {
             $this->completePractice($practice, $geo, $form);
-            $practice->setNumber($this->nextNumber($em));
+            /** @var PracticeRepository $practices */
+            $practices = $em->getRepository(Practice::class);
+            $practice->setNumber($practices->nextNumber($this->company()));
             $em->getRepository(Practice::class)->add($practice);
 
             // 12.2.8 "Prosegui": la pratica nasce con le sue righe documentali (12.3.2.1).
@@ -913,17 +915,4 @@ class AgencyPracticeController extends AbstractController
         return null;
     }
 
-    /** Numero pratica progressivo per anno: P-0001/2026. */
-    private function nextNumber(EntityManagerInterface $em): string
-    {
-        $year = (int) (new \DateTimeImmutable())->format('Y');
-        $count = (int) $em->getRepository(Practice::class)->createQueryBuilder('p')
-            ->select('COUNT(p.id)')
-            ->andWhere('p.number LIKE :y')
-            ->setParameter('y', '%/' . $year)
-            ->getQuery()
-            ->getSingleScalarResult();
-
-        return sprintf('P-%04d/%d', $count + 1, $year);
-    }
 }

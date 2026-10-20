@@ -18,8 +18,14 @@ di Instrumento e le eccezioni motivate.
 - **Utenti**: una sola tabella `eb_user`, un account = un'e-mail. `ROLE_ADMIN`, `ROLE_NOTARY`, `ROLE_USER`
   (staff di agenzia, con `company`, ruolo di staff e permessi di sezione). Login unico su `/accedi`;
   `UserChecker` blocca utenti disattivi e staff di agenzie sospese o senza licenza valida.
-- **Pratica**: `company` (agenzia) e `notary` (utente ROLE_NOTARY). Il notaio vede le pratiche a lui assegnate
+- **Pratica**: `company` (agenzia) e `notary` (utente ROLE_NOTARY). Codice generato con il prefisso dell'agenzia,
+  `AG001-0001/2026` (`PracticeRepository::nextNumber()`), unico su tutta la piattaforma. Il notaio vede le pratiche a lui assegnate
   di tutte le agenzie attive, senza selezione dell'agenzia.
+- **Staff del notaio**: collaboratori `ROLE_NOTARY_STAFF` (`User::$collaborators`, tabella `eb_notary_staff`; uno
+  può stare nello staff di più notai). Il notaio li crea o li aggiunge cercandoli per e-mail (`NotaryStaffController`)
+  e assegna loro le sue pratiche (`Practice::$notaryStaff`). Il collaboratore lavora nell'area notaio come il notaio,
+  solo sulle pratiche assegnate e finché è nello staff: la regola sta in `PracticeRepository::notaryScope()` e
+  `Practice::isVisibleInNotaryArea()`.
 - Entity in `src/Entity/`, repository in `src/Repository/`, validator in `config/validator/`
   (`config/validator/Model/` per i modelli dei form).
 - Prova in locale: `php -S 127.0.0.1:8137 -t public` (porta 8137; senza `public/index.php` come router, altrimenti

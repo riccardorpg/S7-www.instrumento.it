@@ -8,10 +8,15 @@
     <li class="menu-item{{ r == 'notary_index' ? ' current' : '' }}">
         <a class="menu-link" href="{{ path('notary_index') }}"><div>Scrivania</div></a>
     </li>
-    <li class="menu-item"><hr class="d-none d-lg-block color_w"></li>
     <li class="menu-item{{ r starts with 'notary_practice' ? ' current' : '' }}">
         <a class="menu-link" href="{{ path('notary_practices') }}"><div>Pratiche</div></a>
     </li>
+    {# Lo staff lo gestisce solo il notaio, non i suoi collaboratori. #}
+    {% if is_granted('ROLE_NOTARY') %}
+        <li class="menu-item{{ r starts with 'notary_staff' ? ' current' : '' }}">
+            <a class="menu-link" href="{{ path('notary_staff') }}"><div>Staff</div></a>
+        </li>
+    {% endif %}
 
     <li class="menu-item"><hr class="d-none d-lg-block color_w"></li>
     <li class="menu-item">

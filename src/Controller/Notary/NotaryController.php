@@ -24,6 +24,7 @@ use App\Service\PracticeNotifierService;
 use Doctrine\Persistence\ManagerRegistry;
 use Knp\Component\Pager\PaginatorInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\ExpressionLanguage\Expression;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -36,10 +37,11 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
  * 17. Area notaio. Il notaio vede le pratiche che le agenzie gli hanno assegnato
- * (Practice::$notary), di tutte le agenzie attive, senza sceglierne una.
+ * (Practice::$notary), di tutte le agenzie attive, senza sceglierne una. I suoi collaboratori
+ * (ROLE_NOTARY_STAFF) lavorano allo stesso modo sulle pratiche che il notaio ha assegnato loro.
  */
 #[Route('/notaio')]
-#[IsGranted('ROLE_NOTARY')]
+#[IsGranted(new Expression("is_granted('ROLE_NOTARY') or is_granted('ROLE_NOTARY_STAFF')"))]
 class NotaryController extends AbstractController
 {
     public function __construct(
@@ -490,11 +492,11 @@ class NotaryController extends AbstractController
         return true;
     }
 
-    /** Il notaio collegato. */
+    /** Il notaio, o il collaboratore di un notaio, collegato. */
     private function notary(): User
     {
         $user = $this->getUser();
-        if (!$user instanceof User || !$user->isNotary()) {
+        if (!$user instanceof User || (!$user->isNotary() && !$user->isNotaryStaff())) {
             throw $this->createAccessDeniedException();
         }
 
@@ -502,8 +504,8 @@ class NotaryController extends AbstractController
     }
 
     /**
-     * 17.1 Carica una pratica assegnata al notaio collegato, di un'agenzia attiva: le altre
-     * per lui non esistono (404).
+     * 17.1 Carica una pratica visibile all'utente collegato (assegnata al notaio, o dal notaio al
+     * collaboratore), di un'agenzia attiva: le altre per lui non esistono (404).
      *
      * @return array{0: Company, 1: Practice}
      */
@@ -511,7 +513,7 @@ class NotaryController extends AbstractController
     {
         $practice = $this->registry->getManager()->getRepository(Practice::class)->find($id);
         $company = $practice?->getCompany();
-        if ($practice === null || $company === null || !$company->isActive() || !$practice->isAssignedTo($this->notary())) {
+        if ($practice === null || $company === null || !$company->isActive() || !$practice->isVisibleInNotaryArea($this->notary())) {
             throw $this->createNotFoundException('Pratica non trovata.');
         }
 

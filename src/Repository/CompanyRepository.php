@@ -106,16 +106,21 @@ class CompanyRepository extends ServiceEntityRepository
     }
 
     /**
-     * 17.1 Agenzie attive con almeno una pratica assegnata al notaio, per nome.
+     * 17.1 Agenzie attive con almeno una pratica visibile al notaio (o al collaboratore), per nome.
      *
      * @return Company[]
      */
     public function findWithPracticesOf(User $notary): array
     {
+        $ids = PracticeRepository::notaryScope(
+            $this->getEntityManager()->createQueryBuilder()->select('IDENTITY(p.company)')->from(Practice::class, 'p'),
+            'p',
+            $notary,
+        )->distinct()->getQuery()->getSingleColumnResult();
+
         return $this->createQueryBuilder('c')
             ->where('c.active = true')
-            ->andWhere('EXISTS (SELECT 1 FROM App\Entity\Practice p WHERE p.company = c AND p.notary = :notary)')
-            ->setParameter('notary', $notary)
+            ->andWhere('c.id IN (:ids)')->setParameter('ids', $ids ?: [0])
             ->orderBy('c.name', 'ASC')
             ->getQuery()->getResult();
     }

@@ -40,7 +40,8 @@ security:
     access_control:
         - { path: ^/script, roles: ROLE_SCRIPT }
         - { path: ^/amministratore, roles: ROLE_ADMIN }
-        - { path: ^/notaio, roles: ROLE_NOTARY }
+        # Area notaio: il notaio e i suoi collaboratori (lo staff del notaio è solo per ROLE_NOTARY, vedi NotaryStaffController).
+        - { path: ^/notaio, roles: [ROLE_NOTARY, ROLE_NOTARY_STAFF] }
         - { path: ^/agenzia, roles: ROLE_USER }
 
 when@test:

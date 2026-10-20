@@ -55,11 +55,12 @@ class PracticeDocumentRepository extends ServiceEntityRepository
      */
     public function findToVerifyForNotary(User $notary): array
     {
-        return $this->createQueryBuilder('r')
+        $qb = $this->createQueryBuilder('r')
             ->join('r.practice', 'p')->addSelect('p')
             ->andWhere('r.status = :toVerify')->setParameter('toVerify', PracticeDocument::STATUS_TO_VERIFY)
-            ->andWhere('r.visible = true')
-            ->andWhere('p.notary = :notary')->setParameter('notary', $notary)
+            ->andWhere('r.visible = true');
+
+        return PracticeRepository::notaryScope($qb, 'p', $notary)
             ->andWhere('p.status <> :archived')->setParameter('archived', Practice::STATUS_ARCHIVED)
             ->orderBy('p.number', 'ASC')
             ->addOrderBy('r.priority', 'ASC')

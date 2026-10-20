@@ -166,7 +166,13 @@ class ScriptMigrationController extends AbstractController
             return ['esito' => 'ok', 'messaggio' => 'marcata come eseguita, senza SQL'];
         }
 
-        if (!class_exists($fqcn)) {
+        // Le classi delle migration non sono nell'autoload di Composer (le carica il finder di
+        // Doctrine Migrations): qui si include il file a mano.
+        $file = $this->folder() . '/' . $this->shortName($fqcn) . '.php';
+        if (!class_exists($fqcn, false) && is_file($file)) {
+            require_once $file;
+        }
+        if (!class_exists($fqcn, false)) {
             return ['esito' => 'errore', 'messaggio' => 'Classe non trovata: ' . $fqcn];
         }
 

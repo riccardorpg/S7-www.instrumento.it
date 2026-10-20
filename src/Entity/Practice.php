@@ -40,8 +40,12 @@ class Practice implements CompanyOwnedInterface
         self::STATUS_ARCHIVED => 'Archiviata',
     ];
 
-    /** 12.1.6 Numero/codice pratica. */
-    #[ORM\Column(name: 'number', type: 'string', length: 60)]
+    /**
+     * 12.1.6 Codice pratica, generato alla creazione: codice dell'agenzia, progressivo dell'anno
+     * e anno (AG001-0001/2026, vedi PracticeRepository::nextNumber()). Il prefisso lo rende unico
+     * su tutta la piattaforma.
+     */
+    #[ORM\Column(name: 'number', type: 'string', length: 80, unique: true)]
     private string $number = '';
 
     /**
@@ -125,6 +129,16 @@ class Practice implements CompanyOwnedInterface
     private Collection $staff;
 
     /**
+     * Collaboratori del notaio (ROLE_NOTARY_STAFF) a cui il notaio ha assegnato la pratica:
+     * la vedono e la lavorano nell'area notaio finché restano nel suo staff.
+     *
+     * @var Collection<int, User>
+     */
+    #[ORM\ManyToMany(targetEntity: User::class)]
+    #[ORM\JoinTable(name: 'eb_practice_notary_staff')]
+    private Collection $notaryStaff;
+
+    /**
      * 12.3.2.1 Righe documentali: un tipo di documento previsto per la pratica.
      *
      * @var Collection<int, PracticeDocument>
@@ -146,6 +160,7 @@ class Practice implements CompanyOwnedInterface
     {
         $this->tags = new ArrayCollection();
         $this->staff = new ArrayCollection();
+        $this->notaryStaff = new ArrayCollection();
         $this->practiceDocuments = new ArrayCollection();
         $this->alerts = new ArrayCollection();
     }
@@ -310,6 +325,44 @@ class Practice implements CompanyOwnedInterface
     public function isAssignedTo(User $notary): bool
     {
         return $this->notary !== null && $this->notary->getId() === $notary->getId();
+    }
+
+    /** @return Collection<int, User> */
+    public function getNotaryStaff(): Collection
+    {
+        return $this->notaryStaff;
+    }
+
+    public function addNotaryStaff(User $collaborator): static
+    {
+        if (!$this->notaryStaff->contains($collaborator)) {
+            $this->notaryStaff->add($collaborator);
+        }
+
+        return $this;
+    }
+
+    public function removeNotaryStaff(User $collaborator): static
+    {
+        $this->notaryStaff->removeElement($collaborator);
+
+        return $this;
+    }
+
+    /**
+     * Chi la vede nell'area notaio: il notaio assegnato e i suoi collaboratori a cui l'ha
+     * assegnata (solo finché fanno parte del suo staff).
+     */
+    public function isVisibleInNotaryArea(User $user): bool
+    {
+        if ($user->isNotary()) {
+            return $this->isAssignedTo($user);
+        }
+
+        return $user->isNotaryStaff()
+            && $this->notary !== null
+            && $this->notaryStaff->contains($user)
+            && $this->notary->hasCollaborator($user);
     }
 
     public function getBuyer(): ?Customer

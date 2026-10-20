@@ -87,7 +87,9 @@ class SeedPracticesCommand extends Command
         $created = 0;
         for ($i = 0; $i < $count; ++$i) {
             $practice = (new Practice())->setCompany($company);
-            $practice->setNumber(sprintf('P-%04d/%d', $i + 1, 2026))
+            /** @var \App\Repository\PracticeRepository $practices */
+            $practices = $em->getRepository(Practice::class);
+            $practice->setNumber($practices->nextNumber($company))
                 ->setMortgage($i % 3 === 0)
                 ->setSubject('Immobile sito in Via Esempio ' . ($i + 1) . ', foglio ' . (10 + $i) . ', particella ' . (100 + $i))
                 ->setAddress('Via Esempio ' . ($i + 1) . ', Milano')

@@ -173,15 +173,58 @@ class PracticeRepository extends ServiceEntityRepository
         return $counts;
     }
 
+    /**
+     * 12.1.6 Prossimo codice pratica dell'agenzia: {codice agenzia}-{progressivo}/{anno}, es.
+     * AG001-0001/2026. Il progressivo riparte ogni anno e segue il più alto già usato
+     * dall'agenzia (non il conteggio: dopo una cancellazione un conteggio ridarebbe un codice esistente).
+     */
+    public function nextNumber(Company $company, ?int $year = null): string
+    {
+        $year ??= (int) (new \DateTimeImmutable())->format('Y');
+        $prefix = mb_strtoupper((string) $company->getCode()) . '-';
+
+        $numbers = $this->createQueryBuilder('p')
+            ->select('p.number')
+            ->where('p.company = :company')->setParameter('company', $company)
+            ->andWhere('p.number LIKE :pattern')->setParameter('pattern', addcslashes($prefix, '%_') . '%/' . $year)
+            ->getQuery()->getSingleColumnResult();
+
+        $max = 0;
+        foreach ($numbers as $number) {
+            if (preg_match('#-(\d+)/\d{4}$#', (string) $number, $m) === 1) {
+                $max = max($max, (int) $m[1]);
+            }
+        }
+
+        return sprintf('%s%04d/%d', $prefix, $max + 1, $year);
+    }
+
+    /**
+     * 17.1 Pratiche visibili nell'area notaio a $user: per il notaio quelle assegnate a lui, per un
+     * collaboratore quelle che un suo notaio gli ha assegnato (e solo finché è nel suo staff).
+     * Aggiunge le condizioni al QueryBuilder; $p è l'alias della pratica.
+     */
+    public static function notaryScope(QueryBuilder $qb, string $p, User $user): QueryBuilder
+    {
+        if ($user->isNotaryStaff()) {
+            return $qb->join($p . '.notary', $p . '_nn')
+                ->andWhere(':areaUser MEMBER OF ' . $p . '.notaryStaff')
+                ->andWhere(':areaUser MEMBER OF ' . $p . '_nn.collaborators')
+                ->setParameter('areaUser', $user);
+        }
+
+        return $qb->andWhere($p . '.notary = :areaUser')->setParameter('areaUser', $user);
+    }
+
     /** Le condizioni comuni a elenco e contatori del notaio: tutti i filtri tranne lo stato. */
     private function notaryFilteredQb(User $notary, array $filters): QueryBuilder
     {
-        // Solo le pratiche assegnate a lui, di agenzie attive.
+        // Solo le pratiche assegnate a lui (o al collaboratore), di agenzie attive.
         $qb = $this->createQueryBuilder('p')
             ->join('p.company', 'c')
-            ->where('p.notary = :notary')
-            ->andWhere('c.active = true');
-        $params = ['notary' => $notary];
+            ->where('c.active = true');
+        self::notaryScope($qb, 'p', $notary);
+        $params = [];
 
         if (($filters['company'] ?? '') !== '') {
             $qb->andWhere('c.id IN (:companies)');

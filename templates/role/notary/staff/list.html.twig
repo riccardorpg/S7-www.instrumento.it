@@ -1,0 +1,159 @@
+{% extends 'role/notary/layout.html.twig' %}
+{% import 'components/action_icons.html.twig' as ico %}
+
+{% block title %} - Staff{% endblock %}
+{% block role_page_title_inner %}Staff{% endblock %}
+
+{% block role_page_title_breadcrumb %}
+    <li class="breadcrumb-item"><a href="{{ path('notary_index') }}">Notaio</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Staff</li>
+{% endblock %}
+
+{% block sub_menu_left %}
+    <li class="nav-item"><a class="nav-link" href="{{ path('notary_index') }}"><i class="bi-arrow-left"></i> Torna alla scrivania</a></li>
+{% endblock %}
+
+{% block sub_menu_right %}
+    <li class="nav-item"><a class="nav-link" href="javascript:notaryStaffAddShow()"><i class="bi-search"></i> Aggiungi esistente</a></li>
+    <li class="nav-item"><a class="nav-link" href="javascript:notaryStaffNewOpen()"><i class="bi-plus-lg"></i> Nuovo</a></li>
+{% endblock %}
+
+{% block role_content %}
+    <section class="content-wrap">
+        <div class="container">
+            {# Collaboratori del notaio: lavorano nell'area notaio le pratiche che gli assegna dalla scheda. #}
+            <table class="table table-hover table-bordered align-middle m_b_none v_a_m">
+                <thead>
+                    <tr>
+                        <th class="td_w_70p txt_a_c">Stato</th>
+                        <th>Cognome</th>
+                        <th>Nome</th>
+                        <th>E-mail</th>
+                        <th class="td_w_100p txt_a_c">Pratiche</th>
+                        <th class="td_w_150p txt_a_c">Azioni</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for u in records %}
+                    {% set stateLabel = u.active ? 'Attivo' : 'Sospeso' %}
+                    <tr>
+                        <td class="txt_a_c">
+                            <img src="{{ asset(PATH_GRAPHICS ~ 'icons/' ~ (u.active ? 'circle_green' : 'circle_red') ~ '.png') }}"
+                                 class="icon_status" alt="{{ stateLabel }}" data-bs-toggle="tooltip" data-bs-title="{{ stateLabel }}">
+                        </td>
+                        <td>{{ u.surname ?: '-' }}</td>
+                        <td>{{ u.name ?: '-' }}</td>
+                        <td>{{ u.email }}</td>
+                        <td class="txt_a_c">
+                            <span data-bs-toggle="tooltip" data-bs-title="Pratiche assegnate">{{ assignedCounts[u.id]|default(0) }}</span>
+                        </td>
+                        <td class="txt_a_c text-nowrap">
+                            {{ ico.action(path('notary_staff_sheet', {id: u.id}), 'sheet', 'Scheda e pratiche assegnate', 'pr') }}
+                            {{ ico.action(
+                                "javascript:notaryStaffCredentialsConfirm('" ~ path('notary_staff_credentials', {id: u.id}) ~ "', '" ~ csrf_token('notaryStaffCredentials') ~ "', 'genererai nuove credenziali di accesso per " ~ u.email|e('js') ~ "')",
+                                'key', 'Invia credenziali', 'amber'
+                            ) }}
+                            {{ ico.action(
+                                "javascript:notaryStaffRemoveConfirm('" ~ path('notary_staff_remove', {id: u.id}) ~ "', '" ~ csrf_token('notaryStaffRemove') ~ "', 'toglierai " ~ u.fullName|e('js') ~ " dal tuo staff e dalle tue pratiche')",
+                                'delete', 'Togli dallo staff', 'red'
+                            ) }}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr><td colspan="6" class="op_07 text-center">Nessun collaboratore nel tuo staff.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endblock %}
+
+{% block modals %}
+    {% embed 'components/modals/form.html.twig' with {type: 'notaryStaffNew', title: 'Nuovo collaboratore', form: formNew} %}
+        {% block modalBody %}
+            <div class="row g-3">
+                <div class="col-md-6"><div {{ form_errors(form.name) }}><label class="form-label" for="{{ form.name.vars.id }}">Nome *</label>{{ form_widget(form.name) }}</div></div>
+                <div class="col-md-6"><div {{ form_errors(form.surname) }}><label class="form-label" for="{{ form.surname.vars.id }}">Cognome *</label>{{ form_widget(form.surname) }}</div></div>
+                <div class="col-12"><div {{ form_errors(form.email) }}><label class="form-label" for="{{ form.email.vars.id }}">E-mail *</label>{{ form_widget(form.email) }}</div></div>
+            </div>
+            <small class="op_07">Se è già registrato come collaboratore di un altro notaio, usa "Aggiungi esistente".</small>
+        {% endblock %}
+        {% block modalSubmit %}Crea{% endblock %}
+    {% endembed %}
+
+    {# Aggiungi un collaboratore già registrato: ricerca per e-mail, la scelta valorizza user_id. #}
+    {% embed 'components/modals/form.html.twig' with {type: 'notaryStaffAdd', title: 'Aggiungi collaboratore esistente', action: path('notary_staff_add')} %}
+        {% block modalBody %}
+            <div class="position-relative">
+                <label class="form-label" for="notaryStaffAdd_q">E-mail del collaboratore</label>
+                <input type="search" id="notaryStaffAdd_q" class="form-control" autocomplete="off" placeholder="Scrivi almeno 3 caratteri dell'e-mail…" oninput="notaryStaffSearch()">
+                <input type="hidden" id="notaryStaffAdd_id" name="user_id" value="">
+                <ul id="notaryStaffAdd_results" class="list-group position-absolute w-100 shadow-sm" style="z-index:1085; max-height:220px; overflow-y:auto; display:none;"></ul>
+            </div>
+            <small class="op_07">Si cercano i collaboratori già registrati in piattaforma, anche se lavorano con altri notai.</small>
+        {% endblock %}
+        {% block modalSubmit %}Aggiungi{% endblock %}
+    {% endembed %}
+
+    {% include 'components/modals/confirm.html.twig' with {type: 'notaryStaffCredentials', title: 'Invia credenziali'} only %}
+    {% include 'components/modals/confirm.html.twig' with {type: 'notaryStaffRemove', title: 'Togli dallo staff'} only %}
+{% endblock %}
+
+{% block page_javascripts %}
+<script>
+    // Il token CSRF del modale senza form Symfony ha il nome del tipo; la rotta controlla 'notaryStaffAdd'.
+    function notaryStaffNewOpen() {
+        document.getElementById('notaryStaffNewForm').reset();
+        notaryStaffNewShow();
+    }
+
+    (function () {
+        var timer = null;
+        // Il modale è nel blocco modals, reso dopo questo script: i campi si cercano all'uso.
+        function el(id) { return document.getElementById(id); }
+
+        window.notaryStaffSearch = function () {
+            var input = el('notaryStaffAdd_q'), hidden = el('notaryStaffAdd_id'), box = el('notaryStaffAdd_results');
+            // L'id vale solo se scelto dalla lista: appena si digita si azzera.
+            hidden.value = '';
+            var q = input.value.trim();
+            clearTimeout(timer);
+            if (q.length < 3) {
+                box.style.display = 'none';
+                return;
+            }
+            timer = setTimeout(function () {
+                fetch("{{ path('notary_staff_search') }}?q=" + encodeURIComponent(q))
+                    .then(function (r) { return r.json(); })
+                    .then(function (items) {
+                        box.innerHTML = '';
+                        if (!items.length) {
+                            var empty = document.createElement('div');
+                            empty.className = 'list-group-item text-muted';
+                            empty.textContent = 'Nessun collaboratore trovato: crealo con "Nuovo".';
+                            box.appendChild(empty);
+                        }
+                        items.forEach(function (it) {
+                            var option = document.createElement('button');
+                            option.type = 'button';
+                            option.className = 'list-group-item list-group-item-action';
+                            option.textContent = it.label;
+                            option.addEventListener('click', function () {
+                                input.value = it.label;
+                                hidden.value = it.id;
+                                box.style.display = 'none';
+                            });
+                            box.appendChild(option);
+                        });
+                        box.style.display = 'block';
+                    });
+            }, 250);
+        };
+
+        document.addEventListener('click', function (e) {
+            var input = el('notaryStaffAdd_q'), box = el('notaryStaffAdd_results');
+            if (box && input && !box.contains(e.target) && !input.contains(e.target)) box.style.display = 'none';
+        });
+    })();
+</script>
+{% endblock %}

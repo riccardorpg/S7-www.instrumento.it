@@ -147,7 +147,8 @@ class SecurityController extends AbstractController
     {
         return match (true) {
             $this->isGranted('ROLE_ADMIN')  => $this->redirectToRoute('admin_index'),
-            $this->isGranted('ROLE_NOTARY') => $this->redirectToRoute('notary_index'),
+            $this->isGranted('ROLE_NOTARY'),
+            $this->isGranted('ROLE_NOTARY_STAFF') => $this->redirectToRoute('notary_index'),
             $this->isGranted('ROLE_USER')   => $this->redirectToRoute('agency_index'),
             default                         => $this->redirectToRoute('homepage'),
         };
