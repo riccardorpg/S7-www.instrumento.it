@@ -1,8 +1,6 @@
 doctrine_migrations:
-    # Due cartelle: il master è un database solo, lo slave uno per agenzia.
-    # In produzione si applicano dal browser con ScriptMigrationController (/script/migration);
-    # con due namespace non usare mai gli alias "latest" / "next": sempre una versione esplicita.
+    # Database unico, una sola cartella. In produzione si applicano dal browser con
+    # ScriptMigrationController (/script/migration).
     migrations_paths:
-        'DoctrineMigrations\Master': '%kernel.project_dir%/migrations/master'
-        'DoctrineMigrations\Slave': '%kernel.project_dir%/migrations/slave'
+        'DoctrineMigrations': '%kernel.project_dir%/migrations'
     enable_profiler: false

@@ -2,7 +2,7 @@
 
 namespace App\Controller\Admin;
 
-use App\Entity\Master\DemoRequest;
+use App\Entity\DemoRequest;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -34,7 +34,7 @@ class AdminDemoRequestController extends AbstractController
             }
 
             $demoRequest->markRejected($this->getUser()?->getUserIdentifier());
-            $this->registry->getManager('master')->flush();
+            $this->registry->getManager()->flush();
             $this->addFlash('notice_success', 'Richiesta scartata: la trovi nel tab "Richieste scartate".');
         }
 
@@ -52,7 +52,7 @@ class AdminDemoRequestController extends AbstractController
             }
 
             $demoRequest->markNew();
-            $this->registry->getManager('master')->flush();
+            $this->registry->getManager()->flush();
             $this->addFlash('notice_success', 'Richiesta ripristinata tra quelle da evadere.');
         }
 

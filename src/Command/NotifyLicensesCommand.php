@@ -2,9 +2,9 @@
 
 namespace App\Command;
 
-use App\Entity\Master\Company;
-use App\Service\MailerService;
+use App\Entity\Company;
 use App\Service\CompanyService;
+use App\Service\MailerService;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -48,7 +48,7 @@ class NotifyLicensesCommand extends Command
         $days = max(0, (int) $input->getOption('days'));
         $dryRun = (bool) $input->getOption('dry-run');
 
-        $master = $this->registry->getManager('master');
+        $master = $this->registry->getManager();
         /** @var Company[] $companies */
         $companies = $master->getRepository(Company::class)->findBy(['active' => true]);
 
@@ -111,8 +111,6 @@ class NotifyLicensesCommand extends Command
                 ++$expiring;
             }
         }
-
-        $this->companyService->clearSession();
 
         $io->success(sprintf(
             '%d avvisi di scadenza, %d demo sospese, %d saltati.%s',

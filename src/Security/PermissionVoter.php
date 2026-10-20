@@ -2,7 +2,7 @@
 
 namespace App\Security;
 
-use App\Entity\Slave\User as AgencyUser;
+use App\Entity\User as AgencyUser;
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Vote;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
@@ -11,7 +11,7 @@ use Symfony\Component\Security\Core\Authorization\Voter\Voter;
  * 10.1.5 Permessi di sezione dello staff agenzia.
  *
  * Uso: is_granted('view', 'customers') / is_granted('edit', 'staff'), dove il soggetto
- * è lo slug di una {@see \App\Entity\Slave\Permission}. Vale solo per gli utenti del DB
+ * è lo slug di una {@see \App\Entity\Permission}. Vale solo per gli utenti del DB
  * agenzia: admin e notai (utenti master) non hanno matrice e non passano di qui.
  *
  * @extends Voter<string, string>

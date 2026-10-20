@@ -2,16 +2,15 @@
 
 namespace App\Twig\Extension;
 
-use App\Entity\Master\Company;
-use App\Repository\Master\DemoRequestRepository;
+use App\Entity\Company;
+use App\Repository\DemoRequestRepository;
 use App\Service\CompanyService;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
 
 /**
  * Funzioni Twig applicative.
- * current_company(): l'agenzia (Company) selezionata in sessione, per mostrarla
- * nel menu laterale del notaio (stile "azienda attiva" di venanzieffe).
+ * current_company(): l'agenzia (Company) dell'utente dello staff collegato, null altrove.
  * pending_demo_requests(): contatore dell'allarme 6.1.1 per il badge nel menu admin.
  */
 class AppExtension extends AbstractExtension

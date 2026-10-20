@@ -5,19 +5,17 @@
 {% block role_page_title_inner %}Pratiche{% endblock %}
 
 {% block sub_menu_left %}
-    <li class="nav-item"><a class="nav-link" href="{{ path('notary_desk') }}"><i class="bi-arrow-left"></i> Torna alla scrivania</a></li>
+    <li class="nav-item"><a class="nav-link" href="{{ path('notary_index') }}"><i class="bi-arrow-left"></i> Torna alla scrivania</a></li>
 {% endblock %}
 
 {% block role_page_title_breadcrumb %}
-    <li class="breadcrumb-item"><a href="{{ path('notary_desk') }}">Notaio</a></li>
+    <li class="breadcrumb-item"><a href="{{ path('notary_index') }}">Notaio</a></li>
     <li class="breadcrumb-item active" aria-current="page">Pratiche</li>
 {% endblock %}
 
 {% block role_content %}
     <section class="content-wrap">
         <div class="container">
-            {% include 'role/notary/_agency_badge.html.twig' with {company: company} only %}
-
             <form id="practicesFilter" method="get" action="{{ path('notary_practices') }}">
                 <input type="hidden" name="filterSet" value="1">
                 <input type="hidden" id="practicesFilter_sort" name="sortField" value="{{ filters.sortField }}">
@@ -48,6 +46,12 @@
                                     <input form="practicesFilter" name="f_q" value="{{ filters.q }}" class="form-control form-control-sm">
                                 </div>
                             </td>
+                            {# Agenzia: scelta multipla in modale #}
+                            <td>
+                                <input form="practicesFilter" type="text" class="form-control form-control-sm cursor_p" id="filter_multi_value_2"
+                                       readonly onclick="filterMulti2()" autocomplete="off">
+                                <input form="practicesFilter" type="hidden" id="filter_multi_id_2" name="f_company" value="{{ filters.company }}">
+                            </td>
                             <td><input form="practicesFilter" name="f_buyer" value="{{ filters.buyer }}" class="form-control form-control-sm"></td>
                             <td><input form="practicesFilter" name="f_seller" value="{{ filters.seller }}" class="form-control form-control-sm"></td>
                             <td><input form="practicesFilter" name="f_address" value="{{ filters.address }}" class="form-control form-control-sm"></td>
@@ -60,6 +64,7 @@
                         </tr>
                         <tr>
                             <th class="td_w_120p">{{ ico.sort('Codice', 'p.number') }}</th>
+                            <th class="td_w_200p">{{ ico.sort('Agenzia', 'c.name') }}</th>
                             <th class="td_w_200p">Acquirente</th>
                             <th class="td_w_200p">Venditore</th>
                             <th class="td_w_300p">{{ ico.sort('Indirizzo', 'p.address') }}</th>
@@ -72,6 +77,7 @@
                     {% for p in records %}
                         <tr>
                             <td><a href="{{ path('notary_practice_sheet', {id: p.id}) }}"><strong>{{ p.number }}</strong></a></td>
+                            <td>{{ p.company.name }}</td>
                             <td>{{ p.buyer ? p.buyer.fullName : '-' }}</td>
                             <td>{{ p.seller ? p.seller.fullName : '-' }}</td>
                             <td>{{ p.address ?: '-' }}</td>
@@ -88,7 +94,7 @@
                             <td class="txt_a_c">{{ ico.action(path('notary_practice_sheet', {id: p.id}), 'sheet', 'Scheda pratica', 'pr') }}</td>
                         </tr>
                     {% else %}
-                        <tr><td colspan="7" class="op_07 text-center">Nessuna pratica {{ statuses[filters.status]|lower }} trovata.</td></tr>
+                        <tr><td colspan="8" class="op_07 text-center">Nessuna pratica {{ statuses[filters.status]|lower }} trovata.</td></tr>
                     {% endfor %}
                     </tbody>
                 </table>
@@ -98,7 +104,17 @@
     </section>
 {% endblock %}
 
+{% block modals %}
+    {# Filtro agenzia: pratiche delle agenzie scelte #}
+    {% include 'components/modals/filter_multi.html.twig' with {
+        number: 2,
+        title: 'Filtra per agenzia',
+        options: companies|map(c => {'id': c.id, 'label': c.name})
+    } only %}
+{% endblock %}
+
 {% block page_javascripts %}
+{% include 'components/js/filter_multi_js.html.twig' with {number: 2} only %}
 {% include 'components/table/sort_js.html.twig' with {
     formName: 'practicesFilter', sortId: 'practicesFilter_sort', directionId: 'practicesFilter_direction',
     actualSort: filters.sortField, actualDirection: filters.sortOrder

@@ -2,10 +2,11 @@
 
 namespace App\Controller\Agency;
 
-use App\Entity\Slave\Customer;
-use App\Entity\Slave\Practice;
+use App\Controller\Agency\Trait\AgencyContextTrait;
+use App\Entity\Customer;
+use App\Entity\Practice;
 use App\Form\CustomerType;
-use App\Repository\Slave\CustomerRepository;
+use App\Repository\CustomerRepository;
 use App\Service\FilterService;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
@@ -26,10 +27,12 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * i form (CustomerType) si inviano alla pagina che li mostra (CONVENZIONI 6).
  */
 #[Route('/agenzia/clienti')]
-#[IsGranted('ROLE_AGENCY')]
+#[IsGranted('ROLE_USER')]
 #[IsGranted(new Expression("is_granted('view', 'customers')"), message: 'Non hai accesso all\'anagrafica clienti.')]
 class AgencyCustomerController extends AbstractController
 {
+    use AgencyContextTrait;
+
     private const PER_PAGE = 20;
 
     public function __construct(private readonly ManagerRegistry $registry)
@@ -45,7 +48,7 @@ class AgencyCustomerController extends AbstractController
     {
         $customers = $this->customers();
 
-        $formNew = $formFactory->createNamed('customer_new', CustomerType::class, new Customer());
+        $formNew = $formFactory->createNamed('customer_new', CustomerType::class, (new Customer())->setCompany($this->company()));
         if ($this->isGranted('edit', 'customers')) {
             $formNew->handleRequest($request);
             if ($formNew->isSubmitted() && $formNew->isValid()) {
@@ -74,7 +77,7 @@ class AgencyCustomerController extends AbstractController
     #[Route('/scheda/{id}', name: 'agency_customer_sheet', methods: ['GET', 'POST'], requirements: ['id' => '\d+'])]
     public function agencyCustomerSheet(int $id, Request $request, FormFactoryInterface $formFactory): Response
     {
-        $em = $this->slave();
+        $em = $this->em();
         $customer = $em->getRepository(Customer::class)->find($id);
         if ($customer === null) {
             throw $this->createNotFoundException('Cliente non trovato.');
@@ -176,10 +179,10 @@ class AgencyCustomerController extends AbstractController
 
     // ===================== SUPPORTO =====================
 
-    private function slave(): EntityManagerInterface
+    private function em(): EntityManagerInterface
     {
         /** @var EntityManagerInterface $em */
-        $em = $this->registry->getManager('slave');
+        $em = $this->registry->getManager();
 
         return $em;
     }
@@ -187,14 +190,14 @@ class AgencyCustomerController extends AbstractController
     private function customers(): CustomerRepository
     {
         /** @var CustomerRepository $customers */
-        $customers = $this->slave()->getRepository(Customer::class);
+        $customers = $this->em()->getRepository(Customer::class);
 
         return $customers;
     }
 
     private function quickForm(FormFactoryInterface $formFactory): FormInterface
     {
-        return $formFactory->createNamed('customer_quick', CustomerType::class, new Customer());
+        return $formFactory->createNamed('customer_quick', CustomerType::class, (new Customer())->setCompany($this->company()));
     }
 
     /** Normalizzazioni dopo la validazione: codice fiscale e SDI in maiuscolo, e-mail e PEC in minuscolo. */

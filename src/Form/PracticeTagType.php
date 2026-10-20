@@ -2,7 +2,7 @@
 
 namespace App\Form;
 
-use App\Entity\Slave\PracticeTag;
+use App\Entity\PracticeTag;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 

@@ -1,9 +1,7 @@
 {# ===========================================================================
    Modale "Recupera password", condivisa dalle pagine di accesso.
    Parametro obbligatorio `form`: il form password_recover (PasswordRecoverType) creato dalla
-   pagina di accesso, con l'action verso password_recover. Sulla pagina dedicata dell'agenzia il
-   form porta già il codice dell'agenzia (campo nascosto), così il controller cerca l'utente nel
-   DB del tenant e non solo sul master. Se l'e-mail non è valida password_recover ripresenta la
+   pagina di accesso, con l'action verso password_recover. Se l'e-mail non è valida password_recover ripresenta la
    sua pagina con il campo segnato; altrimenti redirige a login con un messaggio generico
    (nessuna user enumeration).
    Includere con with_context = false.

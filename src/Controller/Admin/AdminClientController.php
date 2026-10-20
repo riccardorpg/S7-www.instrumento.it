@@ -2,31 +2,33 @@
 
 namespace App\Controller\Admin;
 
-use App\Entity\Master\City;
-use App\Entity\Master\Company;
-use App\Entity\Master\DemoRequest;
-use App\Entity\Master\License;
-use App\Entity\Master\LicenseType;
-use App\Entity\Master\Zip;
-use App\Entity\Slave\Practice;
-use App\Entity\Slave\User as AgencyUser;
+use App\Entity\City;
+use App\Entity\Company;
+use App\Entity\DemoRequest;
+use App\Entity\License;
+use App\Entity\LicenseType;
+use App\Entity\Practice;
+use App\Entity\User as AgencyUser;
+use App\Entity\Zip;
 use App\Form\ClientFirstUserType;
 use App\Form\ClientStaffType;
 use App\Form\CompanyEditType;
 use App\Form\CompanyNewType;
 use App\Form\Model\ClientFirstUser;
-use App\Repository\Master\CompanyRepository;
-use App\Repository\Master\LicenseRepository;
-use App\Repository\Master\LicenseTypeRepository;
-use App\Repository\Master\SpaceExtraRepository;
-use App\Repository\Slave\UserRepository as AgencyUserRepository;
-use App\Service\MailerService;
+use App\Repository\CompanyRepository;
+use App\Repository\LicenseRepository;
+use App\Repository\LicenseTypeRepository;
+use App\Repository\SpaceExtraRepository;
+use App\Repository\UserRepository;
+use App\Service\CompanyLogoService;
 use App\Service\CompanyService;
+use App\Service\DocumentStorageService;
 use App\Service\FilterService;
+use App\Service\MailerService;
 use Doctrine\Persistence\ManagerRegistry;
 use Knp\Component\Pager\PaginatorInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+use Symfony\Component\Filesystem\Filesystem;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -36,7 +38,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
- * 7. Gestione clienti (= agenzie/studi). Il cliente è una Company sul master con DB slave dedicato.
+ * 7. Gestione clienti (= agenzie/studi): una Company, con il suo staff e i suoi dati (company_id).
  */
 #[Route('/amministratore/clienti')]
 #[IsGranted('ROLE_ADMIN')]
@@ -46,7 +48,7 @@ class AdminClientController extends AbstractController
         private readonly ManagerRegistry $registry,
         private readonly CompanyService $companyService,
         private readonly UserPasswordHasherInterface $hasher,
-        private readonly ParameterBagInterface $params,
+        private readonly UserRepository $users,
     ) {
     }
 
@@ -77,7 +79,7 @@ class AdminClientController extends AbstractController
     #[Route('/nuovo', name: 'admin_client_new', methods: ['GET', 'POST'])]
     public function adminClientNew(Request $request, FormFactoryInterface $formFactory, CompanyRepository $companies, MailerService $mailer): Response
     {
-        $master = $this->registry->getManager('master');
+        $master = $this->registry->getManager();
 
         // La richiesta demo viaggia in query anche al POST (sta nell'action del form).
         $fromId = $request->query->getInt('from');
@@ -104,12 +106,11 @@ class AdminClientController extends AbstractController
             [$city, $zip] = $this->resolveGeo($request);
             $company->setCity($city)->setZip($zip);
 
-            // Logica esterna al validator: database già presente sul server, e-mail della richiesta.
-            if ($form->isValid() && $this->databaseExists((string) $company->getDbName())) {
-                $form->get('dbName')->addError(new FormError('Esiste già un database con questo nome'));
-            }
+            // Logica esterna al validator: e-mail della richiesta valida e non già usata (un account = un'e-mail).
             if ($demoRequest !== null && !filter_var((string) $demoRequest->getEmail(), FILTER_VALIDATE_EMAIL)) {
                 $form->addError(new FormError('La richiesta non ha un\'e-mail valida: crea il cliente senza conversione e aggiungi lo staff a mano.'));
+            } elseif ($demoRequest !== null && $this->users->findOneByEmail((string) $demoRequest->getEmail()) !== null) {
+                $form->addError(new FormError('L\'e-mail della richiesta è già usata da un altro utente: crea il cliente senza conversione e aggiungi lo staff a mano.'));
             }
         }
 
@@ -117,9 +118,6 @@ class AdminClientController extends AbstractController
         if ($form->isSubmitted() && $form->isValid() && $firstUserValid) {
             $company->setCode(mb_strtoupper((string) $company->getCode()))->setActive(true);
             $this->normalizeTaxData($company);
-
-            // Provisiona il DB slave: schema corrente e migration già registrate.
-            $slaveEm = $this->companyService->provisionDatabase((string) $company->getDbName());
 
             // Conversione da richiesta demo: nasce e si assegna una licenza demo di 30 giorni (7.1.7).
             if ($demoRequest !== null) {
@@ -135,14 +133,14 @@ class AdminClientController extends AbstractController
 
             $companies->add($company);
 
-            $message = 'Cliente "' . $company->getName() . '" creato con database ' . $company->getDbName() . '.';
+            $message = 'Cliente "' . $company->getName() . '" creato.';
 
             if ($demoRequest !== null && $firstUserForm !== null) {
                 /** @var ClientFirstUser $firstUser */
                 $firstUser = $firstUserForm->getData();
                 // Primo utente dell'agenzia: e-mail presa dalla richiesta, ruolo amministratore.
                 // Password provvisoria casuale, come per lo staff: si attiva con "Invia credenziali".
-                $user = new AgencyUser();
+                $user = (new AgencyUser())->setRole(AgencyUser::ROLE_USER)->setCompany($company);
                 $user->setName($firstUser->getName())->setSurname($firstUser->getSurname())
                     ->setEmail(mb_strtolower((string) $demoRequest->getEmail()))
                     ->setActive(true);
@@ -151,9 +149,7 @@ class AdminClientController extends AbstractController
                 // Codice monouso per l'invito (14.8): l'utente si crea la password dal link.
                 $user->setOneTimeCode(bin2hex(random_bytes(16)));
                 $user->setExpirationOneTimeCode(new \DateTimeImmutable('+72 hours'));
-                $slaveEm->persist($user);
-                $slaveEm->flush();
-
+                $master->persist($user);
                 $demoRequest->markConverted($company, $this->getUser()?->getUserIdentifier());
                 $master->flush();
 
@@ -163,7 +159,6 @@ class AdminClientController extends AbstractController
                     $user->getFullName(),
                     $company,
                     (string) $user->getOneTimeCode(),
-                    $company->getCode(),
                 );
 
                 $message .= ' Richiesta demo evasa, licenza demo di 30 giorni e utente '
@@ -172,7 +167,6 @@ class AdminClientController extends AbstractController
                         : ' creato, ma l\'invio dell\'invito non è riuscito: usa "Invia credenziali".');
             }
 
-            $this->companyService->clearSession();
             $this->addFlash('notice_success', $message);
 
             return $this->redirectToRoute('admin_client_sheet', ['id' => $company->getId()]);
@@ -191,7 +185,7 @@ class AdminClientController extends AbstractController
      */
     private function prefillFromRequest(DemoRequest $demoRequest): Company
     {
-        $master = $this->registry->getManager('master');
+        $master = $this->registry->getManager();
 
         $company = new Company();
         $company->setName($demoRequest->getBusinessName())
@@ -226,7 +220,7 @@ class AdminClientController extends AbstractController
     {
         if ($this->isCsrfTokenValid('client_active_' . $company->getId(), (string) $request->request->get('_csrf_token'))) {
             $company->setActive(!$company->isActive());
-            $this->registry->getManager('master')->flush();
+            $this->registry->getManager()->flush();
             $this->addFlash('notice_success', $company->isActive() ? 'Cliente riattivato.' : 'Cliente sospeso.');
         }
 
@@ -236,7 +230,7 @@ class AdminClientController extends AbstractController
     // ================= ELIMINA =================
 
     #[Route('/{id}/elimina', name: 'admin_client_delete', methods: ['POST'], requirements: ['id' => '\d+'])]
-    public function adminClientDelete(Company $company, Request $request): Response
+    public function adminClientDelete(Company $company, Request $request, DocumentStorageService $storage, CompanyLogoService $logos): Response
     {
         if (!$this->isCsrfTokenValid('delete', (string) $request->request->get('_csrf_token'))) {
             return $this->redirectToRoute('admin_clients');
@@ -248,19 +242,19 @@ class AdminClientController extends AbstractController
             return $this->redirectToRoute('admin_client_sheet', ['id' => $company->getId()]);
         }
 
-        $master = $this->registry->getManager('master');
-        $dbName = (string) $company->getDbName();
+        $master = $this->registry->getManager();
+        $practicesDir = $storage->companyDir($company);
+        $logos->delete($company);
+
+        // Prima le pratiche (con righe documentali, allegati e avvisi a cascata): i clienti
+        // che vi compaiono come parti non si possono cancellare finché c'è una pratica.
+        // Poi il cliente: staff, clienti, configurazioni se ne vanno con lui (FK in cascata).
+        $master->getConnection()->executeStatement('DELETE FROM eb_practice WHERE company_id = ?', [$company->getId()]);
         $master->remove($company);
         $master->flush();
 
-        // Rimuove il database dedicato (orfano dopo la cancellazione del cliente).
-        if ($dbName !== '') {
-            try {
-                $master->getConnection()->executeStatement(sprintf('DROP DATABASE IF EXISTS `%s`', $dbName));
-            } catch (\Throwable) {
-                // ignora: il record è già rimosso, il DB può essere ripulito a mano.
-            }
-        }
+        // File delle pratiche (best effort: il record è già rimosso).
+        (new Filesystem())->remove($practicesDir);
 
         $this->addFlash('notice_success', 'Cliente eliminato.');
 
@@ -276,7 +270,7 @@ class AdminClientController extends AbstractController
      * Le altre azioni della scheda (licenza, spazio, termini, stati) restano rotte POST a sé.
      */
     #[Route('/scheda/{id}', name: 'admin_client_sheet', methods: ['GET', 'POST'], requirements: ['id' => '\d+'])]
-    public function adminClientSheet(Company $company, Request $request, FormFactoryInterface $formFactory, CompanyRepository $companies, AgencyUserRepository $agencyUsers, LicenseRepository $licenses, LicenseTypeRepository $licenseTypes, SpaceExtraRepository $spaceExtras): Response
+    public function adminClientSheet(Company $company, Request $request, FormFactoryInterface $formFactory, CompanyRepository $companies, LicenseRepository $licenses, LicenseTypeRepository $licenseTypes, SpaceExtraRepository $spaceExtras): Response
     {
         // 7.1.9.1 Modifica dati fiscali.
         $formEdit = $formFactory->createNamed('company_edit', CompanyEditType::class, $company);
@@ -294,46 +288,28 @@ class AdminClientController extends AbstractController
                 return $this->redirectToRoute('admin_client_sheet', ['id' => $company->getId()]);
             }
             // Non valido: la scheda torna ai dati salvati, il modale tiene quelli inviati.
-            $this->registry->getManager('master')->refresh($company);
+            $this->registry->getManager()->refresh($company);
         }
 
-        // Staff caricato tutto (filtro lato JS nel tab); lo slave è puntato solo per questa richiesta.
-        $staff = [];
-        // 7.1.5 / 7.1.6 Pratiche del cliente, contate sul suo DB come fa l'area agenzia.
-        $practiceCounts = ['active' => null, 'archived' => null];
-        $formStaff = $formFactory->createNamed('client_staff_new', ClientStaffType::class, new AgencyUser());
-        $slaveEm = null;
-        try {
-            $slaveEm = $this->companyService->switchToCompany($company);
-        } catch (\Throwable) {
-            $slaveEm = null;
+        // 7.1.9.6 Nuovo utente staff dell'agenzia (l'e-mail è unica su tutti gli utenti).
+        $formStaff = $formFactory->createNamed('client_staff_new', ClientStaffType::class, (new AgencyUser())->setRole(AgencyUser::ROLE_USER)->setCompany($company));
+        $formStaff->handleRequest($request);
+        if ($formStaff->isSubmitted() && $formStaff->isValid()) {
+            /** @var AgencyUser $user */
+            $user = $formStaff->getData();
+            $user->setEmail(mb_strtolower((string) $user->getEmail()))->setActive(true);
+            // Password provvisoria casuale: verrà impostata dall'utente via "invia credenziali".
+            $user->setPassword($this->hasher->hashPassword($user, bin2hex(random_bytes(8))));
+            $this->users->add($user);
+            $this->addFlash('notice_success', 'Utente ' . $user->getEmail() . ' aggiunto. Usa "Invia credenziali" per l\'attivazione.');
+
+            return $this->redirectToRoute('admin_client_sheet', ['id' => $company->getId()]);
         }
 
-        if ($slaveEm !== null) {
-            // 7.1.9.6 Nuovo utente staff: l'unicità dell'e-mail (UniqueEntity) si controlla sul
-            // database dell'agenzia, quindi il form si gestisce dopo aver puntato lo slave.
-            $formStaff->handleRequest($request);
-            if ($formStaff->isSubmitted() && $formStaff->isValid()) {
-                /** @var AgencyUser $user */
-                $user = $formStaff->getData();
-                $user->setEmail(mb_strtolower((string) $user->getEmail()))->setActive(true);
-                // Password provvisoria casuale: verrà impostata dall'utente via "invia credenziali".
-                $user->setPassword($this->hasher->hashPassword($user, bin2hex(random_bytes(8))));
-                $agencyUsers->add($user);
-                $this->companyService->clearSession();
-                $this->addFlash('notice_success', 'Utente ' . $user->getEmail() . ' aggiunto. Usa "Invia credenziali" per l\'attivazione.');
-
-                return $this->redirectToRoute('admin_client_sheet', ['id' => $company->getId()]);
-            }
-
-            try {
-                $staff = $slaveEm->getRepository(AgencyUser::class)->findBy([], ['email' => 'ASC']);
-                $practiceCounts = $this->practiceCounts($slaveEm);
-            } catch (\Throwable) {
-                $staff = [];
-            }
-        }
-        $this->companyService->clearSession();
+        // Staff caricato tutto (filtro lato JS nel tab), per e-mail.
+        $staff = $this->users->findBy(['company' => $company, 'role' => AgencyUser::ROLE_USER], ['email' => 'ASC']);
+        // 7.1.5 / 7.1.6 Pratiche del cliente, contate come fa l'area agenzia.
+        $practiceCounts = $this->practiceCounts($company);
 
         return $this->render('role/admin/client/sheet.html.twig', [
             'company' => $company,
@@ -358,9 +334,11 @@ class AdminClientController extends AbstractController
      *
      * @return array{active: int, archived: int}
      */
-    private function practiceCounts(\Doctrine\ORM\EntityManagerInterface $slaveEm): array
+    private function practiceCounts(Company $company): array
     {
-        $base = $slaveEm->getRepository(Practice::class)->createQueryBuilder('p')->select('COUNT(p.id)');
+        $base = $this->registry->getManager()->getRepository(Practice::class)->createQueryBuilder('p')
+            ->select('COUNT(p.id)')
+            ->where('p.company = :company')->setParameter('company', $company);
 
         return [
             'active' => (int) (clone $base)->andWhere('p.status <> :archived')
@@ -406,7 +384,7 @@ class AdminClientController extends AbstractController
             $company->setLicense($license); // la vecchia, se c'era, torna libera
             $license->start($activation);
         }
-        $this->registry->getManager('master')->flush();
+        $this->registry->getManager()->flush();
         $this->addFlash('notice_success', ($current === null ? 'Licenza assegnata: ' : 'Licenza modificata: ') . $license->getInfo() . '.');
 
         return $this->redirectToRoute('admin_client_sheet', ['id' => $company->getId()]);
@@ -426,7 +404,7 @@ class AdminClientController extends AbstractController
             $this->addFlash('notice_warning', 'Seleziona la data di attivazione.');
         } else {
             $license->start($activation);
-            $this->registry->getManager('master')->flush();
+            $this->registry->getManager()->flush();
             $this->addFlash('notice_success', 'Licenza rinnovata: ' . $license->getInfo() . '.');
         }
 
@@ -439,7 +417,7 @@ class AdminClientController extends AbstractController
     {
         if ($company->getLicense() !== null && $this->isCsrfTokenValid('client_license_' . $company->getId(), (string) $request->request->get('_csrf_token'))) {
             $company->setLicense(null);
-            $this->registry->getManager('master')->flush();
+            $this->registry->getManager()->flush();
             $this->addFlash('notice_success', 'Licenza revocata: ora è di nuovo libera.');
         }
 
@@ -469,7 +447,7 @@ class AdminClientController extends AbstractController
             } else {
                 $previous = $company->getSpaceExtra();
                 $company->setSpaceExtra($extra);
-                $this->registry->getManager('master')->flush();
+                $this->registry->getManager()->flush();
                 $this->addFlash('notice_success', $previous === null
                     ? 'Pacchetto spazio ' . $extra->getLabel() . ' assegnato.'
                     : 'Pacchetto spazio cambiato da ' . $previous->getLabel() . ' a ' . $extra->getLabel() . '.');
@@ -485,7 +463,7 @@ class AdminClientController extends AbstractController
         $extra = $company->getSpaceExtra();
         if ($extra !== null && $this->isCsrfTokenValid('client_license_' . $company->getId(), (string) $request->request->get('_csrf_token'))) {
             $company->setSpaceExtra(null);
-            $this->registry->getManager('master')->flush();
+            $this->registry->getManager()->flush();
             $this->addFlash('notice_success', 'Pacchetto spazio ' . $extra->getLabel() . ' rimosso.');
         }
 
@@ -500,13 +478,12 @@ class AdminClientController extends AbstractController
         if ($this->isCsrfTokenValid('client_terms_' . $company->getId(), (string) $request->request->get('_csrf_token'))) {
             $accepting = !$company->isTermsAccepted();
             $company->setTermsAcceptedAt($accepting ? new \DateTimeImmutable() : null);
-            $this->registry->getManager('master')->flush();
+            $this->registry->getManager()->flush();
             $this->addFlash('notice_success', 'Stato contratto aggiornato.');
 
             // 14.9 Solo all'accettazione: ricevuta al cliente, copia all'indirizzo dedicato.
             if ($accepting) {
                 $to = $this->companyService->getPrimaryContactEmail($company);
-                $this->companyService->clearSession();
                 if ($to === null) {
                     $this->addFlash('notice_danger', 'Nessun indirizzo a cui inviare la ricevuta del contratto: il cliente non ha utenti attivi.');
                 } elseif (!$mailer->termsAccepted($company, $to)) {
@@ -518,19 +495,17 @@ class AdminClientController extends AbstractController
         return $this->redirectToRoute('admin_client_sheet', ['id' => $company->getId()]);
     }
 
-    // ================= 7.1.9.6 GESTIONE STAFF (sul DB dell'agenzia) =================
+    // ================= 7.1.9.6 GESTIONE STAFF DELL'AGENZIA =================
 
     #[Route('/{id}/staff/{sid}/stato', name: 'admin_client_staff_toggle', methods: ['POST'], requirements: ['id' => '\d+', 'sid' => '\d+'])]
     public function adminClientStaffToggle(Company $company, int $sid, Request $request): Response
     {
         if ($this->isCsrfTokenValid('client_staff_' . $company->getId(), (string) $request->request->get('_csrf_token'))) {
-            $slaveEm = $this->companyService->switchToCompany($company);
-            $user = $slaveEm->getRepository(AgencyUser::class)->find($sid);
+            $user = $this->staffMember($company, $sid);
             if ($user !== null) {
                 $user->setActive(!$user->isActive());
-                $slaveEm->flush();
+                $this->registry->getManager()->flush();
             }
-            $this->companyService->clearSession();
         }
 
         return $this->redirectToRoute('admin_client_sheet', ['id' => $company->getId()]);
@@ -540,13 +515,11 @@ class AdminClientController extends AbstractController
     public function adminClientStaffAdmin(Company $company, int $sid, Request $request): Response
     {
         if ($this->isCsrfTokenValid('client_staff_' . $company->getId(), (string) $request->request->get('_csrf_token'))) {
-            $slaveEm = $this->companyService->switchToCompany($company);
-            $user = $slaveEm->getRepository(AgencyUser::class)->find($sid);
+            $user = $this->staffMember($company, $sid);
             if ($user !== null) {
                 $user->setAdmin(!$user->isAdmin());
-                $slaveEm->flush();
+                $this->registry->getManager()->flush();
             }
-            $this->companyService->clearSession();
         }
 
         return $this->redirectToRoute('admin_client_sheet', ['id' => $company->getId()]);
@@ -556,19 +529,17 @@ class AdminClientController extends AbstractController
     public function adminClientStaffCredentials(Company $company, int $sid, Request $request, MailerService $mailer): Response
     {
         if ($this->isCsrfTokenValid('client_staff_' . $company->getId(), (string) $request->request->get('_csrf_token'))) {
-            $slaveEm = $this->companyService->switchToCompany($company);
-            $user = $slaveEm->getRepository(AgencyUser::class)->find($sid);
+            $user = $this->staffMember($company, $sid);
             if ($user !== null) {
                 $user->setOneTimeCode(bin2hex(random_bytes(16)));
                 $user->setExpirationOneTimeCode(new \DateTimeImmutable('+72 hours'));
-                $slaveEm->flush();
+                $this->registry->getManager()->flush();
 
-                // 14.3 Link di creazione password: l'utente è dell'agenzia, serve il suo codice.
+                // 14.3 Link di creazione password.
                 $sent = $mailer->passwordCreate(
                     (string) $user->getEmail(),
                     $user->getFullName(),
                     (string) $user->getOneTimeCode(),
-                    $company->getCode(),
                     $user->getExpirationOneTimeCode(),
                 );
                 $this->addFlash(
@@ -578,13 +549,20 @@ class AdminClientController extends AbstractController
                         : 'Credenziali generate, ma l\'invio dell\'e-mail a ' . $user->getEmail() . ' non è riuscito.'
                 );
             }
-            $this->companyService->clearSession();
         }
 
         return $this->redirectToRoute('admin_client_sheet', ['id' => $company->getId()]);
     }
 
     // ================= helper =================
+
+    /** Membro dello staff di questa agenzia, null se l'id è di un altro utente. */
+    private function staffMember(Company $company, int $sid): ?AgencyUser
+    {
+        $user = $this->users->find($sid);
+
+        return $user !== null && $user->isAgencyUser() && $user->getCompany() === $company ? $user : null;
+    }
 
     /**
      * Risolve city_id/zip_id (dal picker città/CAP) in entità City/Zip.
@@ -593,7 +571,7 @@ class AdminClientController extends AbstractController
      */
     private function resolveGeo(Request $request): array
     {
-        $master = $this->registry->getManager('master');
+        $master = $this->registry->getManager();
         $cityId = (int) $request->request->get('city_id');
         $zipId = (int) $request->request->get('zip_id');
 
@@ -610,24 +588,8 @@ class AdminClientController extends AbstractController
             ->setSdi($company->getSdi() !== null ? mb_strtoupper($company->getSdi()) : null);
     }
 
-    /**
-     * Un database con questo nome c'è già sul server (anche se nessun cliente lo usa): crearci
-     * sopra lo schema dell'agenzia fallirebbe o, peggio, mescolerebbe i dati.
-     */
-    private function databaseExists(string $dbName): bool
-    {
-        return $this->registry->getConnection('master')->fetchOne(
-            'SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = ?',
-            [$dbName],
-        ) !== false;
-    }
-
     private function safeStorage(Company $company): float
     {
-        try {
-            return $this->companyService->getStorageUsedMb((string) $company->getDbName());
-        } catch (\Throwable) {
-            return 0.0;
-        }
+        return $this->companyService->getStorageUsedMb($company);
     }
 }

@@ -2,37 +2,31 @@
 
 namespace App\Command;
 
-use App\Entity\Master\Company;
-use App\Entity\Slave\User as AgencyUser;
-use App\Service\CompanyService;
-use Doctrine\Persistence\ManagerRegistry;
+use App\Entity\Company;
+use App\Entity\User;
+use App\Repository\CompanyRepository;
+use App\Repository\UserRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 /**
- * Provisiona una nuova agenzia (tenant):
- *   1) crea il record Company sul master (code + dbName);
- *   2) crea fisicamente il database slave dell'agenzia e ne genera lo schema;
- *   3) crea il primo utente ROLE_AGENCY nel DB slave.
- *
- * L'email è univoca solo DENTRO il DB dell'agenzia: la stessa email può esistere in
- * agenzie diverse (il login la disambigua tramite il codice).
+ * Nuova agenzia: il record Company e il suo primo utente (ROLE_USER, amministratore dello staff).
+ * L'e-mail è unica su tutta la piattaforma: un account = un'e-mail.
  */
-#[AsCommand(name: 'app:create-agency', description: 'Crea una nuova agenzia: Company sul master, DB slave dedicato e primo utente ROLE_AGENCY')]
+#[AsCommand(name: 'app:create-agency', description: 'Crea una nuova agenzia con il primo utente amministratore')]
 class CreateAgencyCommand extends Command
 {
     public function __construct(
-        private readonly ManagerRegistry $registry,
-        private readonly CompanyService $companyService,
+        private readonly EntityManagerInterface $em,
+        private readonly CompanyRepository $companies,
+        private readonly UserRepository $users,
         private readonly UserPasswordHasherInterface $hasher,
-        private readonly ParameterBagInterface $params,
     ) {
         parent::__construct();
     }
@@ -43,59 +37,39 @@ class CreateAgencyCommand extends Command
             ->addArgument('code', InputArgument::REQUIRED, 'Codice agenzia univoco (es. AG001)')
             ->addArgument('name', InputArgument::REQUIRED, 'Ragione sociale')
             ->addArgument('email', InputArgument::REQUIRED, 'Email del primo utente agenzia')
-            ->addArgument('password', InputArgument::REQUIRED, 'Password del primo utente agenzia')
-            ->addOption('db-name', null, InputOption::VALUE_REQUIRED, 'Nome del DB slave (default: <db_prefix>ag_<code>)');
+            ->addArgument('password', InputArgument::REQUIRED, 'Password del primo utente agenzia');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
 
-        $code = trim((string) $input->getArgument('code'));
+        $code = mb_strtoupper(trim((string) $input->getArgument('code')));
         $name = trim((string) $input->getArgument('name'));
         $email = mb_strtolower(trim((string) $input->getArgument('email')));
         $password = (string) $input->getArgument('password');
 
-        $prefix = (string) $this->params->get('db_prefix');
-        $slug = preg_replace('/[^a-z0-9]+/', '_', strtolower($code)) ?: 'agency';
-        $dbName = (string) ($input->getOption('db-name') ?? $prefix . 'ag_' . $slug);
-
-        $masterEm = $this->registry->getManager('master');
-
-        // Guardie di unicità
-        if ($masterEm->getRepository(Company::class)->findOneBy(['code' => $code]) !== null) {
-            $io->error(sprintf('Esiste già una Company con codice "%s".', $code));
+        if ($this->companies->findOneByCode($code) !== null) {
+            $io->error(sprintf('Esiste già un\'agenzia con codice "%s".', $code));
 
             return Command::FAILURE;
         }
-        if ($masterEm->getRepository(Company::class)->findOneBy(['dbName' => $dbName]) !== null) {
-            $io->error(sprintf('Il database "%s" è già assegnato a un\'altra agenzia.', $dbName));
+        if ($this->users->findOneByEmail($email) !== null) {
+            $io->error(sprintf('L\'e-mail "%s" è già usata da un altro utente.', $email));
 
             return Command::FAILURE;
         }
 
-        // 1-2) Crea il database slave con lo schema corrente e le migration già registrate
-        $io->section('Creazione database agenzia: ' . $dbName);
-        $slaveEm = $this->companyService->provisionDatabase($dbName);
+        $company = (new Company())->setCode($code)->setName($name)->setActive(true);
+        $this->em->persist($company);
 
-        // 3) Primo utente ROLE_AGENCY nel DB slave
-        $agencyUser = new AgencyUser();
-        $agencyUser->setEmail($email)->setActive(true);
-        $agencyUser->setPassword($this->hasher->hashPassword($agencyUser, $password));
-        $slaveEm->persist($agencyUser);
-        $slaveEm->flush();
+        $user = (new User())->setRole(User::ROLE_USER)->setCompany($company)->setEmail($email)->setActive(true);
+        $user->setStaffRole(User::STAFF_ADMIN);
+        $user->setPassword($this->hasher->hashPassword($user, $password));
+        $this->em->persist($user);
+        $this->em->flush();
 
-        // 4) Company sul master (registro agenzia: code + dbName)
-        $company = new Company();
-        $company->setCode($code)->setName($name)->setDbName($dbName)->setActive(true);
-
-        $masterEm->persist($company);
-        $masterEm->flush();
-
-        $io->success(sprintf(
-            "Agenzia \"%s\" (%s) creata.\n  DB slave: %s\n  Primo utente: %s",
-            $name, $code, $dbName, $email
-        ));
+        $io->success(sprintf("Agenzia \"%s\" (%s) creata.\n  Primo utente: %s", $name, $code, $email));
 
         return Command::SUCCESS;
     }

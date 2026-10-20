@@ -2,7 +2,7 @@
 
 namespace App\Form;
 
-use App\Entity\Slave\User;
+use App\Entity\User;
 use App\Form\Custom\CustomChoiceType;
 use App\Form\Custom\CustomEmailType;
 use App\Form\Custom\CustomTextType;

@@ -1,0 +1,12 @@
+# 13.2 Contrassegno delle pratiche. Il valore è unico (collation case-insensitive: vale anche con altre maiuscole);
+# il colore è un esadecimale #rrggbb (il controller lo porta in minuscolo dopo la validazione).
+App\Entity\PracticeMark:
+  constraints:
+    - Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity: { fields: [company, value], errorPath: value, message: "Esiste già un contrassegno con questo valore", groups: [practice_mark] }
+  properties:
+    value:
+      - NotBlank: { message: "Campo obbligatorio", groups: [practice_mark] }
+      - Length: { max: 190, maxMessage: "Massimo 190 caratteri", groups: [practice_mark] }
+    color:
+      - NotBlank: { message: "Campo obbligatorio", groups: [practice_mark] }
+      - Regex: { pattern: '/^#[0-9a-fA-F]{6}$/', message: "Colore non valido", groups: [practice_mark] }

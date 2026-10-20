@@ -2,10 +2,10 @@
 
 namespace App\Command;
 
-use App\Entity\Master\City;
-use App\Entity\Master\Province;
-use App\Entity\Master\Region;
-use App\Entity\Master\Zip;
+use App\Entity\City;
+use App\Entity\Province;
+use App\Entity\Region;
+use App\Entity\Zip;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -61,7 +61,7 @@ class SeedGeoCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        $em = $this->registry->getManager('master');
+        $em = $this->registry->getManager();
         $regionRepo = $em->getRepository(Region::class);
         $provinceRepo = $em->getRepository(Province::class);
         $cityRepo = $em->getRepository(City::class);

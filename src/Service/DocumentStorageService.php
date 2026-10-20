@@ -2,14 +2,15 @@
 
 namespace App\Service;
 
-use App\Entity\Slave\Practice;
+use App\Entity\Company;
+use App\Entity\Practice;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 /**
  * Salvataggio/lettura dei file allegati alle pratiche (practices).
- * I file vivono fuori dalla webroot: var/uploads/practices/{dbName}/{practiceId}/...
- * `storagePath` sul Documento è relativo alla base del tenant ({dbName}).
+ * I file vivono fuori dalla webroot: var/uploads/practices/{companyId}/{practiceId}/...
+ * `storagePath` sul Documento è relativo alla cartella dell'agenzia ({companyId}).
  */
 class DocumentStorageService
 {
@@ -23,16 +24,16 @@ class DocumentStorageService
         return rtrim((string) $this->params->get('kernel.project_dir'), '/\\') . '/var/uploads/practices';
     }
 
-    /** Base assoluta del tenant (agenzia). */
-    public function tenantDir(string $dbName): string
+    /** Cartella assoluta dell'agenzia. */
+    public function companyDir(Company $company): string
     {
-        return $this->root() . '/' . $dbName;
+        return $this->root() . '/' . (int) $company->getId();
     }
 
     /** Percorso assoluto di un file a partire dal suo storagePath relativo. */
-    public function absolutePath(string $dbName, string $relativePath): string
+    public function absolutePath(Company $company, string $relativePath): string
     {
-        return $this->tenantDir($dbName) . '/' . ltrim($relativePath, '/\\');
+        return $this->companyDir($company) . '/' . ltrim($relativePath, '/\\');
     }
 
     /**
@@ -51,12 +52,12 @@ class DocumentStorageService
      *
      * @return array{path: string, name: string, mime: string, size: int}
      */
-    public function store(string $dbName, Practice $practice, UploadedFile $file, ?string $displayName = null): array
+    public function store(Company $company, Practice $practice, UploadedFile $file, ?string $displayName = null): array
     {
         $original = $this->fileName($file, $displayName);
         $safe = preg_replace('/[^a-zA-Z0-9._-]+/', '_', strtolower($original)) ?: 'allegato';
         $relative = $practice->getId() . '/' . bin2hex(random_bytes(8)) . '_' . $safe;
-        $absDir = $this->tenantDir($dbName) . '/' . $practice->getId();
+        $absDir = $this->companyDir($company) . '/' . $practice->getId();
         if (!is_dir($absDir) && !@mkdir($absDir, 0775, true) && !is_dir($absDir)) {
             throw new \RuntimeException('Impossibile creare la cartella di destinazione.');
         }
@@ -75,7 +76,7 @@ class DocumentStorageService
             'path' => $relative,
             'name' => $original,
             'mime' => $mime ?: 'application/octet-stream',
-            'size' => (int) @filesize($this->absolutePath($dbName, $relative)),
+            'size' => (int) @filesize($this->absolutePath($company, $relative)),
         ];
     }
 
@@ -105,12 +106,12 @@ class DocumentStorageService
     }
 
     /** Elimina fisicamente il file (best effort). */
-    public function delete(string $dbName, ?string $relativePath): void
+    public function delete(Company $company, ?string $relativePath): void
     {
         if ($relativePath === null || $relativePath === '') {
             return;
         }
-        $abs = $this->absolutePath($dbName, $relativePath);
+        $abs = $this->absolutePath($company, $relativePath);
         if (is_file($abs)) {
             @unlink($abs);
         }

@@ -1,9 +1,0 @@
-# Tipo di documento (13.1). Il valore è unico nel catalogo dell'agenzia: la colonna ha collation
-# case-insensitive, quindi UniqueEntity scarta anche lo stesso valore scritto con altre maiuscole.
-App\Entity\Slave\DocumentType:
-  constraints:
-    - Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity: { fields: value, errorPath: value, message: "Esiste già un tipo di documento con questo valore", groups: [document_type] }
-  properties:
-    value:
-      - NotBlank: { message: "Campo obbligatorio", groups: [document_type] }
-      - Length: { max: 190, maxMessage: "Massimo 190 caratteri", groups: [document_type] }

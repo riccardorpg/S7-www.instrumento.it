@@ -2,10 +2,11 @@
 
 namespace App\Controller\Agency;
 
+use App\Controller\Agency\Trait\AgencyContextTrait;
 use App\Controller\Agency\Trait\ColorValueFormsTrait;
-use App\Entity\Slave\PracticeTag;
+use App\Entity\PracticeTag;
 use App\Form\PracticeTagType;
-use App\Repository\Slave\PracticeTagRepository;
+use App\Repository\PracticeTagRepository;
 use App\Service\FilterService;
 use Doctrine\Persistence\ManagerRegistry;
 use Knp\Component\Pager\PaginatorInterface;
@@ -24,10 +25,11 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * Permesso: sezione "configurations" (lettura per vedere, rw per modificare).
  */
 #[Route('/agenzia/pratiche/tag')]
-#[IsGranted('ROLE_AGENCY')]
+#[IsGranted('ROLE_USER')]
 #[IsGranted(new Expression("is_granted('view', 'configurations')"), message: 'Non hai accesso ai tag delle pratiche.')]
 class AgencyPracticeTagController extends AbstractController
 {
+    use AgencyContextTrait;
     use ColorValueFormsTrait;
 
     private const PER_PAGE = 20;
@@ -46,8 +48,8 @@ class AgencyPracticeTagController extends AbstractController
         }
 
         /** @var PracticeTagRepository $tags */
-        $tags = $this->slave()->getRepository(PracticeTag::class);
-        $forms = $this->colorValueForms($request, $formFactory, $tags, PracticeTagType::class, 'practice_tag', new PracticeTag(), 'Tag', 'agency_practice_tags');
+        $tags = $this->em()->getRepository(PracticeTag::class);
+        $forms = $this->colorValueForms($request, $formFactory, $tags, PracticeTagType::class, 'practice_tag', (new PracticeTag())->setCompany($this->company()), 'Tag', 'agency_practice_tags');
         if ($forms instanceof Response) {
             return $forms;
         }
@@ -71,7 +73,7 @@ class AgencyPracticeTagController extends AbstractController
             return $this->backTo('agency_practice_tags');
         }
 
-        $em = $this->slave();
+        $em = $this->em();
         $tag = $em->getRepository(PracticeTag::class)->find($id);
         if ($tag === null) {
             throw $this->createNotFoundException('Tag non trovato.');

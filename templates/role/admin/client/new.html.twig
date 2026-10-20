@@ -45,18 +45,6 @@
                             {% include 'role/admin/client/_fiscal_fields.html.twig' with {form: form, picker: 'clientNew', city: form.vars.value.city, zip: form.vars.value.zip} only %}
                         </div>
 
-                        {# 7.1.10.2 Nome del database #}
-                        <h5 class="mb-3">Database dedicato</h5>
-                        <div class="row g-3 mb-4">
-                            <div class="col-md-6">
-                                <div {{ form_errors(form.dbName) }}>
-                                    <label class="form-label" for="{{ form.dbName.vars.id }}">Nome del database *</label>
-                                    {{ form_widget(form.dbName) }}
-                                </div>
-                                <div class="form-text">Verrà creato un database MySQL dedicato con lo schema dell'agenzia.</div>
-                            </div>
-                        </div>
-
                         {% if demoRequest and firstUserForm %}
                             {# Primo utente dell'agenzia: e-mail vincolata a quella della richiesta. #}
                             <h5 class="mb-3">Primo utente dell'agenzia</h5>

@@ -2,7 +2,7 @@
 
 namespace App\Form;
 
-use App\Entity\Slave\DocumentType;
+use App\Entity\DocumentType;
 use App\Form\Custom\CustomTextType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;

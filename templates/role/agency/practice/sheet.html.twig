@@ -101,11 +101,8 @@
                         <tr>
                             <th>Notaio</th>
                             <td>
-                                {% if practice.notaryEmail %}
-                                    {# Il nome sta nel master: se il notaio non c'è più resta la sola e-mail. #}
-                                    {% set assigned = notaries|filter(n => n.email == practice.notaryEmail)|first %}
-                                    {{ assigned ? assigned.fullName : practice.notaryEmail }}
-                                    {% if assigned %}<span class="op_07 font_13">({{ assigned.email }})</span>{% endif %}
+                                {% if practice.notary %}
+                                    {{ practice.notary.fullName }} <span class="op_07 font_13">({{ practice.notary.email }})</span>
                                 {% else %}
                                     <span class="op_07">Nessuno: la pratica non è visibile in area notaio</span>
                                 {% endif %}

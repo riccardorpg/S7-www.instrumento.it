@@ -2,17 +2,17 @@
 
 namespace App\Controller\Agency;
 
-use App\Entity\Master\City;
-use App\Entity\Master\User as NotaryUser;
-use App\Entity\Master\Zip;
-use App\Entity\Slave\Customer;
-use App\Entity\Slave\Document;
-use App\Entity\Slave\Practice;
-use App\Entity\Slave\PracticeAlert;
-use App\Entity\Slave\PracticeDocument;
-use App\Entity\Slave\PracticeMark;
-use App\Entity\Slave\PracticeTag;
-use App\Entity\Slave\User as StaffUser;
+use App\Entity\City;
+use App\Entity\Company;
+use App\Entity\Customer;
+use App\Entity\Document;
+use App\Entity\Practice;
+use App\Entity\PracticeAlert;
+use App\Entity\PracticeDocument;
+use App\Entity\PracticeMark;
+use App\Entity\PracticeTag;
+use App\Entity\User;
+use App\Entity\Zip;
 use App\Form\DocumentEditType;
 use App\Form\Model\PracticeDocumentUpload;
 use App\Form\Model\PracticeNotify;
@@ -20,7 +20,8 @@ use App\Form\PracticeAlertType;
 use App\Form\PracticeDocumentUploadType;
 use App\Form\PracticeNotifyType;
 use App\Form\PracticeType;
-use App\Repository\Slave\PracticeRepository;
+use App\Repository\PracticeRepository;
+use App\Repository\UserRepository;
 use App\Service\CompanyService;
 use App\Service\DocumentStorageService;
 use App\Service\FilterService;
@@ -45,10 +46,10 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
  * 12. Pratiche dell'agenzia: elenco (12.1), inserimento (12.2) e scheda (12.3).
- * Vivono nel DB dell'agenzia (slave); il notaio le lavora dalla sua area (17).
+ * Sono dell'agenzia (company_id); il notaio assegnato le lavora dalla sua area (17).
  */
 #[Route('/agenzia/pratiche')]
-#[IsGranted('ROLE_AGENCY')]
+#[IsGranted('ROLE_USER')]
 #[IsGranted(new Expression("is_granted('view', 'practices')"), message: 'Non hai accesso alle pratiche.')]
 class AgencyPracticeController extends AbstractController
 {
@@ -58,6 +59,7 @@ class AgencyPracticeController extends AbstractController
         private readonly ManagerRegistry $registry,
         private readonly PracticeDocumentSyncService $documentSync,
         private readonly CompanyService $companyService,
+        private readonly UserRepository $users,
     ) {
     }
 
@@ -69,21 +71,21 @@ class AgencyPracticeController extends AbstractController
 
         // 12.3.3 Chi non è amministratore vede solo le pratiche in cui è stato abilitato.
         $user = $this->getUser();
-        $onlyStaffId = $user instanceof StaffUser && !$user->isAdmin() ? $user->getId() : null;
+        $onlyStaffId = $user instanceof User && !$user->isAdmin() ? $user->getId() : null;
 
         /** @var PracticeRepository $practices */
-        $practices = $this->slave()->getRepository(Practice::class);
-        $records = $paginator->paginate($practices->queryAgencyFiltered($filters, $onlyStaffId), FilterService::page($request, 'agency_practices'), self::PER_PAGE);
+        $practices = $this->em()->getRepository(Practice::class);
+        $records = $paginator->paginate($practices->queryAgencyFiltered($this->company(), $filters, $onlyStaffId), FilterService::page($request, 'agency_practices'), self::PER_PAGE);
 
         return $this->render('role/agency/practice/list.html.twig', [
             'records' => $records,
             'filters' => $filters,
             'statuses' => Practice::STATUSES,
             // Contatori delle schede: con gli stessi filtri, stato escluso
-            'statusCounts' => $practices->countAgencyByStatus($filters, $onlyStaffId),
+            'statusCounts' => $practices->countAgencyByStatus($this->company(), $filters, $onlyStaffId),
             // Opzioni dei filtri contrassegno e tag (cataloghi dell'agenzia)
-            'marks' => $this->slave()->getRepository(PracticeMark::class)->findBy([], ['value' => 'ASC']),
-            'tags' => $this->slave()->getRepository(PracticeTag::class)->findBy([], ['value' => 'ASC']),
+            'marks' => $this->em()->getRepository(PracticeMark::class)->findBy(['company' => $this->company()], ['value' => 'ASC']),
+            'tags' => $this->em()->getRepository(PracticeTag::class)->findBy(['company' => $this->company()], ['value' => 'ASC']),
         ]);
     }
 
@@ -109,9 +111,9 @@ class AgencyPracticeController extends AbstractController
     #[IsGranted(new Expression("is_granted('edit', 'practices')"))]
     public function agencyPracticeNew(Request $request, FormFactoryInterface $formFactory): Response
     {
-        $em = $this->slave();
+        $em = $this->em();
         // 12.2.3 La data di creazione parte da oggi.
-        $practice = (new Practice())->setCreatedAt(new \DateTimeImmutable('today'));
+        $practice = (new Practice())->setCompany($this->company())->setCreatedAt(new \DateTimeImmutable('today'));
         $form = $formFactory->createNamed('practice_new', PracticeType::class, $practice);
         $form->handleRequest($request);
 
@@ -120,7 +122,7 @@ class AgencyPracticeController extends AbstractController
             $this->checkNotary($form);
         }
         if ($form->isSubmitted() && $form->isValid()) {
-            $this->completePractice($practice, $geo);
+            $this->completePractice($practice, $geo, $form);
             $practice->setNumber($this->nextNumber($em));
             $em->getRepository(Practice::class)->add($practice);
 
@@ -155,7 +157,8 @@ class AgencyPracticeController extends AbstractController
     {
         $q = trim((string) $request->query->get('q', ''));
 
-        $qb = $this->slave()->getRepository(Customer::class)->createQueryBuilder('c')
+        $qb = $this->em()->getRepository(Customer::class)->createQueryBuilder('c')
+            ->andWhere('c.company = :company')->setParameter('company', $this->company())
             ->andWhere('c.active = true')
             ->orderBy('c.surname', 'ASC')
             ->addOrderBy('c.name', 'ASC')
@@ -208,7 +211,7 @@ class AgencyPracticeController extends AbstractController
     #[Route('/scheda/{id}', name: 'agency_practice_sheet', methods: ['GET', 'POST'], requirements: ['id' => '\d+'])]
     public function agencyPracticeSheet(int $id, Request $request, PracticeNotifierService $notifier, DocumentStorageService $storage, FormFactoryInterface $formFactory): Response
     {
-        $em = $this->slave();
+        $em = $this->em();
         $practice = $this->requirePractice($id);
 
         // I form si gestiscono solo con il permesso di modifica e a pratica non archiviata
@@ -240,7 +243,7 @@ class AgencyPracticeController extends AbstractController
         if ($formEdit->isSubmitted()) {
             $this->checkNotary($formEdit);
             if ($formEdit->isValid()) {
-                $this->completePractice($practice, $geo);
+                $this->completePractice($practice, $geo, $formEdit);
                 // Se la pratica passa a "con mutuo" servono anche i documenti dedicati.
                 $added = $this->documentSync->sync($em, $practice);
                 $em->flush();
@@ -369,8 +372,8 @@ class AgencyPracticeController extends AbstractController
             'formAlertEdit' => $formAlertEdit->createView(),
             'openTab' => $openTab,
             // 12.3.3 Solo i non-amministratori vanno abilitati: gli admin entrano comunque.
-            'staffMembers' => $em->getRepository(StaffUser::class)->findBy(['admin' => false, 'active' => true], ['surname' => 'ASC']),
-            'assignedStaffIds' => $practice->getStaff()->map(fn (StaffUser $u) => $u->getId())->toArray(),
+            'staffMembers' => array_values(array_filter($this->users->findStaff($this->company(), true), static fn (User $u) => !$u->isAdmin())),
+            'assignedStaffIds' => $practice->getStaff()->map(fn (User $u) => $u->getId())->toArray(),
             // 12.3.2.7 Destinatari possibili della notifica.
             'recipients' => $recipients,
             // 12.3.2.1 Tipi di documento previsti ma senza riga: si propone di sincronizzare.
@@ -394,7 +397,7 @@ class AgencyPracticeController extends AbstractController
             return $this->backToDocuments($practice);
         }
 
-        $em = $this->slave();
+        $em = $this->em();
         $added = $this->documentSync->sync($em, $practice);
         $em->flush();
 
@@ -416,11 +419,11 @@ class AgencyPracticeController extends AbstractController
         $this->requirePracticeWithEditableDocuments($id);
         [$practice, $document] = $this->requireDocument($id, $did);
         if ($this->isCsrfTokenValid('delete', (string) $request->request->get('_csrf_token'))) {
-            $storage->delete($this->dbName(), $document->getStoragePath());
+            $storage->delete($this->company(), $document->getStoragePath());
             // Se la riga resta senza allegati torna "da caricare": non c'è più nulla da verificare.
             $row = $document->getPracticeDocument();
             $row?->removeDocument($document)->resetStatusIfEmpty();
-            $this->slave()->getRepository(Document::class)->remove($document);
+            $this->em()->getRepository(Document::class)->remove($document);
             $this->addFlash('notice_success', 'Allegato eliminato.');
         }
 
@@ -433,7 +436,7 @@ class AgencyPracticeController extends AbstractController
     {
         [, $document] = $this->requireDocument($id, $did);
 
-        $absolute = $storage->absolutePath($this->dbName(), (string) $document->getStoragePath());
+        $absolute = $storage->absolutePath($this->company(), (string) $document->getStoragePath());
         if (!$document->hasFile() || !is_file($absolute)) {
             throw $this->createNotFoundException('File non presente sul server.');
         }
@@ -456,7 +459,7 @@ class AgencyPracticeController extends AbstractController
     {
         [, $document] = $this->requireDocument($id, $did);
 
-        $absolute = $storage->absolutePath($this->dbName(), (string) $document->getStoragePath());
+        $absolute = $storage->absolutePath($this->company(), (string) $document->getStoragePath());
         if (!$document->hasFile() || !is_file($absolute)) {
             throw $this->createNotFoundException('File non presente sul server.');
         }
@@ -483,12 +486,12 @@ class AgencyPracticeController extends AbstractController
             return $this->backToTab($practice, 'staff');
         }
 
-        $em = $this->slave();
+        $em = $this->em();
         $practice->clearStaff();
         foreach (array_map('intval', (array) $request->request->all('staff')) as $userId) {
-            $member = $userId > 0 ? $em->getRepository(StaffUser::class)->find($userId) : null;
-            // Gli amministratori hanno già accesso: non ha senso elencarli.
-            if ($member !== null && !$member->isAdmin()) {
+            $member = $userId > 0 ? $this->users->find($userId) : null;
+            // Solo staff della stessa agenzia; gli amministratori hanno già accesso.
+            if ($member !== null && $member->isAgencyUser() && $member->getCompany() === $this->company() && !$member->isAdmin()) {
                 $practice->addStaff($member);
             }
         }
@@ -507,7 +510,7 @@ class AgencyPracticeController extends AbstractController
     {
         [$practice, $alert] = $this->requireAlert($id, $aid);
         if ($this->isCsrfTokenValid('delete', (string) $request->request->get('_csrf_token'))) {
-            $this->slave()->getRepository(PracticeAlert::class)->remove($alert);
+            $this->em()->getRepository(PracticeAlert::class)->remove($alert);
             $this->addFlash('notice_success', 'Avviso eliminato.');
         }
 
@@ -535,7 +538,7 @@ class AgencyPracticeController extends AbstractController
         }
 
         $practice->setStatus(Practice::STATUS_ARCHIVED);
-        $this->slave()->flush();
+        $this->em()->flush();
         $this->addFlash('notice_success', 'Pratica ' . $practice->getNumber() . ' archiviata. Scarica l\'archivio per conservarne una copia.');
 
         return $this->redirectToRoute('agency_practice_sheet', ['id' => $id], Response::HTTP_SEE_OTHER);
@@ -559,7 +562,7 @@ class AgencyPracticeController extends AbstractController
         $added = 0;
         foreach ($practice->getPracticeDocuments() as $row) {
             foreach ($row->getDocuments() as $document) {
-                $absolute = $storage->absolutePath($this->dbName(), (string) $document->getStoragePath());
+                $absolute = $storage->absolutePath($this->company(), (string) $document->getStoragePath());
                 if (!$document->hasFile() || !is_file($absolute)) {
                     continue;
                 }
@@ -587,30 +590,26 @@ class AgencyPracticeController extends AbstractController
 
     // ===================== SUPPORTO =====================
 
-    private function slave(): EntityManagerInterface
+    private function em(): EntityManagerInterface
     {
         /** @var EntityManagerInterface $em */
-        $em = $this->registry->getManager('slave');
+        $em = $this->registry->getManager();
 
         return $em;
     }
 
-    /** Nome del database dell'agenzia corrente: serve ai percorsi dei file. */
-    private function dbName(): string
+    /** Agenzia dell'utente collegato (proprietaria delle pratiche e dei file). */
+    private function company(): Company
     {
-        $company = $this->companyService->getCurrentCompany();
-        if ($company === null) {
-            throw $this->createAccessDeniedException('Contesto agenzia non disponibile.');
-        }
-
-        return (string) $company->getDbName();
+        return $this->companyService->getCurrentCompany()
+            ?? throw $this->createAccessDeniedException('Contesto agenzia non disponibile.');
     }
 
     private function staffName(): string
     {
         $user = $this->getUser();
 
-        return $user instanceof StaffUser ? $user->getFullName() : 'Agenzia';
+        return $user instanceof User ? $user->getFullName() : 'Agenzia';
     }
 
     private function nullIfBlank(?string $value): ?string
@@ -627,12 +626,12 @@ class AgencyPracticeController extends AbstractController
      */
     private function storeUpload(DocumentStorageService $storage, Practice $practice, PracticeDocument $row, Document $document, PracticeDocumentUpload $upload, FormInterface $form): bool
     {
-        $em = $this->slave();
+        $em = $this->em();
         $row->addDocument($document);
         $em->persist($document);
 
         try {
-            $meta = $storage->store($this->dbName(), $practice, $upload->getFile(), $document->getName());
+            $meta = $storage->store($this->company(), $practice, $upload->getFile(), $document->getName());
             $document->setOriginalFilename($meta['name'])
                 ->setStoragePath($meta['path'])
                 ->setMimeType($meta['mime'])
@@ -661,13 +660,13 @@ class AgencyPracticeController extends AbstractController
      */
     private function requirePractice(int $id): Practice
     {
-        $practice = $this->slave()->getRepository(Practice::class)->find($id);
-        if ($practice === null) {
+        $practice = $this->em()->getRepository(Practice::class)->find($id);
+        if ($practice === null || $practice->getCompany() !== $this->company()) {
             throw $this->createNotFoundException('Pratica non trovata.');
         }
 
         $user = $this->getUser();
-        if ($user instanceof StaffUser && !$practice->isAccessibleBy($user)) {
+        if (!$user instanceof User || !$practice->isAccessibleBy($user)) {
             throw $this->createAccessDeniedException('Non sei fra le persone abilitate a questa pratica.');
         }
 
@@ -787,7 +786,7 @@ class AgencyPracticeController extends AbstractController
     }
 
     /**
-     * 12.2.5 Città e CAP dal picker geografico (dati del master), entrambi obbligatori.
+     * 12.2.5 Città e CAP dal picker geografico, entrambi obbligatori.
      * Il picker sta fuori dal form Symfony (city_id / zip_id): qui si risolvono e, se mancano
      * o non tornano, l'errore va sul form (il picker si colora, vedi geoView()).
      *
@@ -795,12 +794,12 @@ class AgencyPracticeController extends AbstractController
      */
     private function resolveGeo(Request $request, FormInterface $form): array
     {
-        $master = $this->registry->getManager('master');
+        $em = $this->em();
 
         $cityId = (int) $request->request->get('city_id');
-        $city = $cityId > 0 ? $master->getRepository(City::class)->find($cityId) : null;
+        $city = $cityId > 0 ? $em->getRepository(City::class)->find($cityId) : null;
         $zipId = (int) $request->request->get('zip_id');
-        $zip = $zipId > 0 ? $master->getRepository(Zip::class)->find($zipId) : null;
+        $zip = $zipId > 0 ? $em->getRepository(Zip::class)->find($zipId) : null;
 
         $error = '';
         if ($city === null) {
@@ -845,27 +844,27 @@ class AgencyPracticeController extends AbstractController
     }
 
     /**
-     * 12.2.9 Notaio assegnato: vale solo se è uno di quelli presenti nel master, così un
-     * valore arrivato a mano non finisce in pratica (ed è quello che dà l'accesso, vedi 17.1).
+     * 12.2.9 Notaio assegnato: vale solo se è uno dei notai attivi, così un valore arrivato
+     * a mano non finisce in pratica (ed è quello che dà l'accesso, vedi 17.1).
      */
     private function checkNotary(FormInterface $form): void
     {
         $email = mb_strtolower(trim((string) $form->get('notaryEmail')->getData()));
-        if ($email !== '' && !in_array($email, $this->notaryEmails(), true)) {
+        if ($email !== '' && $this->findNotary($email) === null) {
             $form->get('notaryEmail')->addError(new FormError('Il notaio selezionato non è più disponibile'));
         }
     }
 
     /**
-     * Dopo la validazione: e-mail del notaio normalizzata (vuoto = nessun notaio), oggetto
-     * vuoto = null, città e CAP dal picker.
+     * Dopo la validazione: notaio dall'e-mail scelta nell'autocomplete (vuoto = nessun notaio),
+     * oggetto vuoto = null, città e CAP dal picker.
      *
      * @param array{city: City, zip: Zip, error: string} $geo
      */
-    private function completePractice(Practice $practice, array $geo): void
+    private function completePractice(Practice $practice, array $geo, FormInterface $form): void
     {
         ['city' => $city, 'zip' => $zip] = $geo;
-        $practice->setNotaryEmail($this->nullIfBlank(mb_strtolower((string) $practice->getNotaryEmail())))
+        $practice->setNotary($this->findNotary(mb_strtolower(trim((string) $form->get('notaryEmail')->getData()))))
             ->setAddress(trim((string) $practice->getAddress()))
             ->setSubject($this->nullIfBlank($practice->getSubject()))
             ->setCity($city->getName())->setCityRefId((int) $city->getId())
@@ -877,7 +876,9 @@ class AgencyPracticeController extends AbstractController
     {
         $form->get('sellerLabel')->setData($practice->getSeller() ? $this->customerLabel($practice->getSeller()) : '');
         $form->get('buyerLabel')->setData($practice->getBuyer() ? $this->customerLabel($practice->getBuyer()) : '');
-        $form->get('notaryLabel')->setData($this->notaryLabel(mb_strtolower((string) $practice->getNotaryEmail())));
+        $notary = $practice->getNotary();
+        $form->get('notaryEmail')->setData($notary?->getEmail() ?? '');
+        $form->get('notaryLabel')->setData($notary !== null ? $notary->getFullName() . ' (' . $notary->getEmail() . ')' : '');
     }
 
     /** Etichetta del cliente come la mostra l'autocomplete. */
@@ -887,45 +888,29 @@ class AgencyPracticeController extends AbstractController
     }
 
     /**
-     * 12.2.9 Notai assegnabili: utenti master attivi con ROLE_NOTARY.
+     * 12.2.9 Notai assegnabili: utenti attivi con ROLE_NOTARY.
      *
-     * @return NotaryUser[]
+     * @return User[]
      */
     private function notaries(): array
     {
-        /** @var \App\Repository\Master\UserRepository $repo */
-        $repo = $this->registry->getManager('master')->getRepository(NotaryUser::class);
-
-        return $repo->findActiveNotaries();
+        return $this->users->findActiveNotaries();
     }
 
-    /** Etichetta del notaio (come la mostra l'autocomplete); l'e-mail se non lo trova. */
-    private function notaryLabel(string $email): string
+    /** Notaio assegnabile con questa e-mail (in minuscolo), null se non c'è. */
+    private function findNotary(string $email): ?User
     {
         if ($email === '') {
-            return '';
+            return null;
         }
 
         foreach ($this->notaries() as $notary) {
             if (mb_strtolower((string) $notary->getEmail()) === $email) {
-                return $notary->getFullName() . ' (' . $notary->getEmail() . ')';
+                return $notary;
             }
         }
 
-        return $email;
-    }
-
-    /**
-     * E-mail dei notai assegnabili, in minuscolo.
-     *
-     * @return string[]
-     */
-    private function notaryEmails(): array
-    {
-        return array_map(
-            static fn (NotaryUser $u) => mb_strtolower((string) $u->getEmail()),
-            $this->notaries(),
-        );
+        return null;
     }
 
     /** Numero pratica progressivo per anno: P-0001/2026. */

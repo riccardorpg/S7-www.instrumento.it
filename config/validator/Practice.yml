@@ -1,0 +1,19 @@
+# Pratica (12.2), gruppo practice: inserimento e modifica (stesso form).
+# Città e CAP arrivano dal picker condiviso, fuori dal form: li controlla il controller.
+# Il notaio arriva dall'autocomplete come e-mail: lo risolve (e lo controlla) il controller.
+App\Entity\Practice:
+  properties:
+    seller:
+      - NotNull: { message: "Campo obbligatorio", groups: [practice] }
+    buyer:
+      - NotNull: { message: "Campo obbligatorio", groups: [practice] }
+      # Sull'acquirente (e non sulla classe) così l'errore si vede sul campo.
+      - Expression:
+          expression: "value === null or this.getSeller() === null or value !== this.getSeller()"
+          message: "Venditore e acquirente non possono essere la stessa persona"
+          groups: [practice]
+    createdAt:
+      - NotNull: { message: "Campo obbligatorio", groups: [practice] }
+    address:
+      - NotBlank: { message: "Campo obbligatorio", groups: [practice] }
+      - Length: { max: 255, maxMessage: "Massimo 255 caratteri", groups: [practice] }

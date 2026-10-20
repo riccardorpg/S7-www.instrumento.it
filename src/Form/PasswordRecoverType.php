@@ -5,7 +5,6 @@ namespace App\Form;
 use App\Form\Custom\CustomEmailType;
 use App\Form\Model\PasswordRecover;
 use Symfony\Component\Form\AbstractType;
-use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
@@ -20,8 +19,7 @@ class PasswordRecoverType extends AbstractType
         $builder
             ->add('email', CustomEmailType::class, [
                 'attr' => ['class' => 'form-control', 'autocomplete' => 'email', 'placeholder' => 'nome@esempio.it'],
-            ])
-            ->add('code', HiddenType::class);
+            ]);
     }
 
     public function configureOptions(OptionsResolver $resolver): void

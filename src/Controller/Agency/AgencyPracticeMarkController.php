@@ -2,10 +2,11 @@
 
 namespace App\Controller\Agency;
 
+use App\Controller\Agency\Trait\AgencyContextTrait;
 use App\Controller\Agency\Trait\ColorValueFormsTrait;
-use App\Entity\Slave\PracticeMark;
+use App\Entity\PracticeMark;
 use App\Form\PracticeMarkType;
-use App\Repository\Slave\PracticeMarkRepository;
+use App\Repository\PracticeMarkRepository;
 use App\Service\FilterService;
 use Doctrine\Persistence\ManagerRegistry;
 use Knp\Component\Pager\PaginatorInterface;
@@ -24,10 +25,11 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * Permesso: sezione "configurations" (lettura per vedere, rw per modificare).
  */
 #[Route('/agenzia/pratiche/contrassegni')]
-#[IsGranted('ROLE_AGENCY')]
+#[IsGranted('ROLE_USER')]
 #[IsGranted(new Expression("is_granted('view', 'configurations')"), message: 'Non hai accesso ai contrassegni delle pratiche.')]
 class AgencyPracticeMarkController extends AbstractController
 {
+    use AgencyContextTrait;
     use ColorValueFormsTrait;
 
     private const PER_PAGE = 20;
@@ -46,8 +48,8 @@ class AgencyPracticeMarkController extends AbstractController
         }
 
         /** @var PracticeMarkRepository $marks */
-        $marks = $this->slave()->getRepository(PracticeMark::class);
-        $forms = $this->colorValueForms($request, $formFactory, $marks, PracticeMarkType::class, 'practice_mark', new PracticeMark(), 'Contrassegno', 'agency_practice_marks');
+        $marks = $this->em()->getRepository(PracticeMark::class);
+        $forms = $this->colorValueForms($request, $formFactory, $marks, PracticeMarkType::class, 'practice_mark', (new PracticeMark())->setCompany($this->company()), 'Contrassegno', 'agency_practice_marks');
         if ($forms instanceof Response) {
             return $forms;
         }
@@ -71,7 +73,7 @@ class AgencyPracticeMarkController extends AbstractController
             return $this->backTo('agency_practice_marks');
         }
 
-        $em = $this->slave();
+        $em = $this->em();
         $mark = $em->getRepository(PracticeMark::class)->find($id);
         if ($mark === null) {
             throw $this->createNotFoundException('Contrassegno non trovato.');

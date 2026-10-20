@@ -1,7 +1,0 @@
-# Avviso della pratica (12.3.4.2), gruppo practice_alert: inserimento e modifica.
-App\Entity\Slave\PracticeAlert:
-  properties:
-    remindAt:
-      - NotNull: { message: "Campo obbligatorio", groups: [practice_alert] }
-    message:
-      - NotBlank: { message: "Campo obbligatorio", groups: [practice_alert] }

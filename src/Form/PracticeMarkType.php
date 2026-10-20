@@ -2,7 +2,7 @@
 
 namespace App\Form;
 
-use App\Entity\Slave\PracticeMark;
+use App\Entity\PracticeMark;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 

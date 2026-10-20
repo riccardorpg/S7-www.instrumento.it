@@ -2,7 +2,7 @@
 
 namespace App\Form;
 
-use App\Entity\Slave\PracticeDocument;
+use App\Entity\PracticeDocument;
 use App\Form\Custom\CustomTextareaType;
 use App\Form\Custom\CustomTextType;
 use App\Form\Model\PracticeDocumentUpload;
@@ -24,7 +24,6 @@ class PracticeDocumentUploadType extends AbstractType
         $builder
             ->add('practiceDocument', EntityType::class, [
                 'class' => PracticeDocument::class,
-                'em' => 'slave',
                 'choices' => $options['rows'],
                 'choice_label' => 'label',
                 'placeholder' => 'Seleziona…',

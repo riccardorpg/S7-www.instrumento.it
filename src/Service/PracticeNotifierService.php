@@ -2,7 +2,7 @@
 
 namespace App\Service;
 
-use App\Entity\Slave\Practice;
+use App\Entity\Practice;
 
 /**
  * 12.3.2.7 / 14.7 Notifica di aggiornamento file su una pratica.

@@ -2,7 +2,7 @@
 
 namespace App\Form;
 
-use App\Entity\Slave\Document;
+use App\Entity\Document;
 use App\Form\Custom\CustomTextareaType;
 use App\Form\Custom\CustomTextType;
 use Symfony\Component\Form\AbstractType;

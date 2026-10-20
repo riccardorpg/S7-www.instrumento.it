@@ -2,10 +2,11 @@
 
 namespace App\Controller\Agency;
 
-use App\Entity\Slave\DocumentType;
-use App\Entity\Slave\PracticeDocument;
+use App\Controller\Agency\Trait\AgencyContextTrait;
+use App\Entity\DocumentType;
+use App\Entity\PracticeDocument;
 use App\Form\DocumentTypeType;
-use App\Repository\Slave\DocumentTypeRepository;
+use App\Repository\DocumentTypeRepository;
 use App\Service\FilterService;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
@@ -29,10 +30,12 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * Permesso: sezione "configurations" (lettura per vedere, rw per modificare).
  */
 #[Route('/agenzia/tipologie-documento')]
-#[IsGranted('ROLE_AGENCY')]
+#[IsGranted('ROLE_USER')]
 #[IsGranted(new Expression("is_granted('view', 'configurations')"), message: 'Non hai accesso alle tipologie documento.')]
 class AgencyDocumentTypeController extends AbstractController
 {
+    use AgencyContextTrait;
+
     private const PER_PAGE = 20;
 
     public function __construct(private readonly ManagerRegistry $registry)
@@ -51,13 +54,13 @@ class AgencyDocumentTypeController extends AbstractController
             $this->denyAccessUnlessGranted('edit', 'configurations', 'Non hai il permesso di modificare le tipologie documento.');
         }
 
-        $em = $this->slave();
+        $em = $this->em();
         /** @var DocumentTypeRepository $types */
         $types = $em->getRepository(DocumentType::class);
 
         // Lo stato non è nel form: le nuove tipologie nascono attive (default dell'entità) e sulla
         // modifica resta quello corrente, che si cambia solo da 13.1.2.
-        $formNew = $formFactory->createNamed('document_type_new', DocumentTypeType::class, new DocumentType());
+        $formNew = $formFactory->createNamed('document_type_new', DocumentTypeType::class, (new DocumentType())->setCompany($this->company()));
         $formNew->handleRequest($request);
         if ($formNew->isSubmitted() && $formNew->isValid()) {
             $type = $formNew->getData();
@@ -71,7 +74,7 @@ class AgencyDocumentTypeController extends AbstractController
 
         $editId = $request->query->getInt('edit');
         $edited = $editId > 0 ? $types->find($editId) : null;
-        $formEdit = $formFactory->createNamed('document_type_edit', DocumentTypeType::class, $edited ?? new DocumentType());
+        $formEdit = $formFactory->createNamed('document_type_edit', DocumentTypeType::class, $edited ?? (new DocumentType())->setCompany($this->company()));
         if ($edited !== null) {
             $formEdit->handleRequest($request);
             if ($formEdit->isSubmitted()) {
@@ -116,7 +119,7 @@ class AgencyDocumentTypeController extends AbstractController
             return $this->backToList();
         }
 
-        $em = $this->slave();
+        $em = $this->em();
         $type = $em->getRepository(DocumentType::class)->find($id);
         if ($type === null) {
             throw $this->createNotFoundException('Tipologia documento non trovata.');
@@ -155,7 +158,7 @@ class AgencyDocumentTypeController extends AbstractController
         // così trascinare in pagina 2 non le rinumera a partire da zero.
         $offset = max(0, (int) ($payload['offset'] ?? 0));
 
-        $em = $this->slave();
+        $em = $this->em();
         $positions = array_flip($order); // id => posizione nella pagina
         foreach ($em->getRepository(DocumentType::class)->findAll() as $type) {
             $id = (int) $type->getId();
@@ -177,7 +180,7 @@ class AgencyDocumentTypeController extends AbstractController
             return $this->backToList();
         }
 
-        $em = $this->slave();
+        $em = $this->em();
         $type = $em->getRepository(DocumentType::class)->find($id);
         if ($type === null) {
             throw $this->createNotFoundException('Tipologia documento non trovata.');
@@ -197,10 +200,10 @@ class AgencyDocumentTypeController extends AbstractController
         return $this->backToList();
     }
 
-    private function slave(): EntityManagerInterface
+    private function em(): EntityManagerInterface
     {
         /** @var EntityManagerInterface $em */
-        $em = $this->registry->getManager('slave');
+        $em = $this->registry->getManager();
 
         return $em;
     }
@@ -213,7 +216,7 @@ class AgencyDocumentTypeController extends AbstractController
     /** Id delle tipologie già usate da almeno una riga documentale di pratica. */
     private function usedDocumentTypeIds(): array
     {
-        $rows = $this->slave()->createQueryBuilder()
+        $rows = $this->em()->createQueryBuilder()
             ->select('IDENTITY(pd.documentType) AS tid')
             ->from(PracticeDocument::class, 'pd')
             ->andWhere('pd.documentType IS NOT NULL')

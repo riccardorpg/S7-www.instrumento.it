@@ -2,7 +2,7 @@
 
 namespace App\Form\Model;
 
-use App\Entity\Master\LicenseType;
+use App\Entity\LicenseType;
 
 /**
  * Crea licenza (elenco licenze dell'amministratore): tipo e quantità. Non è una License:

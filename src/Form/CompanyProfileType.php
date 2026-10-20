@@ -2,7 +2,7 @@
 
 namespace App\Form;
 
-use App\Entity\Master\Company;
+use App\Entity\Company;
 use App\Form\Custom\CustomChoiceType;
 use App\Form\Custom\CustomTextNullableType;
 use App\Form\Custom\CustomTextType;

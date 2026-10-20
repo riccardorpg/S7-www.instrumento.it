@@ -2,7 +2,7 @@
 
 namespace App\Form;
 
-use App\Entity\Master\Company;
+use App\Entity\Company;
 use App\Form\Custom\CustomTextType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -19,9 +19,6 @@ class CompanyNewType extends AbstractType
         $builder
             ->add('code', CustomTextType::class, [
                 'attr' => ['class' => 'form-control text-uppercase', 'placeholder' => 'es. AG003'],
-            ])
-            ->add('dbName', CustomTextType::class, [
-                'attr' => ['class' => 'form-control', 'placeholder' => 'es. instrumento_ag001'],
             ]);
     }
 

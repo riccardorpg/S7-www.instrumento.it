@@ -2,7 +2,7 @@
 
 namespace App\Form\Model;
 
-use App\Entity\Slave\PracticeDocument;
+use App\Entity\PracticeDocument;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
 /**

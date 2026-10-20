@@ -15,12 +15,12 @@
 
             <div class="text-center mb-4">
                 <h1 class="mb-2" style="font-size:clamp(1.75rem,3.5vw,2.5rem);">Accedi alla tua area riservata</h1>
-                <p class="text-muted mb-0">Scegli come vuoi accedere a Instrumento</p>
+                <p class="text-muted mb-0">Agenzie, notai e amministratori: un solo accesso con la tua e-mail</p>
             </div>
 
             {% if error %}
                 <div class="row justify-content-center mb-4">
-                    <div class="col-lg-10">
+                    <div class="col-lg-5 col-md-7">
                         <div class="alert alert-danger alert-dismissible d-flex align-items-center mb-0">
                             <i class="bi-exclamation-triangle-fill me-2"></i>
                             <div>{{ error.messageKey|trans(error.messageData, 'security') }}</div>
@@ -30,51 +30,13 @@
                 </div>
             {% endif %}
 
-            <div class="row g-4 justify-content-center">
-
-                {# ── Card 1: codice agenzia → pagina di accesso dedicata ── #}
-                <div class="col-lg-5 col-md-6">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body p-4 d-flex flex-column">
-                            <div class="d-flex align-items-center gap-3 mb-3">
-                                <div class="eb-login-icon"><i class="bi-building"></i></div>
-                                <h3 class="mb-0 h5">Faccio parte di un'agenzia</h3>
-                            </div>
-                            <p class="text-muted font_13">
-                                Inserisci il codice della tua agenzia: ti porteremo alla pagina di accesso dedicata.
-                            </p>
-
-                            <form method="post" action="{{ path('login_code_submit') }}" class="d-flex flex-column flex-grow-1">
-                                <div class="form-group mb-3">
-                                    <label class="form-label" for="codice">Codice personale</label>
-                                    {# name="code": è il campo che legge login_code_submit. #}
-                                    <input type="text" id="codice" name="code"
-                                           class="form-control form-control-lg text-center"
-                                           placeholder="ES. AG001"
-                                           maxlength="64"
-                                           autocomplete="off" autocapitalize="characters"
-                                           spellcheck="false" autofocus required
-                                           aria-describedby="codiceHelp"
-                                           style="letter-spacing:2px; text-transform:uppercase;">
-                                    <small id="codiceHelp" class="form-text text-muted font_13">
-                                        Lo trovi nella comunicazione di attivazione ricevuta dalla tua agenzia.
-                                    </small>
-                                </div>
-                                <button type="submit" class="button button-3d button-rounded button-large m-0 w-100 mt-auto" style="background:var(--eb-brand);">
-                                    Prosegui <i class="bi-arrow-right"></i>
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-
-                {# ── Card 2: credenziali staff (admin / notaio) ── #}
-                <div class="col-lg-5 col-md-6">
+            <div class="row justify-content-center">
+                <div class="col-lg-5 col-md-7">
                     <div class="card border-0 shadow-sm h-100">
                         <div class="card-body p-4 d-flex flex-column">
                             <div class="d-flex align-items-center gap-3 mb-3">
                                 <div class="eb-login-icon"><i class="bi-shield-lock"></i></div>
-                                <h3 class="mb-0 h5">Sono amministratore o notaio</h3>
+                                <h3 class="mb-0 h5">Credenziali</h3>
                             </div>
                             <p class="text-muted font_13">
                                 Accedi con le credenziali che ti sono state assegnate.
@@ -87,7 +49,7 @@
                                     <label class="form-label" for="email">E-mail</label>
                                     <input type="email" id="email" name="email" value="{{ last_username }}"
                                            class="form-control" placeholder="nome@esempio.it"
-                                           autocomplete="email" required>
+                                           autocomplete="email" autofocus required>
                                 </div>
                                 <div class="form-group mb-3">
                                     <label class="form-label" for="password">Password</label>
@@ -112,21 +74,12 @@
                         </div>
                     </div>
                 </div>
-
             </div>
+
         </div>
     </section>
 {% endblock %}
 
 {% block modals %}
     {{ include('components/modals/recover.html.twig', {form: recoverForm}, with_context = false) }}
-{% endblock %}
-
-{% block page_javascripts %}
-    <script>
-        // Il campo è mostrato in maiuscolo via CSS: allineiamo anche il valore inviato.
-        document.getElementById('codice').addEventListener('input', function () {
-            this.value = this.value.toUpperCase();
-        });
-    </script>
 {% endblock %}

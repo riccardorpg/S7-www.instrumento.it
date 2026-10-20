@@ -2,7 +2,7 @@
 
 namespace App\Form;
 
-use App\Entity\Master\LicenseType;
+use App\Entity\LicenseType;
 use App\Form\Custom\CustomIntegerType;
 use App\Form\Model\LicenseNew;
 use Doctrine\ORM\EntityRepository;
@@ -19,7 +19,6 @@ class LicenseNewType extends AbstractType
         $builder
             ->add('type', EntityType::class, [
                 'class' => LicenseType::class,
-                'em' => 'master',
                 'query_builder' => static fn (EntityRepository $r) => $r->createQueryBuilder('t')->orderBy('t.spaceIncluded', 'ASC')->addOrderBy('t.type', 'ASC'),
                 'choice_label' => static fn (LicenseType $t) => $t->getLabel() . ' (' . number_format($t->getSpaceIncluded(), 0, ',', '.') . ' MB)',
                 'invalid_message' => 'Tipo non valido',

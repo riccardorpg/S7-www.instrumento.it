@@ -2,7 +2,7 @@
 
 namespace App\Form;
 
-use App\Entity\Slave\PracticeAlert;
+use App\Entity\PracticeAlert;
 use App\Form\Custom\CustomDateType;
 use App\Form\Custom\CustomTextareaType;
 use Symfony\Component\Form\AbstractType;

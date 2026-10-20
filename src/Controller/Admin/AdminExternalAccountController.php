@@ -2,10 +2,10 @@
 
 namespace App\Controller\Admin;
 
-use App\Entity\Master\ExternalAccount;
+use App\Entity\ExternalAccount;
 use App\Form\ExternalAccountType;
-use App\Repository\Master\CompanyRepository;
-use App\Repository\Master\ExternalAccountRepository;
+use App\Repository\CompanyRepository;
+use App\Repository\ExternalAccountRepository;
 use App\Service\FilterService;
 use Knp\Component\Pager\PaginatorInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;

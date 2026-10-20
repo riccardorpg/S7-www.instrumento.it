@@ -2,7 +2,7 @@
 
 namespace App\Form;
 
-use App\Entity\Slave\Customer;
+use App\Entity\Customer;
 use App\Form\Custom\CustomDateNullableType;
 use App\Form\Custom\CustomEmailType;
 use App\Form\Custom\CustomTextareaType;

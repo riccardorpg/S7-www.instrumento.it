@@ -2,14 +2,14 @@
 
 namespace App\Controller\Agency;
 
-use App\Entity\Master\City;
-use App\Entity\Master\Company;
-use App\Entity\Master\Zip;
+use App\Entity\City;
+use App\Entity\Company;
+use App\Entity\Zip;
 use App\Form\CompanyLogoType;
 use App\Form\CompanyProfileType;
 use App\Form\CompanyTaxType;
 use App\Form\Model\CompanyLogo;
-use App\Repository\Master\CompanyRepository;
+use App\Repository\CompanyRepository;
 use App\Service\CompanyLogoService;
 use App\Service\CompanyService;
 use Doctrine\Persistence\ManagerRegistry;
@@ -32,7 +32,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * quota di spazio e stato — che infatti nemmeno arrivano nei form.
  */
 #[Route('/agenzia/anagrafica')]
-#[IsGranted('ROLE_AGENCY')]
+#[IsGranted('ROLE_USER')]
 #[IsGranted(new Expression("is_granted('view', 'company')"), message: 'Non hai accesso all\'anagrafica dell\'agenzia.')]
 class AgencyCompanyController extends AbstractController
 {
@@ -79,7 +79,7 @@ class AgencyCompanyController extends AbstractController
                     return $this->redirectToRoute('agency_company_sheet', [], Response::HTTP_SEE_OTHER);
                 }
                 // Non valido: la scheda torna ai dati salvati, il modale tiene quelli inviati.
-                $this->master()->refresh($company);
+                $this->em()->refresh($company);
             }
 
             $formTax->handleRequest($request);
@@ -92,7 +92,7 @@ class AgencyCompanyController extends AbstractController
 
                     return $this->redirectToRoute('agency_company_sheet', [], Response::HTTP_SEE_OTHER);
                 }
-                $this->master()->refresh($company);
+                $this->em()->refresh($company);
             }
 
             $formLogo->handleRequest($request);
@@ -113,7 +113,7 @@ class AgencyCompanyController extends AbstractController
 
         return $this->render('role/agency/company/sheet.html.twig', [
             'company' => $company,
-            'storageUsedMb' => $this->companyService->getStorageUsedMb((string) $company->getDbName()),
+            'storageUsedMb' => $this->companyService->getStorageUsedMb($company),
             'formProfile' => $formProfile->createView(),
             'formTax' => $formTax->createView(),
             'formLogo' => $formLogo->createView(),
@@ -132,7 +132,7 @@ class AgencyCompanyController extends AbstractController
         if ($this->isCsrfTokenValid('delete', (string) $request->request->get('_csrf_token'))) {
             $this->logos->delete($company);
             $company->setLogo(null);
-            $this->master()->flush();
+            $this->em()->flush();
             $this->addFlash('notice_success', 'Logo rimosso.');
         }
 
@@ -156,10 +156,10 @@ class AgencyCompanyController extends AbstractController
 
     // ===================== SUPPORTO =====================
 
-    private function master(): \Doctrine\ORM\EntityManagerInterface
+    private function em(): \Doctrine\ORM\EntityManagerInterface
     {
         /** @var \Doctrine\ORM\EntityManagerInterface $em */
-        $em = $this->registry->getManager('master');
+        $em = $this->registry->getManager();
 
         return $em;
     }
@@ -176,19 +176,19 @@ class AgencyCompanyController extends AbstractController
     }
 
     /**
-     * Città e CAP dal catalogo geografico del master (picker Città/CAP).
+     * Città e CAP dal catalogo geografico (picker Città/CAP).
      *
      * @return array{0: City|null, 1: Zip|null}
      */
     private function resolveGeo(Request $request): array
     {
-        $master = $this->master();
+        $em = $this->em();
         $cityId = (int) $request->request->get('city_id');
         $zipId = (int) $request->request->get('zip_id');
 
         return [
-            $cityId > 0 ? $master->getRepository(City::class)->find($cityId) : null,
-            $zipId > 0 ? $master->getRepository(Zip::class)->find($zipId) : null,
+            $cityId > 0 ? $em->getRepository(City::class)->find($cityId) : null,
+            $zipId > 0 ? $em->getRepository(Zip::class)->find($zipId) : null,
         ];
     }
 }

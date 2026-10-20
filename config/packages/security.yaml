@@ -1,27 +1,16 @@
 security:
     password_hashers:
-        App\Entity\Master\User:
-            algorithm: bcrypt
-        App\Entity\Slave\User:
+        App\Entity\User:
             algorithm: bcrypt
         Symfony\Component\Security\Core\User\InMemoryUser:
             algorithm: plaintext
 
     providers:
-        # Il chain risolve prima sul master (ADMIN/NOTARY), poi sullo slave (AGENCY,
-        # DB già ri-puntato dal listener/authenticator).
+        # Un solo login per tutti (amministratori, notai, staff agenzie): l'e-mail è unica.
         app_user_provider:
-            chain:
-                providers: [master_provider, slave_provider]
-        master_provider:
             entity:
-                class: App\Entity\Master\User
+                class: App\Entity\User
                 property: email
-                manager_name: master
-        # Provider dedicato: richiede un tenant attivo e non fa esplodere la richiesta
-        # quando la connessione slave non è puntata su un DB agenzia (vedi AgencyUserProvider).
-        slave_provider:
-            id: App\Security\AgencyUserProvider
         script_provider:
             memory:
                 users:
@@ -40,6 +29,7 @@ security:
             provider: app_user_provider
             custom_authenticator: App\Security\LoginFormAuthenticator
             entry_point: App\Security\LoginFormAuthenticator
+            user_checker: App\Security\UserChecker
             remember_me:
                 secret: '%kernel.secret%'
                 lifetime: 604800 # 1 settimana
@@ -51,14 +41,11 @@ security:
         - { path: ^/script, roles: ROLE_SCRIPT }
         - { path: ^/amministratore, roles: ROLE_ADMIN }
         - { path: ^/notaio, roles: ROLE_NOTARY }
-        - { path: ^/agenzia, roles: ROLE_AGENCY }
+        - { path: ^/agenzia, roles: ROLE_USER }
 
 when@test:
     security:
         password_hashers:
-            App\Entity\Master\User:
-                algorithm: bcrypt
-                cost: 4
-            App\Entity\Slave\User:
+            App\Entity\User:
                 algorithm: bcrypt
                 cost: 4

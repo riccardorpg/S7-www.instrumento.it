@@ -2,10 +2,10 @@
 
 namespace App\Controller\Agency\Trait;
 
-use App\Entity\Slave\PracticeMark;
-use App\Entity\Slave\PracticeTag;
-use App\Repository\Slave\PracticeMarkRepository;
-use App\Repository\Slave\PracticeTagRepository;
+use App\Entity\PracticeMark;
+use App\Entity\PracticeTag;
+use App\Repository\PracticeMarkRepository;
+use App\Repository\PracticeTagRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\Form\FormInterface;
@@ -20,10 +20,10 @@ use Symfony\Component\HttpFoundation\Response;
  */
 trait ColorValueFormsTrait
 {
-    private function slave(): EntityManagerInterface
+    private function em(): EntityManagerInterface
     {
         /** @var EntityManagerInterface $em */
-        $em = $this->registry->getManager('slave');
+        $em = $this->registry->getManager();
 
         return $em;
     }
@@ -69,7 +69,7 @@ trait ColorValueFormsTrait
                     return $this->backTo($route);
                 }
                 // L'elenco mostra i dati salvati, non quelli rifiutati (che restano nel modale).
-                $this->slave()->refresh($edited);
+                $this->em()->refresh($edited);
             }
         }
 

@@ -7,12 +7,10 @@
 {% block role_content %}
     <section class="content-wrap">
         <div class="container">
-            {% include 'role/notary/_agency_badge.html.twig' with {company: company} only %}
-
             {# ===== Avvisi sulle pratiche assegnate al notaio, in due schede (la scheda attiva resta in
                sessione, tab_session): gli avvisi che l'agenzia cliente ha scelto di mostrargli e i
                documenti caricati in attesa del suo controllo ===== #}
-            {% set activeTab = app.session.get('notary_desk_tab') == 'documenti' ? 'documenti' : 'avvisi' %}
+            {% set activeTab = app.session.get('notary_index_tab') == 'documenti' ? 'documenti' : 'avvisi' %}
             <div class="card">
                 <div class="card-body">
                     <h6 class="m_b_10p">Avvisi pratiche</h6>
@@ -41,6 +39,7 @@
                                         <tr>
                                             <th class="td_w_120p">Data</th>
                                             <th class="td_w_150p">Pratica</th>
+                                            <th class="td_w_200p">Agenzia</th>
                                             <th>Messaggio</th>
                                         </tr>
                                     </thead>
@@ -52,6 +51,7 @@
                                                 {% if a.due %}<span class="badge bg-danger">scaduto</span>{% endif %}
                                             </td>
                                             <td><a href="{{ path('notary_practice_sheet', {id: a.practice.id}) }}">{{ a.practice.number }}</a></td>
+                                            <td>{{ a.practice.company.name }}</td>
                                             <td>{{ a.message }}</td>
                                         </tr>
                                     {% endfor %}
@@ -69,6 +69,7 @@
                                     <thead>
                                         <tr>
                                             <th class="td_w_150p">Pratica</th>
+                                            <th class="td_w_200p">Agenzia</th>
                                             <th>Documento</th>
                                             <th class="td_w_100p txt_a_c">Allegati</th>
                                             <th class="td_w_70p txt_a_c">Scheda</th>
@@ -78,6 +79,7 @@
                                     {% for r in toVerify %}
                                         <tr>
                                             <td><a href="{{ path('notary_practice_sheet', {id: r.practice.id}) }}">{{ r.practice.number }}</a></td>
+                                            <td>{{ r.practice.company.name }}</td>
                                             <td>{{ r.label }}</td>
                                             <td class="txt_a_c">{{ r.documents|length }}</td>
                                             <td class="txt_a_c">{{ ico.action(path('notary_practice_sheet', {id: r.practice.id}), 'sheet', 'Apri la pratica', 'pr') }}</td>

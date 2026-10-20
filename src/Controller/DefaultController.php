@@ -2,11 +2,11 @@
 
 namespace App\Controller;
 
-use App\Entity\Master\DemoRequest;
+use App\Entity\DemoRequest;
 use App\Form\ContactType;
 use App\Form\DemoRequestType;
 use App\Form\Model\Contact;
-use App\Repository\Master\DemoRequestRepository;
+use App\Repository\DemoRequestRepository;
 use App\Service\MailerService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormFactoryInterface;

@@ -2,7 +2,7 @@
 
 namespace App\Controller;
 
-use App\Entity\Master\City;
+use App\Entity\City;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -35,7 +35,7 @@ class GeoController extends AbstractController
     public function geoCities(Request $request): JsonResponse
     {
         $name = trim((string) $request->request->get('name', ''));
-        $qb = $this->registry->getManager('master')->getRepository(City::class)->createQueryBuilder('c')
+        $qb = $this->registry->getManager()->getRepository(City::class)->createQueryBuilder('c')
             ->leftJoin('c.province', 'p')->addSelect('p')
             ->orderBy('c.name', 'ASC')
             ->setMaxResults(5);
@@ -57,7 +57,7 @@ class GeoController extends AbstractController
     public function geoCityZips(Request $request): JsonResponse
     {
         $cityId = (int) $request->request->get('cityId');
-        $city = $cityId ? $this->registry->getManager('master')->getRepository(City::class)->find($cityId) : null;
+        $city = $cityId ? $this->registry->getManager()->getRepository(City::class)->find($cityId) : null;
 
         return $this->json([
             'success' => true,

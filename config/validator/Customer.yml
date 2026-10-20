@@ -1,0 +1,37 @@
+# Cliente dell'agenzia (11.2.1 / 11.2.2). Gruppo customer: nuovo, modifica e nuovo al volo dalla pratica.
+# Il codice fiscale è unico nel database dell'agenzia: la colonna ha collation case-insensitive,
+# quindi UniqueEntity trova anche il doppione scritto in minuscolo (il controller lo porta in
+# maiuscolo dopo la validazione). I codici fiscali vuoti non vengono confrontati.
+App\Entity\Customer:
+  constraints:
+    - Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity: { fields: [company, fiscalCode], errorPath: fiscalCode, message: "Esiste già un cliente con questo codice fiscale", groups: [customer] }
+  properties:
+    name:
+      - Length: { max: 190, maxMessage: "Massimo 190 caratteri", groups: [customer] }
+    surname:
+      - NotBlank: { message: "Campo obbligatorio", groups: [customer] }
+      - Length: { max: 190, maxMessage: "Massimo 190 caratteri", groups: [customer] }
+    birthPlace:
+      - Length: { max: 190, maxMessage: "Massimo 190 caratteri", groups: [customer] }
+    birthDate:
+      - LessThanOrEqual: { value: today, message: "La data di nascita non può essere futura", groups: [customer] }
+    address:
+      - Length: { max: 255, maxMessage: "Massimo 255 caratteri", groups: [customer] }
+    city:
+      - Length: { max: 190, maxMessage: "Massimo 190 caratteri", groups: [customer] }
+    zip:
+      - Length: { max: 10, maxMessage: "Massimo 10 caratteri", groups: [customer] }
+    email:
+      - Email: { message: "E-mail non valida", groups: [customer] }
+      - Length: { max: 190, maxMessage: "Massimo 190 caratteri", groups: [customer] }
+    phone:
+      - Length: { max: 40, maxMessage: "Massimo 40 caratteri", groups: [customer] }
+    fiscalCode:
+      - Length: { max: 32, maxMessage: "Massimo 32 caratteri", groups: [customer] }
+    vatNumber:
+      - Length: { max: 20, maxMessage: "Massimo 20 caratteri", groups: [customer] }
+    pec:
+      - Email: { message: "PEC non valida", groups: [customer] }
+      - Length: { max: 190, maxMessage: "Massimo 190 caratteri", groups: [customer] }
+    sdi:
+      - Length: { max: 7, maxMessage: "Massimo 7 caratteri", groups: [customer] }

@@ -40,15 +40,6 @@ parameters:
     # iubenda_it: '38526742'
     # iubenda_site: '4626295'
 
-    # --- Multi-tenant: prefisso e coordinate del server che ospita i DB agenzia (slave) ---
-    # Solo il NOME del database varia per agenzia (Company.dbName); host/port/user/password
-    # sono condivisi e usati da DynamicConnection::changeDatabase().
-    db_prefix: 'instrumento_'
-    slave_database_host: '%env(SLAVE_DB_HOST)%'
-    slave_database_port: '%env(SLAVE_DB_PORT)%'
-    slave_database_user: '%env(SLAVE_DB_USER)%'
-    slave_database_password: '%env(SLAVE_DB_PASSWORD)%'
-
 services:
     # default configuration for services in *this* file
     _defaults:
@@ -61,17 +52,4 @@ services:
         exclude:
             - '../src/DependencyInjection/'
             - '../src/Entity/'
-            - '../src/Bundle/'
             - '../src/Kernel.php'
-
-    # Ri-punta la connessione 'slave' al DB dell'agenzia corrente PRIMA del firewall
-    # (priority 100 > firewall priority 8) così il user_provider entity 'slave' carica
-    # lo User dal database giusto.
-    App\EventListener\SlaveDatabaseSwitcherListener:
-        tags:
-            - { name: kernel.event_listener, event: kernel.request, method: onKernelRequest, priority: 100 }
-
-    # Pulizia del cookie con il tenant quando l'utente esce.
-    App\EventListener\TenantCookieLogoutListener:
-        tags:
-            - { name: kernel.event_listener, event: Symfony\Component\Security\Http\Event\LogoutEvent, method: onLogout }

@@ -69,7 +69,7 @@
                             <td>{{ n.email }}</td>
                             {# 17.1 Non c'è abbinamento: l'agenzia compare se ha assegnato una pratica al notaio. #}
                             <td>
-                                {% set agencies = agenciesByEmail[n.email]|default([]) %}
+                                {% set agencies = agenciesByNotary[n.id]|default([]) %}
                                 {% if agencies|length %}
                                     {% for c in agencies %}<span class="badge bg-secondary">{{ c.code }}</span> - {{ c.name }}{% if not loop.last %}<br>{% endif %}{% endfor %}
                                 {% else %}

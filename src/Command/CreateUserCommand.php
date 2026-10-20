@@ -2,7 +2,7 @@
 
 namespace App\Command;
 
-use App\Entity\Master\User;
+use App\Entity\User;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -51,7 +51,7 @@ class CreateUserCommand extends Command
             return Command::INVALID;
         }
 
-        $em = $this->registry->getManager('master');
+        $em = $this->registry->getManager();
         if ($em->getRepository(User::class)->findOneBy(['email' => $email]) !== null) {
             $io->error(sprintf('Esiste già un utente master con email "%s".', $email));
 

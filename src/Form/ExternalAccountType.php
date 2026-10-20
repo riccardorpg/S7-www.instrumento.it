@@ -2,8 +2,8 @@
 
 namespace App\Form;
 
-use App\Entity\Master\Company;
-use App\Entity\Master\ExternalAccount;
+use App\Entity\Company;
+use App\Entity\ExternalAccount;
 use App\Form\Custom\CustomEmailType;
 use App\Form\Custom\CustomEntityHiddenType;
 use App\Form\Custom\CustomSearchType;

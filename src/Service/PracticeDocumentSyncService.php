@@ -2,9 +2,9 @@
 
 namespace App\Service;
 
-use App\Entity\Slave\DocumentType;
-use App\Entity\Slave\Practice;
-use App\Entity\Slave\PracticeDocument;
+use App\Entity\DocumentType;
+use App\Entity\Practice;
+use App\Entity\PracticeDocument;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -66,13 +66,14 @@ class PracticeDocumentSyncService
     }
 
     /**
-     * Tipi di documento previsti per la pratica.
+     * Tipi di documento previsti per la pratica: quelli della sua agenzia.
      *
      * @return DocumentType[]
      */
     public function catalogFor(EntityManagerInterface $em, Practice $practice): array
     {
         $qb = $em->getRepository(DocumentType::class)->createQueryBuilder('t')
+            ->andWhere('t.company = :company')->setParameter('company', $practice->getCompany())
             ->andWhere('t.active = true')
             ->orderBy('t.priority', 'ASC')
             ->addOrderBy('t.id', 'ASC');

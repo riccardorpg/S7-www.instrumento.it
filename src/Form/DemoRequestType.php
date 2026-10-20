@@ -2,8 +2,8 @@
 
 namespace App\Form;
 
-use App\Entity\Master\Company;
-use App\Entity\Master\DemoRequest;
+use App\Entity\Company;
+use App\Entity\DemoRequest;
 use App\Form\Custom\CustomEmailType;
 use App\Form\Custom\CustomTextNullableType;
 use App\Form\Custom\CustomTextType;

@@ -1,0 +1,31 @@
+# Richiesta demo dal form pubblico della homepage. La conferma dell'e-mail è il secondo campo
+# del RepeatedType (DemoRequestType): se non coincide l'errore lo dà il form, non serve una regola qui.
+App\Entity\DemoRequest:
+  properties:
+    accountType:
+      - NotBlank: { message: "Seleziona il tipo di account", groups: [demo_request] }
+      - Choice: { choices: [company, professional], message: "Seleziona il tipo di account", groups: [demo_request] }
+    email:
+      - NotBlank: { message: "Campo obbligatorio", groups: [demo_request] }
+      - Email: { message: "E-mail non valida", groups: [demo_request] }
+      - Length: { max: 191, maxMessage: "Massimo 191 caratteri", groups: [demo_request] }
+    businessName:
+      - NotBlank: { message: "Campo obbligatorio", groups: [demo_request] }
+      - Length: { max: 191, maxMessage: "Massimo 191 caratteri", groups: [demo_request] }
+    address:
+      - NotBlank: { message: "Campo obbligatorio", groups: [demo_request] }
+      - Length: { max: 191, maxMessage: "Massimo 191 caratteri", groups: [demo_request] }
+    civic:
+      - NotBlank: { message: "Campo obbligatorio", groups: [demo_request] }
+      - Length: { max: 16, maxMessage: "Massimo 16 caratteri", groups: [demo_request] }
+    city:
+      - NotBlank: { message: "Campo obbligatorio", groups: [demo_request] }
+      - Length: { max: 128, maxMessage: "Massimo 128 caratteri", groups: [demo_request] }
+    zip:
+      - NotBlank: { message: "Campo obbligatorio", groups: [demo_request] }
+      - Regex: { pattern: '/^\d{5}$/', message: "Il CAP deve essere di 5 cifre", groups: [demo_request] }
+    sdi:
+      - Length: { max: 7, maxMessage: "Massimo 7 caratteri", groups: [demo_request] }
+    pec:
+      - Email: { message: "E-mail non valida", groups: [demo_request] }
+      - Length: { max: 191, maxMessage: "Massimo 191 caratteri", groups: [demo_request] }

@@ -2,7 +2,7 @@
 
 namespace App\Form;
 
-use App\Entity\Master\LicenseType;
+use App\Entity\LicenseType;
 use App\Form\Custom\CustomIntegerType;
 use App\Form\Model\LicenseFreeDelete;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
@@ -18,7 +18,6 @@ class LicenseFreeDeleteType extends AbstractType
         $builder
             ->add('type', EntityType::class, [
                 'class' => LicenseType::class,
-                'em' => 'master',
                 'choice_label' => 'label',
                 'invalid_message' => 'Tipo non valido',
             ])

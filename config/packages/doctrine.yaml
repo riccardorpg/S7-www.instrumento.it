@@ -1,64 +1,39 @@
 doctrine:
     dbal:
-        default_connection: master
-        connections:
-            # DB centrale: utenti ROLE_ADMIN / ROLE_NOTARY, registro agenzie (Company) e indice login.
-            master:
-                url: '%env(resolve:DATABASE_URL)%'
-                driver: 'pdo_mysql'
-                charset: utf8mb4
-                default_table_options:
-                    charset: utf8mb4
-                    collate: utf8mb4_unicode_ci
-                profiling_collect_backtrace: '%kernel.debug%'
-            # DB per-agenzia (ROLE_AGENCY). La connessione viene ri-puntata a runtime
-            # al database della company corrente tramite App\Bundle\DynamicConnection.
-            slave:
-                url: '%env(resolve:DATABASE_SLAVE_URL)%'
-                driver: 'pdo_mysql'
-                charset: utf8mb4
-                default_table_options:
-                    charset: utf8mb4
-                    collate: utf8mb4_unicode_ci
-                wrapper_class: App\Bundle\DynamicConnection
+        # Database unico: amministrazione, notai e tutte le agenzie. I dati di un'agenzia
+        # portano la FK company_id (CompanyOwnedInterface) e il filtro "company" li isola.
+        url: '%env(resolve:DATABASE_URL)%'
+        driver: 'pdo_mysql'
+        charset: utf8mb4
+        default_table_options:
+            charset: utf8mb4
+            collate: utf8mb4_unicode_ci
+        profiling_collect_backtrace: '%kernel.debug%'
 
     orm:
-        default_entity_manager: master
-        entity_managers:
-            master:
-                connection: master
-                naming_strategy: doctrine.orm.naming_strategy.underscore
-                validate_xml_mapping: true
-                identity_generation_preferences:
-                    Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
-                mappings:
-                    Master:
-                        type: attribute
-                        is_bundle: false
-                        dir: '%kernel.project_dir%/src/Entity/Master'
-                        prefix: 'App\Entity\Master'
-                        alias: Master
-            slave:
-                connection: slave
-                naming_strategy: doctrine.orm.naming_strategy.underscore
-                validate_xml_mapping: true
-                mappings:
-                    Slave:
-                        type: attribute
-                        is_bundle: false
-                        dir: '%kernel.project_dir%/src/Entity/Slave'
-                        prefix: 'App\Entity\Slave'
-                        alias: Slave
+        naming_strategy: doctrine.orm.naming_strategy.underscore
+        validate_xml_mapping: true
+        identity_generation_preferences:
+            Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
+        auto_mapping: true
+        mappings:
+            App:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Entity'
+                prefix: 'App\Entity'
+                alias: App
+        # Lo staff di un'agenzia vede solo le righe della propria (CompanyFilterListener lo accende).
+        filters:
+            company:
+                class: App\Doctrine\Filter\CompanyFilter
+                enabled: false
 
 when@test:
     doctrine:
         dbal:
-            connections:
-                master:
-                    # "TEST_TOKEN" is typically set by ParaTest
-                    dbname_suffix: '_test%env(default::TEST_TOKEN)%'
-                slave:
-                    dbname_suffix: '_test%env(default::TEST_TOKEN)%'
+            # "TEST_TOKEN" is typically set by ParaTest
+            dbname_suffix: '_test%env(default::TEST_TOKEN)%'
 
 when@prod:
     doctrine:

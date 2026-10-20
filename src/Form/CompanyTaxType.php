@@ -2,7 +2,7 @@
 
 namespace App\Form;
 
-use App\Entity\Master\Company;
+use App\Entity\Company;
 use App\Form\Custom\CustomTextNullableType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormBuilderInterface;

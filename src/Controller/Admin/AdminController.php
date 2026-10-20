@@ -2,8 +2,8 @@
 
 namespace App\Controller\Admin;
 
-use App\Repository\Master\CompanyRepository;
-use App\Repository\Master\DemoRequestRepository;
+use App\Repository\CompanyRepository;
+use App\Repository\DemoRequestRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;

@@ -2,13 +2,12 @@
 
 namespace App\Controller\Admin;
 
-use App\Entity\Master\User;
+use App\Entity\User;
 use App\Form\NotaryType;
-use App\Repository\Master\CompanyRepository;
-use App\Repository\Master\UserRepository;
-use App\Service\MailerService;
+use App\Repository\CompanyRepository;
+use App\Repository\UserRepository;
 use App\Service\FilterService;
-use App\Service\NotaryAgencyAccessService;
+use App\Service\MailerService;
 use Doctrine\ORM\EntityManagerInterface;
 use Knp\Component\Pager\PaginatorInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -24,7 +23,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * Gestione notai (ROLE_NOTARY): elenco, creazione, modifica dati e invio credenziali.
  *
  * 17.1 Le agenzie NON si abbinano da qui: l'accesso lo dà l'agenzia assegnando una
- * pratica al notaio, quindi l'elenco mostra solo ciò che ne risulta (NotaryAgencyAccessService).
+ * pratica al notaio, quindi l'elenco mostra solo ciò che ne risulta.
  */
 #[Route('/amministratore/notai')]
 #[IsGranted('ROLE_ADMIN')]
@@ -33,7 +32,6 @@ class AdminNotaryController extends AbstractController
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly UserPasswordHasherInterface $hasher,
-        private readonly NotaryAgencyAccessService $agencyAccess,
     ) {
     }
 
@@ -85,22 +83,15 @@ class AdminNotaryController extends AbstractController
 
         $filters = FilterService::notaryFilter($request);
 
-        // 17.1 "Agenzia" filtra su chi ha una pratica assegnata in quell'agenzia: le e-mail
-        // arrivano dallo slave, nella query restano un semplice IN sugli utenti master.
-        $agencyEmails = null;
-        if ($filters['agency'] !== '') {
-            $company = $companies->find((int) $filters['agency']);
-            $agencyEmails = $company !== null ? $this->agencyAccess->assignedEmails($company) : [];
-        }
-
-        $records = $paginator->paginate($users->queryNotariesFiltered($filters, $agencyEmails), FilterService::page($request, 'admin_notaries'), 20);
+        // 17.1 "Agenzia" filtra su chi ha una pratica assegnata in quell'agenzia.
+        $records = $paginator->paginate($users->queryNotariesFiltered($filters), FilterService::page($request, 'admin_notaries'), 20);
 
         return $this->render('role/admin/notary/list.html.twig', [
             'records' => $records,
             'filters' => $filters,
             'companies' => $companies->findBy(['active' => true], ['name' => 'ASC']),
-            // 17.1 Agenzie di ciascun notaio, per e-mail: una lettura per agenzia.
-            'agenciesByEmail' => $this->agencyAccess->companiesByNotaryEmail(),
+            // 17.1 Agenzie di ciascun notaio, per id.
+            'agenciesByNotary' => $companies->findByNotary(),
             'formNew' => $formNew->createView(),
             'formEdit' => $formEdit->createView(),
         ]);

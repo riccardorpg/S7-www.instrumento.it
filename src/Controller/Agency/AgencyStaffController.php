@@ -2,15 +2,15 @@
 
 namespace App\Controller\Agency;
 
-use App\Entity\Slave\Permission;
-use App\Entity\Slave\User as StaffUser;
-use App\Entity\Slave\UserPermission;
+use App\Controller\Agency\Trait\AgencyContextTrait;
+use App\Entity\Permission;
+use App\Entity\User as StaffUser;
+use App\Entity\UserPermission;
 use App\Form\AgencyStaffType;
-use App\Repository\Slave\PermissionRepository;
-use App\Repository\Slave\UserRepository;
-use App\Service\MailerService;
-use App\Service\CompanyService;
+use App\Repository\PermissionRepository;
+use App\Repository\UserRepository;
 use App\Service\FilterService;
+use App\Service\MailerService;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
 use Knp\Component\Pager\PaginatorInterface;
@@ -31,10 +31,12 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * vede nella scheda cliente. Nuovo e modifica passano dai modali dell'elenco (AgencyStaffType).
  */
 #[Route('/agenzia/staff')]
-#[IsGranted('ROLE_AGENCY')]
+#[IsGranted('ROLE_USER')]
 #[IsGranted(new Expression("is_granted('view', 'staff')"), message: 'Non hai accesso alla gestione dello staff.')]
 class AgencyStaffController extends AbstractController
 {
+    use AgencyContextTrait;
+
     private const PER_PAGE = 20;
 
     public function __construct(private readonly ManagerRegistry $registry)
@@ -50,12 +52,12 @@ class AgencyStaffController extends AbstractController
     #[Route('/lista', name: 'agency_staff', methods: ['GET', 'POST'])]
     public function agencyStaff(Request $request, PaginatorInterface $paginator, FormFactoryInterface $formFactory): Response
     {
-        $em = $this->slave();
+        $em = $this->em();
         /** @var UserRepository $users */
         $users = $em->getRepository(StaffUser::class);
         $canEdit = $this->isGranted('edit', 'staff');
 
-        $formNew = $formFactory->createNamed('agency_staff_new', AgencyStaffType::class, new StaffUser());
+        $formNew = $formFactory->createNamed('agency_staff_new', AgencyStaffType::class, $this->newMember());
         if ($canEdit) {
             $formNew->handleRequest($request);
             if ($formNew->isSubmitted() && $formNew->isValid()) {
@@ -69,8 +71,8 @@ class AgencyStaffController extends AbstractController
         }
 
         $editId = $request->query->getInt('edit');
-        $edited = $canEdit && $editId > 0 ? $users->find($editId) : null;
-        $formEdit = $formFactory->createNamed('agency_staff_edit', AgencyStaffType::class, $edited ?? new StaffUser());
+        $edited = $canEdit && $editId > 0 ? $this->findMember($em, $editId) : null;
+        $formEdit = $formFactory->createNamed('agency_staff_edit', AgencyStaffType::class, $edited ?? $this->newMember());
         if ($edited !== null) {
             $formEdit->handleRequest($request);
             if ($formEdit->isSubmitted()) {
@@ -88,7 +90,7 @@ class AgencyStaffController extends AbstractController
 
         $filters = FilterService::staffFilter($request);
         $records = $paginator->paginate(
-            $users->queryStaffFiltered($filters, array_keys(StaffUser::STAFF_ROLES)),
+            $users->queryStaffFiltered($this->company(), $filters, array_keys(StaffUser::STAFF_ROLES)),
             FilterService::page($request, 'agency_staff'),
             self::PER_PAGE
         );
@@ -115,7 +117,7 @@ class AgencyStaffController extends AbstractController
             return $this->back();
         }
 
-        $em = $this->slave();
+        $em = $this->em();
         $member = $this->findMember($em, $id);
 
         /** @var array<string, string> $submitted slug => ''|'r'|'rw' */
@@ -161,25 +163,24 @@ class AgencyStaffController extends AbstractController
     /** 10.1.7 Invia credenziali: genera il codice usa-e-getta per creare la password. */
     #[Route('/{id}/credenziali', name: 'agency_staff_credentials', methods: ['POST'], requirements: ['id' => '\d+'])]
     #[IsGranted(new Expression("is_granted('edit', 'staff')"))]
-    public function agencyStaffCredentials(int $id, Request $request, MailerService $mailer, CompanyService $companyService): RedirectResponse
+    public function agencyStaffCredentials(int $id, Request $request, MailerService $mailer): RedirectResponse
     {
         if (!$this->isCsrfTokenValid('staffCredentials', (string) $request->request->get('_csrf_token'))) {
             return $this->back();
         }
 
-        $em = $this->slave();
+        $em = $this->em();
         $member = $this->findMember($em, $id);
 
         $member->setOneTimeCode(bin2hex(random_bytes(16)));
         $member->setExpirationOneTimeCode(new \DateTimeImmutable('+72 hours'));
         $em->flush();
 
-        // 14.3 Il link porta il codice dell'agenzia corrente: dice a quale DB puntare.
+        // 14.3 Link monouso per creare la password.
         $sent = $mailer->passwordCreate(
             (string) $member->getEmail(),
             $member->getFullName(),
             (string) $member->getOneTimeCode(),
-            $companyService->getCurrentCompany()?->getCode(),
             $member->getExpirationOneTimeCode(),
         );
         $this->addFlash(
@@ -201,7 +202,7 @@ class AgencyStaffController extends AbstractController
             return $this->back();
         }
 
-        $em = $this->slave();
+        $em = $this->em();
         $member = $this->findMember($em, $id);
 
         if ($member->getId() === $this->getUser()?->getId()) {
@@ -223,10 +224,10 @@ class AgencyStaffController extends AbstractController
 
     // ===================== SUPPORTO =====================
 
-    private function slave(): EntityManagerInterface
+    private function em(): EntityManagerInterface
     {
         /** @var EntityManagerInterface $em */
-        $em = $this->registry->getManager('slave');
+        $em = $this->registry->getManager();
 
         return $em;
     }
@@ -234,11 +235,18 @@ class AgencyStaffController extends AbstractController
     private function findMember(EntityManagerInterface $em, int $id): StaffUser
     {
         $member = $em->getRepository(StaffUser::class)->find($id);
-        if ($member === null) {
+        // Solo lo staff della propria agenzia (non amministratori della piattaforma né notai).
+        if ($member === null || !$member->isAgencyUser() || $member->getCompany() !== $this->company()) {
             throw $this->createNotFoundException('Membro dello staff non trovato.');
         }
 
         return $member;
+    }
+
+    /** Nuovo membro dello staff: utente ROLE_USER della propria agenzia. */
+    private function newMember(): StaffUser
+    {
+        return (new StaffUser())->setRole(StaffUser::ROLE_USER)->setCompany($this->company());
     }
 
     private function back(): RedirectResponse

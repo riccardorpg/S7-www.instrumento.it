@@ -2,12 +2,16 @@
 
 namespace App\Command;
 
-use App\Entity\Slave\Customer;
-use App\Entity\Slave\Document;
-use App\Entity\Slave\Practice;
-use App\Entity\Slave\PracticeDocument;
-use App\Service\CompanyService;
+use App\Entity\Company;
+use App\Entity\Customer;
+use App\Entity\Document;
+use App\Entity\Practice;
+use App\Entity\PracticeDocument;
+use App\Repository\CompanyRepository;
+use App\Repository\UserRepository;
+use App\Service\DocumentStorageService;
 use App\Service\PracticeDocumentSyncService;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -15,20 +19,20 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
 /**
- * Popola il DB di un'agenzia con pratiche demo (finché l'inserimento lato agenzia
- * non è disponibile). Le pratiche servono a testare l'area notaio.
+ * Popola un'agenzia con pratiche demo. Le pratiche servono a testare l'area notaio.
  *
  *   php bin/console app:seed-practices AG001 --notary=notaio@instrumento.it
  */
-#[AsCommand(name: 'app:seed-practices', description: 'Crea pratiche demo nel DB di un\'agenzia (per testare l\'area notaio)')]
+#[AsCommand(name: 'app:seed-practices', description: 'Crea pratiche demo in un\'agenzia (per testare l\'area notaio)')]
 class SeedPracticesCommand extends Command
 {
     public function __construct(
-        private readonly CompanyService $companyService,
-        private readonly ParameterBagInterface $params,
+        private readonly EntityManagerInterface $em,
+        private readonly CompanyRepository $companies,
+        private readonly UserRepository $users,
+        private readonly DocumentStorageService $storage,
         private readonly PracticeDocumentSyncService $documentSync,
     ) {
         parent::__construct();
@@ -38,7 +42,7 @@ class SeedPracticesCommand extends Command
     {
         $this
             ->addArgument('code', InputArgument::REQUIRED, 'Codice agenzia (Company.code)')
-            ->addOption('notary', null, InputOption::VALUE_REQUIRED, 'Email notaio con accesso (default: tutte le pratiche accessibili)')
+            ->addOption('notary', null, InputOption::VALUE_REQUIRED, 'E-mail del notaio a cui assegnare le pratiche (default: nessuno)')
             ->addOption('count', null, InputOption::VALUE_REQUIRED, 'Numero di pratiche da creare', '4');
     }
 
@@ -50,15 +54,21 @@ class SeedPracticesCommand extends Command
         $notaryEmail = $input->getOption('notary') ? mb_strtolower(trim((string) $input->getOption('notary'))) : null;
         $count = max(1, (int) $input->getOption('count'));
 
-        $company = $this->companyService->getCompanyByCode($code);
+        $company = $this->companies->findOneByCode($code);
         if ($company === null) {
             $io->error(sprintf('Nessuna agenzia con codice "%s".', $code));
 
             return Command::FAILURE;
         }
+        $notary = $notaryEmail !== null ? $this->users->findOneByEmail($notaryEmail) : null;
+        if ($notaryEmail !== null && ($notary === null || !$notary->isNotary())) {
+            $io->error(sprintf('Nessun notaio con e-mail "%s".', $notaryEmail));
 
-        $em = $this->companyService->pointSlaveToDbName((string) $company->getDbName());
-        $baseDir = $this->uploadsBaseDir((string) $company->getDbName());
+            return Command::FAILURE;
+        }
+
+        $em = $this->em;
+        $baseDir = $this->storage->companyDir($company);
 
         // [nome, cognome/ragione sociale, CF o P.IVA, email, telefono, indirizzo, città, CAP]
         $buyers = [
@@ -76,17 +86,17 @@ class SeedPracticesCommand extends Command
 
         $created = 0;
         for ($i = 0; $i < $count; ++$i) {
-            $practice = new Practice();
+            $practice = (new Practice())->setCompany($company);
             $practice->setNumber(sprintf('P-%04d/%d', $i + 1, 2026))
                 ->setMortgage($i % 3 === 0)
                 ->setSubject('Immobile sito in Via Esempio ' . ($i + 1) . ', foglio ' . (10 + $i) . ', particella ' . (100 + $i))
                 ->setAddress('Via Esempio ' . ($i + 1) . ', Milano')
                 ->setStatus(Practice::STATUS_OPEN)
-                ->setNotaryEmail($notaryEmail);
+                ->setNotary($notary);
 
             // Le parti sono clienti dell'agenzia (11): riusa l'anagrafica se il CF c'è già.
-            $practice->setBuyer($this->resolveCustomer($em, $buyers[$i % count($buyers)]));
-            $practice->setSeller($this->resolveCustomer($em, $sellers[$i % count($sellers)]));
+            $practice->setBuyer($this->resolveCustomer($em, $company, $buyers[$i % count($buyers)]));
+            $practice->setSeller($this->resolveCustomer($em, $company, $sellers[$i % count($sellers)]));
 
             $em->persist($practice);
             $em->flush(); // serve l'id per il percorso file
@@ -124,7 +134,7 @@ class SeedPracticesCommand extends Command
             ++$created;
         }
 
-        $io->success(sprintf('Create %d pratiche demo nel DB "%s" (agenzia %s).', $created, $company->getDbName(), $code));
+        $io->success(sprintf('Create %d pratiche demo nell\'agenzia %s.', $created, $code));
 
         return Command::SUCCESS;
     }
@@ -134,18 +144,19 @@ class SeedPracticesCommand extends Command
      *
      * @param array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string, 7: string} $data
      */
-    private function resolveCustomer(\Doctrine\ORM\EntityManagerInterface $em, array $data): Customer
+    private function resolveCustomer(EntityManagerInterface $em, Company $company, array $data): Customer
     {
         [$name, $surname, $fiscalCode, $email, $phone, $address, $city, $zip] = $data;
 
-        /** @var \App\Repository\Slave\CustomerRepository $repo */
+        /** @var \App\Repository\CustomerRepository $repo */
         $repo = $em->getRepository(Customer::class);
-        $existing = $repo->findOneByFiscalCode($fiscalCode);
+        $existing = $repo->findOneByFiscalCode($company, $fiscalCode);
         if ($existing !== null) {
             return $existing;
         }
 
         $customer = (new Customer())
+            ->setCompany($company)
             ->setName($name)
             ->setSurname($surname)
             ->setFiscalCode($fiscalCode)
@@ -166,8 +177,4 @@ class SeedPracticesCommand extends Command
         return $customer;
     }
 
-    private function uploadsBaseDir(string $dbName): string
-    {
-        return rtrim((string) $this->params->get('kernel.project_dir'), '/\\') . '/var/uploads/practices/' . $dbName;
-    }
 }

@@ -2,10 +2,10 @@
 
 namespace App\Form;
 
-use App\Entity\Slave\Customer;
-use App\Entity\Slave\Practice;
-use App\Entity\Slave\PracticeMark;
-use App\Entity\Slave\PracticeTag;
+use App\Entity\Customer;
+use App\Entity\Practice;
+use App\Entity\PracticeMark;
+use App\Entity\PracticeTag;
 use App\Form\Custom\CustomDateType;
 use App\Form\Custom\CustomEntityHiddenType;
 use App\Form\Custom\CustomSearchType;
@@ -53,7 +53,6 @@ class PracticeType extends AbstractType
             // 12.2.7 Contrassegno (uno solo)
             ->add('mark', EntityType::class, [
                 'class' => PracticeMark::class,
-                'em' => 'slave',
                 'query_builder' => static fn (EntityRepository $r) => $r->createQueryBuilder('m')->orderBy('m.value', 'ASC'),
                 'choice_label' => 'value',
                 'placeholder' => 'Nessuno',
@@ -66,16 +65,14 @@ class PracticeType extends AbstractType
                 'attr' => ['class' => 'form-check-input', 'role' => 'switch'],
             ])
             ->add('address', CustomTextType::class, ['attr' => ['class' => 'form-control', 'maxlength' => 255, 'placeholder' => 'Via e civico']])
-            // 12.2.9 Notaio: l'autocomplete scrive l'e-mail nell'hidden (è ciò che la pratica salva);
-            // l'etichetta col nome è di sola presentazione. Che sia un notaio esistente lo controlla
-            // il controller (i notai stanno nel master).
-            ->add('notaryEmail', HiddenType::class, ['required' => false, 'error_bubbling' => false])
+            // 12.2.9 Notaio: l'autocomplete scrive l'e-mail nell'hidden, l'etichetta col nome è di
+            // sola presentazione. Il controller risolve l'e-mail nel notaio (e controlla che esista).
+            ->add('notaryEmail', HiddenType::class, ['mapped' => false, 'required' => false, 'error_bubbling' => false])
             ->add('notaryLabel', CustomSearchType::class)
             ->add('subject', CustomTextareaType::class, ['attr' => ['class' => 'form-control', 'rows' => 4]])
             // 12.2.6 Tag (più di uno). L'entity ha solo addTag()/clearTags(): la scrittura passa da qui.
             ->add('tags', EntityType::class, [
                 'class' => PracticeTag::class,
-                'em' => 'slave',
                 'query_builder' => static fn (EntityRepository $r) => $r->createQueryBuilder('t')->orderBy('t.value', 'ASC'),
                 'choice_label' => 'value',
                 'multiple' => true,

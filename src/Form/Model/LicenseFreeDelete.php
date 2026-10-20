@@ -2,7 +2,7 @@
 
 namespace App\Form\Model;
 
-use App\Entity\Master\LicenseType;
+use App\Entity\LicenseType;
 
 /**
  * Elimina licenze libere (scheda "Licenze libere" dell'amministratore): tipo e quantità.

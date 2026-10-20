@@ -2,7 +2,7 @@
 
 namespace App\Service;
 
-use App\Entity\Slave\Practice;
+use App\Entity\Practice;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -144,6 +144,7 @@ class FilterService
             'buyer' => 'f_buyer',
             'seller' => 'f_seller',
             'address' => 'f_address',
+            'company' => 'f_company', // id delle agenzie separati da virgola
         ]);
         // Lo stato è la scheda dell'elenco, in sessione (NotaryController::notaryPracticeTab), non un filtro.
         $tab = (string) $request->getSession()->get(self::NOTARY_PRACTICE_TAB, Practice::STATUS_OPEN);

@@ -1,0 +1,21 @@
+<?php
+
+namespace App\Repository;
+
+use App\Entity\Region;
+use App\Repository\Trait\RepositoryTrait;
+use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\Persistence\ManagerRegistry;
+
+/**
+ * @extends ServiceEntityRepository<Region>
+ */
+class RegionRepository extends ServiceEntityRepository
+{
+    use RepositoryTrait;
+
+    public function __construct(ManagerRegistry $registry)
+    {
+        parent::__construct($registry, Region::class);
+    }
+}

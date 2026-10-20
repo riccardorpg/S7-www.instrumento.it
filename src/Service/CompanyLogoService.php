@@ -2,7 +2,7 @@
 
 namespace App\Service;
 
-use App\Entity\Master\Company;
+use App\Entity\Company;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 
@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
  * 7.1.9.8 Logo dell'agenzia.
  *
  * Come per gli allegati delle pratiche ({@see DocumentStorageService}) i file stanno fuori
- * dalla webroot — var/uploads/logos/{dbName}/ — e si servono da una rotta: la webroot
+ * dalla webroot — var/uploads/logos/{companyId}/ — e si servono da una rotta: la webroot
  * non è scrivibile e il logo non deve essere indovinabile da fuori.
  */
 class CompanyLogoService
@@ -80,7 +80,7 @@ class CompanyLogoService
     private function tenantDir(Company $company): string
     {
         return rtrim((string) $this->params->get('kernel.project_dir'), '/\\')
-            . '/var/uploads/logos/' . (string) $company->getDbName();
+            . '/var/uploads/logos/' . (int) $company->getId();
     }
 
     /** Il nome viene dal DB, ma finisce in un percorso: niente separatori né risalite. */

@@ -2,13 +2,13 @@
 
 namespace App\Controller\Admin;
 
-use App\Entity\Master\License;
+use App\Entity\License;
 use App\Form\LicenseFreeDeleteType;
 use App\Form\LicenseNewType;
 use App\Form\Model\LicenseFreeDelete;
 use App\Form\Model\LicenseNew;
-use App\Repository\Master\LicenseRepository;
-use App\Repository\Master\LicenseTypeRepository;
+use App\Repository\LicenseRepository;
+use App\Repository\LicenseTypeRepository;
 use App\Service\FilterService;
 use Knp\Component\Pager\PaginatorInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
