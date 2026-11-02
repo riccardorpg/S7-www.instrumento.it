@@ -1,0 +1,11 @@
+# Archivio delle pratiche sull'Object Storage di Aruba (compatibile S3): bucket "companies",
+# una cartella per agenzia (codice) con lo ZIP di ogni pratica archiviata. Client in services.yaml
+# (aruba_s3_client); il codice usa solo FilesystemOperator $arubaStorage (vedi PracticeArchiveService).
+flysystem:
+    storages:
+        aruba.storage:
+            adapter: 'aws'
+            options:
+                client: 'aruba_s3_client'
+                bucket: '%env(ARUBA_S3_BUCKET)%'
+                prefix: ''

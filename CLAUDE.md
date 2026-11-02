@@ -44,6 +44,10 @@ di Instrumento e le eccezioni motivate.
   `script_` (`/script`, http basic `ROLE_SCRIPT`, password in `SCRIPT_PASSWORD`).
 - File caricati fuori dalla webroot: `var/uploads/logos/{companyId}/` e `var/uploads/practices/{companyId}/{practiceId}/`,
   serviti da controller con controllo dei permessi.
+- **Archivio su Aruba** (Object Storage S3, bucket `companies`, endpoint e credenziali `ARUBA_S3_*`: placeholder in `.env`,
+  valori reali in `.env.local`): all'archiviazione `PracticeArchiveService` carica lo ZIP dei documenti in
+  `{codice agenzia}/{codice pratica}.zip`, salva il percorso in `Practice::$archivePath` e solo dopo cancella i file locali.
+  Il codice usa solo `FilesystemOperator $arubaStorage` (Flysystem, `config/packages/flysystem.yaml`).
 
 ## Migration (CONVENZIONI 12)
 

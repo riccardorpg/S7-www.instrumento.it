@@ -55,7 +55,8 @@ class CompanyService
     }
 
     /**
-     * 7.1.8 / 9.1 Spazio occupato (MB) dall'agenzia: la somma dei file caricati nelle sue pratiche.
+     * 7.1.8 / 9.1 Spazio occupato (MB) dall'agenzia: la somma dei file caricati nelle sue pratiche
+     * che stanno ancora sul server (quelli delle pratiche archiviate sono nello ZIP su Aruba).
      */
     public function getStorageUsedMb(Company $company): float
     {
@@ -65,6 +66,7 @@ class CompanyService
             ->join('d.practiceDocument', 'pd')
             ->join('pd.practice', 'p')
             ->where('p.company = :company')
+            ->andWhere('d.storagePath IS NOT NULL')
             ->setParameter('company', $company)
             ->getQuery()
             ->getSingleScalarResult();

@@ -91,7 +91,14 @@
                     {% else %}
                         <div class="alert alert-warning">
                             <i class="bi-lock"></i> La pratica è <strong>{{ practice.statusLabel|lower }}</strong>:
-                            i documenti sono in sola lettura. Riaprila per tornare a intervenire.
+                            i documenti sono in sola lettura{{ practice.archived ? '.' : '. Riaprila per tornare a intervenire.' }}
+                        </div>
+                    {% endif %}
+                    {% if practice.hasArchive %}
+                        {# 12.3.6 Archivio della pratica: lo ZIP dei documenti sull'Object Storage di Aruba #}
+                        <div class="m_b_10p">
+                            <a href="{{ path('notary_practice_archive_download', {id: practice.id}) }}" class="button button-3d button-mini button-pr m-0"
+                               data-bs-toggle="tooltip" data-bs-title="ZIP dei documenti, dall'archivio su Aruba">Scarica archivio</a>
                         </div>
                     {% endif %}
                     {# Dal punto 12 i documenti sono organizzati per TIPO: ogni riga è un tipo
@@ -179,6 +186,8 @@
                                                             {{ d.originalFilename ?: d.name }}
                                                             {% if d.hasFile %}
                                                                 {% if d.sizeBytes %}<div class="op_07 font_13">{{ (d.sizeBytes / 1024)|round }} KB</div>{% endif %}
+                                                            {% elseif practice.hasArchive %}
+                                                                <div><span class="badge bg-secondary">nell'archivio</span></div>
                                                             {% else %}
                                                                 <div><span class="badge bg-danger">senza file</span></div>
                                                             {% endif %}
@@ -191,6 +200,9 @@
                                                             {% if d.hasFile %}
                                                                 {{ ico.action("javascript:docPreviewShow(" ~ path('notary_practice_document_preview', {id: practice.id, did: d.id})|json_encode ~ ", " ~ (d.originalFilename ?: d.name)|json_encode ~ ")", 'preview', 'Anteprima', 'pr') }}
                                                                 {{ ico.action(path('notary_practice_document_download', {id: practice.id, did: d.id}), 'download', 'Scarica file', 'pr') }}
+                                                            {% elseif practice.hasArchive %}
+                                                                {{ ico.disabled('preview', 'Il file è nell\'archivio su Aruba') }}
+                                                                {{ ico.disabled('download', 'Il file è nell\'archivio: usa "Scarica archivio"') }}
                                                             {% else %}
                                                                 {{ ico.disabled('preview', 'Nessun file da mostrare') }}
                                                                 {{ ico.disabled('download', 'Nessun file da scaricare') }}

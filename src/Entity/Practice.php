@@ -85,6 +85,13 @@ class Practice implements CompanyOwnedInterface
     private string $status = self::STATUS_OPEN;
 
     /**
+     * 12.3.6 ZIP dei documenti sull'Object Storage di Aruba, creato all'archiviazione: percorso
+     * nel bucket (es. AG001/AG001-0001-2026.zip). Da lì in poi i file non stanno più sul server.
+     */
+    #[ORM\Column(name: 'archive_path', type: 'string', length: 255, nullable: true)]
+    private ?string $archivePath = null;
+
+    /**
      * 12.2.9 / 17.1 Notaio assegnato alla pratica (utente ROLE_NOTARY): è questa assegnazione
      * a fargliela vedere. Null = nessun notaio, pratica non visibile in area notaio.
      */
@@ -551,6 +558,24 @@ class Practice implements CompanyOwnedInterface
     public function isArchived(): bool
     {
         return $this->status === self::STATUS_ARCHIVED;
+    }
+
+    public function getArchivePath(): ?string
+    {
+        return $this->archivePath;
+    }
+
+    public function setArchivePath(?string $archivePath): static
+    {
+        $this->archivePath = $archivePath;
+
+        return $this;
+    }
+
+    /** 12.3.6 Lo ZIP dei documenti è su Aruba (si scarica da "Scarica archivio"). */
+    public function hasArchive(): bool
+    {
+        return $this->archivePath !== null && $this->archivePath !== '';
     }
 
     /**

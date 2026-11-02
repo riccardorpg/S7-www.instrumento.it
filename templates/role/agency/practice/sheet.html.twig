@@ -160,11 +160,12 @@
                        a destra le azioni sui documenti quando sono modificabili. #}
                     <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 m_b_10p">
                         <div>
-                            {% if practice.archived %}
-                                {# 12.3.6 Archivio sul server Aruba: collegamento ancora da sviluppare #}
-                                <span class="button button-3d button-mini m-0 bg-secondary text-white" style="cursor:default;"
-                                      data-bs-toggle="tooltip" data-bs-title="Collegamento a server Aruba ancora da sviluppare">Scarica archivio</span>
+                            {% if practice.hasArchive %}
+                                {# 12.3.6 Archivio della pratica: lo ZIP dei documenti sull'Object Storage di Aruba #}
+                                <a href="{{ path('agency_practice_archive_download', {id: practice.id}) }}" class="button button-3d button-mini button-pr m-0"
+                                   data-bs-toggle="tooltip" data-bs-title="ZIP dei documenti, dall'archivio su Aruba">Scarica archivio</a>
                             {% else %}
+                                {# Anche le pratiche archiviate prima dell'archivio su Aruba: i loro file sono ancora sul server. #}
                                 <a href="{{ path('agency_practice_documents_download', {id: practice.id}) }}" class="button button-3d button-mini button-pr m-0">Scarica documenti</a>
                             {% endif %}
                         </div>
@@ -241,6 +242,8 @@
                                                             {{ d.originalFilename ?: d.name }}
                                                             {% if d.hasFile %}
                                                                 {% if d.sizeBytes %}<div class="op_07 font_13">{{ (d.sizeBytes / 1024)|round }} KB</div>{% endif %}
+                                                            {% elseif practice.hasArchive %}
+                                                                <span class="rpg_color_dot bg-secondary m_l_5p" data-bs-toggle="tooltip" data-bs-title="Nell'archivio su Aruba"></span>
                                                             {% else %}
                                                                 <span class="rpg_color_dot bg-danger m_l_5p" data-bs-toggle="tooltip" data-bs-title="Senza file"></span>
                                                             {% endif %}
@@ -252,6 +255,9 @@
                                                             {% if d.hasFile %}
                                                                 {{ ico.action("javascript:docPreviewShow(" ~ path('agency_practice_document_preview', {id: practice.id, did: d.id})|json_encode ~ ", " ~ (d.originalFilename ?: d.name)|json_encode ~ ")", 'preview', 'Anteprima', 'pr') }}
                                                                 {{ ico.action(path('agency_practice_document_download', {id: practice.id, did: d.id}), 'download', 'Scarica file', 'pr') }}
+                                                            {% elseif practice.hasArchive %}
+                                                                {{ ico.disabled('preview', 'Il file è nell\'archivio su Aruba') }}
+                                                                {{ ico.disabled('download', 'Il file è nell\'archivio: usa "Scarica archivio"') }}
                                                             {% else %}
                                                                 {{ ico.disabled('preview', 'Nessun file da mostrare') }}
                                                                 {{ ico.disabled('download', 'Nessun file da scaricare') }}
@@ -518,7 +524,7 @@
                             <p class="modal-paragraph">
                                 Archiviando la pratica <strong>{{ practice.number }}</strong> la chiudi definitivamente:
                                 non sarà più possibile modificare dati, documenti, staff e avvisi.
-                                Gli allegati restano consultabili e scaricabili dall'archivio.
+                                Gli allegati vengono raccolti in uno ZIP e spostati nell'archivio su Aruba: da lì si scaricano con "Scarica archivio".
                             </p>
                             <p class="modal-paragraph">Sei sicuro di voler proseguire?</p>
                         </div>

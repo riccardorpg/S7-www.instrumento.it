@@ -53,3 +53,15 @@ services:
             - '../src/DependencyInjection/'
             - '../src/Entity/'
             - '../src/Kernel.php'
+
+    # Client S3 per l'Object Storage di Aruba (archivio delle pratiche, vedi config/packages/flysystem.yaml).
+    aruba_s3_client:
+        class: Aws\S3\S3Client
+        arguments:
+            - version: 'latest'
+              region: 'us-east-1'            # obbligatorio per l'SDK, ignorato da Aruba
+              endpoint: '%env(ARUBA_S3_ENDPOINT)%'
+              use_path_style_endpoint: true  # obbligatorio con storage S3-compatibili
+              credentials:
+                  key: '%env(ARUBA_S3_KEY)%'
+                  secret: '%env(ARUBA_S3_SECRET)%'

@@ -8,6 +8,7 @@ use App\Entity\Practice;
 use App\Entity\PracticeAlert;
 use App\Entity\PracticeDocument;
 use App\Entity\User;
+use App\Exception\PracticeArchiveException;
 use App\Form\DocumentNotaryNoteType;
 use App\Form\Model\PracticeDocumentUpload;
 use App\Form\Model\PracticeNotify;
@@ -20,6 +21,7 @@ use App\Repository\PracticeDocumentRepository;
 use App\Repository\PracticeRepository;
 use App\Service\DocumentStorageService;
 use App\Service\FilterService;
+use App\Service\PracticeArchiveService;
 use App\Service\PracticeNotifierService;
 use Doctrine\Persistence\ManagerRegistry;
 use Knp\Component\Pager\PaginatorInterface;
@@ -333,6 +335,24 @@ class NotaryController extends AbstractController
         $this->addFlash('notice_success', 'Stato pratica aggiornato: ' . $practice->getStatusLabel() . '.');
 
         return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
+    }
+
+    /** 12.3.6 Scarica archivio: lo ZIP della pratica archiviata, da Aruba. */
+    #[Route('/pratiche/{id}/archivio/scarica', name: 'notary_practice_archive_download', requirements: ['id' => '\d+'], methods: ['GET'])]
+    public function notaryPracticeArchiveDownload(int $id, PracticeArchiveService $archive): Response
+    {
+        [, $practice] = $this->requirePractice($id);
+        if (!$practice->hasArchive()) {
+            throw $this->createNotFoundException('La pratica non ha un archivio.');
+        }
+
+        try {
+            return $archive->downloadResponse($practice);
+        } catch (PracticeArchiveException $e) {
+            $this->addFlash('notice_danger', $e->getMessage());
+
+            return $this->redirectToRoute('notary_practice_sheet', ['id' => $id]);
+        }
     }
 
     /** 17.1.1.1.5.2.3 Scarica file allegato. */

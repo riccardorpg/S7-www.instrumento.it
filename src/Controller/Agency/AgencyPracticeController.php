@@ -13,6 +13,7 @@ use App\Entity\PracticeMark;
 use App\Entity\PracticeTag;
 use App\Entity\User;
 use App\Entity\Zip;
+use App\Exception\PracticeArchiveException;
 use App\Form\DocumentEditType;
 use App\Form\Model\PracticeDocumentUpload;
 use App\Form\Model\PracticeNotify;
@@ -25,6 +26,7 @@ use App\Repository\UserRepository;
 use App\Service\CompanyService;
 use App\Service\DocumentStorageService;
 use App\Service\FilterService;
+use App\Service\PracticeArchiveService;
 use App\Service\PracticeDocumentSyncService;
 use App\Service\PracticeNotifierService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -524,7 +526,7 @@ class AgencyPracticeController extends AbstractController
     /** 12.3.5 Archivia la pratica, solo col via libera del notaio (12.3.5.2). */
     #[Route('/{id}/archivia', name: 'agency_practice_archive', methods: ['POST'], requirements: ['id' => '\d+'])]
     #[IsGranted(new Expression("is_granted('edit', 'practices')"))]
-    public function agencyPracticeArchive(int $id, Request $request): RedirectResponse
+    public function agencyPracticeArchive(int $id, Request $request, PracticeArchiveService $archive): RedirectResponse
     {
         $practice = $this->requirePractice($id);
         if (!$this->isCsrfTokenValid('practiceArchive', (string) $request->request->get('_csrf_token'))) {
@@ -539,46 +541,43 @@ class AgencyPracticeController extends AbstractController
             return $this->redirectToRoute('agency_practice_sheet', ['id' => $id], Response::HTTP_SEE_OTHER);
         }
 
-        $practice->setStatus(Practice::STATUS_ARCHIVED);
-        $this->em()->flush();
-        $this->addFlash('notice_success', 'Pratica ' . $practice->getNumber() . ' archiviata. Scarica l\'archivio per conservarne una copia.');
+        // 12.3.6 Lo ZIP dei documenti va su Aruba; solo se il caricamento riesce la pratica è archiviata.
+        try {
+            $archive->archive($practice);
+        } catch (PracticeArchiveException $e) {
+            $this->addFlash('notice_danger', $e->getMessage());
+
+            return $this->redirectToRoute('agency_practice_sheet', ['id' => $id], Response::HTTP_SEE_OTHER);
+        }
+        $this->addFlash('notice_success', 'Pratica ' . $practice->getNumber() . ' archiviata: i documenti sono nell\'archivio su Aruba ("Scarica archivio").');
 
         return $this->redirectToRoute('agency_practice_sheet', ['id' => $id], Response::HTTP_SEE_OTHER);
     }
 
-    /**
-     * Scarica documenti: tutti gli allegati della pratica in uno ZIP, una cartella per tipologia.
-     * (L'archivio della pratica archiviata starà sul server Aruba: collegamento ancora da sviluppare.)
-     */
-    #[Route('/{id}/documenti/scarica', name: 'agency_practice_documents_download', methods: ['GET'], requirements: ['id' => '\d+'])]
-    public function agencyPracticeDocumentsDownload(int $id, DocumentStorageService $storage): Response
+    /** 12.3.6 Scarica archivio: lo ZIP della pratica archiviata, da Aruba. */
+    #[Route('/{id}/archivio/scarica', name: 'agency_practice_archive_download', methods: ['GET'], requirements: ['id' => '\d+'])]
+    public function agencyPracticeArchiveDownload(int $id, PracticeArchiveService $archive): Response
     {
         $practice = $this->requirePractice($id);
-
-        $zipPath = tempnam(sys_get_temp_dir(), 'instrumento_') ?: throw new \RuntimeException('Impossibile creare il file temporaneo.');
-        $zip = new \ZipArchive();
-        if ($zip->open($zipPath, \ZipArchive::OVERWRITE) !== true) {
-            throw new \RuntimeException('Impossibile creare l\'archivio.');
+        if (!$practice->hasArchive()) {
+            throw $this->createNotFoundException('La pratica non ha un archivio.');
         }
 
-        $added = 0;
-        foreach ($practice->getPracticeDocuments() as $row) {
-            foreach ($row->getDocuments() as $document) {
-                $absolute = $storage->absolutePath($this->company(), (string) $document->getStoragePath());
-                if (!$document->hasFile() || !is_file($absolute)) {
-                    continue;
-                }
-                // Una cartella per tipo di documento, così l'archivio resta leggibile.
-                $folder = preg_replace('/[^\w\s.-]+/u', '', $row->getLabel()) ?: 'Documenti';
-                $zip->addFile($absolute, $folder . '/' . ($document->getOriginalFilename() ?: $document->getName()));
-                ++$added;
-            }
-        }
+        try {
+            return $archive->downloadResponse($practice);
+        } catch (PracticeArchiveException $e) {
+            $this->addFlash('notice_danger', $e->getMessage());
 
-        if ($added === 0) {
-            $zip->addFromString('LEGGIMI.txt', 'La pratica ' . $practice->getNumber() . " non ha allegati.\n");
+            return $this->redirectToRoute('agency_practice_sheet', ['id' => $id], Response::HTTP_SEE_OTHER);
         }
-        $zip->close();
+    }
+
+    /** Scarica documenti: tutti gli allegati della pratica in uno ZIP, una cartella per tipologia. */
+    #[Route('/{id}/documenti/scarica', name: 'agency_practice_documents_download', methods: ['GET'], requirements: ['id' => '\d+'])]
+    public function agencyPracticeDocumentsDownload(int $id, PracticeArchiveService $archive): Response
+    {
+        $practice = $this->requirePractice($id);
+        $zipPath = $archive->buildZip($practice);
 
         $response = new BinaryFileResponse($zipPath);
         $response->setContentDisposition(

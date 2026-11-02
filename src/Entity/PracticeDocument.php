@@ -206,7 +206,10 @@ class PracticeDocument
     {
         $total = 0;
         foreach ($this->documents as $document) {
-            $total += (int) $document->getSizeBytes();
+            // Solo i file sul server: quelli delle pratiche archiviate sono nello ZIP su Aruba.
+            if ($document->hasFile()) {
+                $total += (int) $document->getSizeBytes();
+            }
         }
 
         return $total;
